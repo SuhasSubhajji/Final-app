@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54">
+        
+        <!-- Outer Cyber Shield - Ultra-Solid High-Contrast Base -->
+        <path
+            android:fillColor="#00D2FF"
+            android:pathData="M54,16 L84,28 C84,60 70,81 54,92 C38,81 24,60 24,28 Z" />
+
+        <!-- Inner Cyber Shield - Dark Contrast Core -->
+        <path
+            android:fillColor="#070C1A"
+            android:pathData="M54,22 L78,32 C78,56 67,76 54,85 C41,76 30,56 30,32 Z" />
+
+        <!-- High-Tech Neon Accent Frame -->
+        <path
+            android:fillColor="#10B981"
+            android:pathData="M54,26 L73,34 C73,52 64,69 54,79 C44,69 35,52 35,34 Z" />
+
+        <!-- Dark Padlock Backdrop inside the Shield -->
+        <path
+            android:fillColor="#070C1A"
+            android:pathData="M54,30 L68,37 C68,48 60,63 54,71 C48,63 40,48 40,37 Z" />
+
+        <!-- Cyber Shackle -->
+        <path
+            android:strokeColor="#00D2FF"
+            android:strokeWidth="2.5"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:pathData="M48,50 C48,44 51,41 54,43 C57,41 60,44 60,50" />
+
+        <!-- Padlock Solid Body -->
+        <path
+            android:fillColor="#00D2FF"
+            android:pathData="M45,50 H63 C64.1,50 65,50.9 65,52 V63 C65,64.1 64.1,65 63,65 H45 C43.9,65 43,64.1 43,63 V52 C43,50.9 43.9,50 45,50 Z" />
+
+        <!-- Keyhole Core Dot & Slot -->
+        <path
+            android:fillColor="#070C1A"
+            android:pathData="M54,54 A1.8,1.8 0 1 0 54,57.6 V61 H54 Z" />
+
+    </group>
+</vector>

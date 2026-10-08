@@ -1,0 +1,92 @@
+package com.example.ui.screens
+
+import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.viewinterop.AndroidView
+import com.example.ui.theme.CyberNavyDark
+import com.example.ui.theme.CyberTheme
+
+class MitreAndroidBridge(
+    private val context: Context,
+    private val onTechniqueSelected: (String) -> Unit
+) {
+    @JavascriptInterface
+    fun copyText(text: String, label: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText(label, text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, "$label copied to clipboard!", Toast.LENGTH_SHORT).show()
+    }
+
+    @JavascriptInterface
+    fun onTechniqueSelected(techniqueId: String) {
+        onTechniqueSelected(techniqueId)
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun MitreFlowChartWebView(
+    modifier: Modifier = Modifier,
+    initialFocusMode: String = "ALL",
+    onTechniqueSelected: (String) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val htmlContent = remember(initialFocusMode) { MitreFlowChartHtmlBuilder.buildHtml(initialFocusMode) }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(CyberTheme.colors.bg)
+            .testTag("mitre_flow_chart_webview")
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    setBackgroundColor(0xFF0A0F1D.toInt())
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        loadWithOverviewMode = true
+                        useWideViewPort = true
+                        builtInZoomControls = false
+                        displayZoomControls = false
+                        cacheMode = WebSettings.LOAD_DEFAULT
+                        allowContentAccess = true
+                        allowFileAccess = true
+                    }
+                    webChromeClient = WebChromeClient()
+                    webViewClient = object : WebViewClient() {}
+                    addJavascriptInterface(
+                        MitreAndroidBridge(ctx, onTechniqueSelected),
+                        "AndroidBridge"
+                    )
+                    loadDataWithBaseURL(
+                        "https://cyber-mitre-app.local/",
+                        htmlContent,
+                        "text/html",
+                        "UTF-8",
+                        null
+                    )
+                }
+            }
+        )
+    }
+}

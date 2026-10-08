@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with cybersecurity learning progress and preferences",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "currentRoadmapTrack": { "type": "string" },
+        "completedTtpCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "Bookmarked vulnerability, intelligence report, or TTP",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "threatId": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": { "type": "string" },
+        "source": { "type": "string" },
+        "bookmarkedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "threatId", "title"]
+    },
+    "SecurityNote": {
+      "title": "SecurityNote",
+      "description": "Analyst personal notes and remediation playbooks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "ttpId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "content"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User account and track progress"
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": { "$ref": "#/entities/Bookmark" },
+      "description": "User saved bookmarks and alerts"
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/SecurityNote" },
+      "description": "User security analyst notes and playbooks"
+    }
+  }
+}

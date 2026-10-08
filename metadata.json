@@ -1,0 +1,6 @@
+{
+  "name": "CyberShield",
+  "description": "Cybersecurity and DevSecOps intelligence aggregator featuring Gemini AI threat summarization, advanced multi-parameter filtering, CVE tracking, and actionable push notifications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

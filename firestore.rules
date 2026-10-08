@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(userId) {
+      let data = request.resource.data;
+      return data.userId == userId &&
+             data.email is string &&
+             data.email.size() > 3 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('currentRoadmapTrack' in data) || (data.currentRoadmapTrack is string && data.currentRoadmapTrack.size() <= 60)) &&
+             (!('completedTtpCount' in data) || (data.completedTtpCount is int && data.completedTtpCount >= 0));
+    }
+
+    function isValidBookmark(userId) {
+      let data = request.resource.data;
+      return data.userId == userId &&
+             data.id is string && data.id.size() > 0 &&
+             data.threatId is string && data.threatId.size() > 0 &&
+             data.title is string && data.title.size() <= 300 &&
+             (!('severity' in data) || (data.severity is string && data.severity.size() <= 30)) &&
+             (!('source' in data) || (data.source is string && data.source.size() <= 100));
+    }
+
+    function isValidSecurityNote(userId) {
+      let data = request.resource.data;
+      return data.userId == userId &&
+             data.id is string && data.id.size() > 0 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 10000 &&
+             (!('ttpId' in data) || (data.ttpId is string && data.ttpId.size() <= 50));
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUserProfile(userId);
+      allow delete: if isOwner(userId);
+
+      match /bookmarks/{bookmarkId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidBookmark(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      match /notes/{noteId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidSecurityNote(userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

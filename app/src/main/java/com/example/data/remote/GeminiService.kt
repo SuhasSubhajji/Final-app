@@ -1,0 +1,551 @@
+package com.example.data.remote
+
+import android.util.Log
+import com.example.BuildConfig
+import com.example.data.model.ChatMessage
+import com.example.data.model.ChatSender
+import com.example.data.model.GeminiModel
+import com.example.data.model.ThreatItem
+import com.example.data.model.AttackScenario
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
+import java.util.concurrent.TimeUnit
+import org.json.JSONArray
+import org.json.JSONObject
+
+// --- Retrofit & Moshi Request/Response Models ---
+
+@JsonClass(generateAdapter = true)
+data class GeminiPart(
+    @Json(name = "text") val text: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiContent(
+    @Json(name = "parts") val parts: List<GeminiPart>,
+    @Json(name = "role") val role: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiGenerateRequest(
+    @Json(name = "contents") val contents: List<GeminiContent>,
+    @Json(name = "systemInstruction") val systemInstruction: GeminiContent? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiCandidate(
+    @Json(name = "content") val content: GeminiContent?
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiGenerateResponse(
+    @Json(name = "candidates") val candidates: List<GeminiCandidate>?
+)
+
+// --- Retrofit API Service ---
+
+interface GeminiApiService {
+    @POST("v1beta/models/{model}:generateContent")
+    suspend fun generateContent(
+        @Path("model") model: String,
+        @Query("key") apiKey: String,
+        @Body request: GeminiGenerateRequest
+    ): GeminiGenerateResponse
+}
+
+// --- Moshi and Retrofit Client Singleton ---
+
+object RetrofitClient {
+    private const val BASE_URL = "https://generativelanguage.googleapis.com/"
+
+    private val moshi = Moshi.Builder()
+        .addLast(KotlinJsonAdapterFactory())
+        .build()
+
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    val service: GeminiApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(GeminiApiService::class.java)
+    }
+}
+
+// --- Gemini Analysis Result Model ---
+
+data class GeminiAnalysisResult(
+    val summary: String,
+    val remediationSteps: List<String>,
+    val riskScore: Int,
+    val mitigationCode: String,
+    val rawAnswer: String
+)
+
+// --- Primary Service Class ---
+
+class GeminiService {
+
+    companion object {
+        private const val TAG = "GeminiService"
+        private const val DEFAULT_MODEL = "gemini-3.5-flash"
+    }
+
+    /**
+     * Analyzes and summarizes threat intelligence articles using the Retrofit-based client.
+     */
+    suspend fun analyzeThreat(threat: ThreatItem): GeminiAnalysisResult = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+
+        val prompt = """
+            You are a Principal DevSecOps and Threat Intelligence Architect.
+            Analyze this cybersecurity advisory:
+            Title: ${threat.title}
+            Source: ${threat.source.displayName}
+            CVEs: ${threat.cveIds.joinToString(", ").ifEmpty { "None specified" }}
+            Category: ${threat.category.displayName}
+            Content/Advisory: ${threat.fullContent.ifEmpty { threat.description }}
+
+            Provide a comprehensive, actionable response in the following exact format:
+            ===EXECUTIVE_SUMMARY===
+            (2-3 sentences explaining the core threat, the attack vector, and business/technical impact)
+
+            ===RISK_SCORE===
+            (A single integer from 1 to 10, where 10 is catastrophic zero-day / critical RCE, and 1 is informational)
+
+            ===REMEDIATION_STEPS===
+            - (Actionable step 1: exact upgrade version, config flag, or patch)
+            - (Actionable step 2: detection rule, log query, or WAF block)
+            - (Actionable step 3: least-privilege boundary or IAM credential rotation)
+            - (Actionable step 4: CI/CD or runtime verification step)
+
+            ===MITIGATION_CODE===
+            (A copy-pasteable CLI command, Dockerfile snippet, Kubernetes YAML patch, or script to mitigate or detect this threat)
+        """.trimIndent()
+
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            Log.d(TAG, "Gemini API key is unconfigured. Using smart heuristic fallbacks.")
+            return@withContext generateFallbackAnalysis(threat)
+        }
+
+        try {
+            val request = GeminiGenerateRequest(
+                contents = listOf(
+                    GeminiContent(parts = listOf(GeminiPart(text = prompt)))
+                )
+            )
+
+            val response = RetrofitClient.service.generateContent(DEFAULT_MODEL, apiKey, request)
+            val generatedText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+
+            if (generatedText.isBlank()) {
+                return@withContext generateFallbackAnalysis(threat)
+            }
+
+            parseGeminiOutput(generatedText, threat)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error invoking Retrofit Gemini API: ${e.message}", e)
+            generateFallbackAnalysis(threat)
+        }
+    }
+
+    /**
+     * Solves custom user DevSecOps questions regarding a threat using the Retrofit client.
+     */
+    suspend fun askCustomQuestion(threat: ThreatItem, userQuestion: String): String = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext "ℹ️ Gemini API key is not configured. Baseline DevSecOps guidance for ${threat.title}:\n\nEnsure dependencies are updated to the latest secure release, enforce robust network segmentation, and continuously scan build packages."
+        }
+
+        try {
+            val prompt = """
+                Context Cybersecurity Advisory:
+                Title: ${threat.title}
+                CVE: ${threat.cveIds.joinToString(", ")}
+                Details: ${threat.description}
+
+                User Security Engineer Question:
+                $userQuestion
+
+                Provide a direct, practical, and highly technical DevSecOps response with actionable commands or configurations where applicable.
+            """.trimIndent()
+
+            val request = GeminiGenerateRequest(
+                contents = listOf(
+                    GeminiContent(parts = listOf(GeminiPart(text = prompt)))
+                )
+            )
+
+            val response = RetrofitClient.service.generateContent(DEFAULT_MODEL, apiKey, request)
+            response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                ?: "No response generated by Gemini."
+        } catch (e: Exception) {
+            "Error querying Gemini: ${e.localizedMessage ?: "Unknown error"}"
+        }
+    }
+
+    /**
+     * Executes conversational multi-turn AI dialogue with dynamic model routing via Retrofit.
+     */
+    suspend fun sendChatMessage(
+        model: GeminiModel,
+        conversationHistory: List<ChatMessage>,
+        userPrompt: String
+    ): String = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext generateChatbotLocalResponse(model, userPrompt)
+        }
+
+        try {
+            val reqContents = mutableListOf<GeminiContent>()
+
+            // Append historical turns
+            conversationHistory.takeLast(10).forEach { msg ->
+                if (!msg.isError && !msg.isThinking && msg.text.isNotBlank()) {
+                    val role = if (msg.sender == ChatSender.USER) "user" else "model"
+                    reqContents.add(
+                        GeminiContent(
+                            parts = listOf(GeminiPart(text = msg.text)),
+                            role = role
+                        )
+                    )
+                }
+            }
+
+            // Append current user turn
+            reqContents.add(
+                GeminiContent(
+                    parts = listOf(GeminiPart(text = userPrompt)),
+                    role = "user"
+                )
+            )
+
+            val request = GeminiGenerateRequest(
+                contents = reqContents,
+                systemInstruction = GeminiContent(
+                    parts = listOf(
+                        GeminiPart(
+                            text = "You are Gemini, an expert DevSecOps and Cybersecurity architect. Provide concise, highly technical, and actionable guidance with code snippets, MITRE ATT&CK/D3FEND references, CLI commands, and defensive blueprints."
+                        )
+                    )
+                )
+            )
+
+            val response = RetrofitClient.service.generateContent(model.modelId, apiKey, request)
+            response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                ?: "No text returned by ${model.displayName}."
+        } catch (e: Exception) {
+            Log.e(TAG, "Error invoking Retrofit Gemini Chat API for ${model.modelId}: ${e.message}", e)
+            "⚠️ Connection Issue: ${e.localizedMessage ?: "Unknown error"}\n\n${generateChatbotLocalResponse(model, userPrompt)}"
+        }
+    }
+
+    /**
+     * Generates or fetches newly updated security breaches and attack scenarios using Gemini.
+     */
+    suspend fun fetchUpdatedAttackScenarios(existingCount: Int): List<AttackScenario> = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            return@withContext getLocalSeedAttackScenarios()
+        }
+
+        try {
+            val prompt = """
+                Generate a JSON list containing 3 highly detailed cybersecurity attack scenarios inspired by real historical security breaches from the top 1000 breaches.
+                Each scenario must follow this JSON structure (return only the raw JSON array):
+                [
+                  {
+                    "id": "scenario-unique-string-id",
+                    "organization": "Targeted Company Name or Anonymous Equivalent",
+                    "year": 2024,
+                    "industry": "Finance / Health / Tech / Government",
+                    "recordsAffected": "100 Million Records / 5 TB of Data",
+                    "attackVector": "Phishing / Zero-Day Exploit / Credential Stuffing / Supply Chain",
+                    "scenarioDetails": "A comprehensive step-by-step description of how the breach occurred and what TTPs were used",
+                    "threatActor": "APT29 / LockBit / Lapsus$ / Unknown Cybercriminals",
+                    "defenseMitigation": "Concrete defensive measures and technical hardening configs to prevent this specific scenario",
+                    "cveReferences": "CVE-2024-3094, CVE-2023-4966"
+                  }
+                ]
+            """.trimIndent()
+
+            val request = GeminiGenerateRequest(
+                contents = listOf(
+                    GeminiContent(parts = listOf(GeminiPart(text = prompt)))
+                )
+            )
+
+            val response = RetrofitClient.service.generateContent(DEFAULT_MODEL, apiKey, request)
+            val generatedText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+
+            // Parse json output
+            val cleanJson = generatedText.substringAfter("[").substringBeforeLast("]")
+            val jsonArray = JSONArray("[$cleanJson]")
+            val scenarios = mutableListOf<AttackScenario>()
+
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                scenarios.add(
+                    AttackScenario(
+                        id = obj.optString("id", "scenario-gen-$existingCount-$i"),
+                        organization = obj.optString("organization"),
+                        year = obj.optInt("year", 2024),
+                        industry = obj.optString("industry"),
+                        recordsAffected = obj.optString("recordsAffected"),
+                        attackVector = obj.optString("attackVector"),
+                        scenarioDetails = obj.optString("scenarioDetails"),
+                        threatActor = obj.optString("threatActor"),
+                        defenseMitigation = obj.optString("defenseMitigation"),
+                        cveReferences = obj.optString("cveReferences")
+                    )
+                )
+            }
+            if (scenarios.isNotEmpty()) scenarios else getLocalSeedAttackScenarios()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching attack scenarios from Gemini: ${e.message}", e)
+            getLocalSeedAttackScenarios()
+        }
+    }
+
+    /**
+     * Local Seed Data for 1000 breaches scenario simulation when Gemini is offline.
+     */
+    fun getLocalSeedAttackScenarios(): List<AttackScenario> {
+        return com.example.data.breaches.RealWorldBreachesData.breaches
+    }
+
+    private fun generateChatbotLocalResponse(model: GeminiModel, prompt: String): String {
+        val lower = prompt.lowercase()
+        val notice = "\n\n_Generated via on-device intelligence with **${model.displayName}** (${model.speed}). To activate live Google Cloud inference, provide a valid GEMINI_API_KEY in AI Studio Secrets._"
+
+        return when {
+            lower.contains("zero trust") || lower.contains("zero-trust") -> {
+                """
+                ### Zero Trust Architecture Blueprint (NIST SP 800-207)
+                Zero Trust operates on the fundamental principle of **"Never Trust, Always Verify"**.
+
+                **1. Core Tenets:**
+                - Continuous validation across all identity, endpoint, network, and application planes.
+                - Micro-segmentation with dynamic policy enforcement points (PEP) and policy decision points (PDP).
+                - Ephemeral credentials with strict mutual TLS (mTLS) across internal microservices.
+
+                **2. Practical Enforcement Command (Kubernetes NetworkPolicy):**
+                ```yaml
+                apiVersion: networking.k8s.io/v1
+                kind: NetworkPolicy
+                metadata:
+                  name: default-deny-all
+                  namespace: production
+                spec:
+                  podSelector: {}
+                  policyTypes:
+                  - Ingress
+                  - Egress
+                ```
+                $notice
+                """.trimIndent()
+            }
+            lower.contains("sigma") || lower.contains("rule") -> {
+                """
+                ### Generated Detection Rule (Sigma Standard)
+                **Target:** Detect Suspicious Process Creation Spawning PowerShell from Office / Living-off-the-Land (LotL)
+                ```yaml
+                title: Suspicious PowerShell Spawned from Microsoft Word
+                id: f1a2b3c4-1234-5678-9abc-def012345678
+                status: production
+                description: Detects Microsoft Word spawning powershell.exe, indicative of malicious document macro execution.
+                logsource:
+                  category: process_creation
+                  product: windows
+                detection:
+                  selection:
+                    ParentImage|endswith:
+                      - '\winword.exe'
+                      - '\excel.exe'
+                    Image|endswith:
+                      - '\powershell.exe'
+                      - '\pwsh.exe'
+                  condition: selection
+                level: high
+                tags:
+                  - attack.execution
+                  - attack.t1059.001
+                  - d3fend.d3-pda
+                ```
+                $notice
+                """.trimIndent()
+            }
+            lower.contains("cve") || lower.contains("vulnerability") -> {
+                """
+                ### Threat Intel Advisory Breakdown
+                **CVE Analysis Protocol:**
+                1. **CVSS v3.1 / v4.0 Scoping:** Determine Base, Temporal, and Environmental metrics (AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H).
+                2. **Exploitability in the Wild:** Cross-reference CISA Known Exploited Vulnerabilities (KEV) catalog and EPSS (Exploit Prediction Scoring System).
+                3. **Immediate Containment:**
+                ```bash
+                # Inspect environment for active vulnerable dependencies
+                trivy fs --severity CRITICAL,HIGH --vuln-type os,library .
+                # Audit active network listeners
+                ss -tulpn | grep -E ':(443|8080|8443)'
+                ```
+                $notice
+                """.trimIndent()
+            }
+            lower.contains("kubernetes") || lower.contains("k8s") || lower.contains("pod") -> {
+                """
+                ### Kubernetes Pod Security Standards (PSS) Hardening
+                Ensure workload containers run with non-root security contexts and read-only root filesystems:
+                ```yaml
+                spec:
+                  securityContext:
+                    runAsNonRoot: true
+                    runAsUser: 10001
+                    seccompProfile:
+                      type: RuntimeDefault
+                  containers:
+                  - name: app
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      readOnlyRootFilesystem: true
+                      capabilities:
+                        drop:
+                        - ALL
+                ```
+                $notice
+                """.trimIndent()
+            }
+            else -> {
+                """
+                ### Security Architecture & Advisory Analysis
+                **Query Evaluated:** "$prompt"
+
+                **Technical Assessment from ${model.displayName}:**
+                - **Adversary Mapping:** Aligned with MITRE ATT&CK enterprise lifecycle techniques.
+                - **Defensive Posture:** Implement defense-in-depth with centralized SIEM logging, endpoint detection response (EDR), and least-privilege role boundaries.
+                - **Verification:** Run continuous automated security scans across repository dependencies and build pipelines.
+
+                ```bash
+                # Recommended pipeline verification command
+                npm audit --audit-level=high || pip-audit || trivy repo .
+                ```
+                $notice
+                """.trimIndent()
+            }
+        }
+    }
+
+    private fun parseGeminiOutput(text: String, threat: ThreatItem): GeminiAnalysisResult {
+        var summary = ""
+        var riskScore = 8
+        val steps = mutableListOf<String>()
+        var code = ""
+
+        try {
+            val summaryRegex = Regex("===EXECUTIVE_SUMMARY===\\s*([\\s\\S]*?)(?====|$)")
+            val riskRegex = Regex("===RISK_SCORE===\\s*(\\d+)")
+            val stepsRegex = Regex("===REMEDIATION_STEPS===\\s*([\\s\\S]*?)(?====|$)")
+            val codeRegex = Regex("===MITIGATION_CODE===\\s*([\\s\\S]*?)(?====|$)")
+
+            summaryRegex.find(text)?.let {
+                summary = it.groupValues[1].trim()
+            }
+            riskRegex.find(text)?.let {
+                riskScore = it.groupValues[1].toIntOrNull()?.coerceIn(1, 10) ?: 8
+            }
+            stepsRegex.find(text)?.let {
+                val rawSteps = it.groupValues[1].trim()
+                steps.addAll(
+                    rawSteps.lines()
+                        .map { line -> line.trim().removePrefix("-").removePrefix("*").trim() }
+                        .filter { line -> line.isNotBlank() }
+                )
+            }
+            codeRegex.find(text)?.let {
+                code = it.groupValues[1].trim().removePrefix("```bash").removePrefix("```sh").removePrefix("```yaml").removePrefix("```").removeSuffix("```").trim()
+            }
+        } catch (e: Exception) {
+        }
+
+        if (summary.isBlank()) {
+            summary = text.take(350).trim()
+        }
+        if (steps.isEmpty()) {
+            steps.addAll(listOf(
+                "Verify vulnerability status with vendor release notes",
+                "Apply latest security patch or hotfix immediately",
+                "Enforce network perimeter access controls and firewall rules",
+                "Monitor security telemetry logs for exploitation indicators"
+            ))
+        }
+        if (code.isBlank()) {
+            code = "# Run dependency audit and verify integrity\nnpm audit || pip-audit || trivy fs ."
+        }
+
+        return GeminiAnalysisResult(
+            summary = summary,
+            remediationSteps = steps,
+            riskScore = riskScore,
+            mitigationCode = code,
+            rawAnswer = text
+        )
+    }
+
+    private fun generateFallbackAnalysis(threat: ThreatItem): GeminiAnalysisResult {
+        val cveText = if (threat.cveIds.isNotEmpty()) threat.cveIds.joinToString(", ") else "advisory identifier"
+        val isCritical = threat.severity.rank >= 4
+
+        val steps = if (isCritical) {
+            listOf(
+                "Immediate containment: Restrict inbound internet traffic to affected endpoints",
+                "Deploy emergency vendor update for $cveText or implement virtual patching on WAF",
+                "Audit CI/CD pipeline and runtime service account tokens for unauthorized lateral movement",
+                "Scan production artifacts and container registries using Trivy / Grype"
+            )
+        } else {
+            listOf(
+                "Schedule patch testing in staging environment within standard maintenance window",
+                "Review code base and dependencies for affected package versions",
+                "Enable automated SAST/SCA security checks in pull request gates",
+                "Update internal DevSecOps security baseline documentation"
+            )
+        }
+
+        val codeSnippet = when (threat.category) {
+            com.example.data.model.ThreatCategory.DEVSECOPS ->
+                "# DevSecOps pipeline verification\ntrivy fs --security-checks vuln,config --severity HIGH,CRITICAL ."
+            com.example.data.model.ThreatCategory.CLOUD_SECURITY ->
+                "# Check Kubernetes cluster for vulnerable pods\nkubectl get pods -A -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[*].image"
+            com.example.data.model.ThreatCategory.SUPPLY_CHAIN ->
+                "# Audit dependencies and lockfiles\nnpm audit fix --audit-level=high || pip-audit --strict"
+            else ->
+                "# Verify active connections on vulnerable ports\nnetstat -tulnp | grep -E ':443|:8080|:8443'"
+        }
+
+        return GeminiAnalysisResult(
+            summary = "Advisory analysis for ${threat.title}. Affects systems matching ${threat.category.displayName}. Exploitation may lead to unauthorized system access, data exfiltration, or operational disruption.",
+            remediationSteps = steps,
+            riskScore = if (isCritical) 9 else 6,
+            mitigationCode = codeSnippet,
+            rawAnswer = "AI analysis generated from threat intelligence heuristics."
+        )
+    }
+}

@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">CyberShield</string>
+    <string name="threat_feeds_title">Threat Intel &amp; DevSecOps Feeds</string>
+    <string name="search_placeholder">Search threats, CVEs, keywords, packages...</string>
+    <string name="channel_threat_alerts_name">Critical Threat Alerts</string>
+    <string name="channel_threat_alerts_desc">Urgent DevSecOps and Cybersecurity alerts requiring attention</string>
+    <string name="action_review_mitigation">Review Fix</string>
+    <string name="action_acknowledge">Acknowledge</string>
+    <string name="default_web_client_id" translatable="false">1094573653185-f8ifm1aoluhlkpv5lpj241urbuivm4a4.apps.googleusercontent.com</string>
+</resources>
