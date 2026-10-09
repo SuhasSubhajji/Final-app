@@ -320,9 +320,11 @@ class GeminiService {
                     GeminiPart(inlineData = GeminiInlineData(mimeType = userImageMimeType, data = userImageBase64))
                 )
             }
-            currentTurnParts.add(
-                GeminiPart(text = if (userPrompt.isNotBlank()) userPrompt else "Analyze this cybersecurity architecture or payload image.")
-            )
+            if (userPrompt.isNotBlank() || userImageBase64 == null) {
+                currentTurnParts.add(
+                    GeminiPart(text = userPrompt)
+                )
+            }
 
             reqContents.add(
                 GeminiContent(
@@ -487,9 +489,10 @@ class GeminiService {
         val notice = "\n\n_Generated via on-device intelligence with **${model.displayName}** (${model.speed}). To activate live Google Cloud inference, provide a valid GEMINI_API_KEY in AI Studio Secrets._"
 
         if (hasUploadedImage) {
+            val userTopicHeader = if (prompt.isNotBlank()) "**User Request:** \"$prompt\"" else "**Artifact Analyzed:** Uploaded image / architectural artifact."
             return """
             ### 🖼️ Multimodal Security Visual Inspection
-            **Artifact Analyzed:** Uploaded diagram / telemetry artifact.
+            $userTopicHeader
             
             **Architectural Audit Findings:**
             - **Perimeter & Demilitarized Zone (DMZ):** Ensure all ingress controllers terminate TLS at API Gateway level with OWASP Core Rule Set (CRS).
