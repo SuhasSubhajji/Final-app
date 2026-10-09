@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -26,17 +28,31 @@ class MitreAndroidBridge(
     private val context: Context,
     private val onTechniqueSelected: (String) -> Unit
 ) {
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     @JavascriptInterface
     fun copyText(text: String, label: String) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText(label, text)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "$label copied to clipboard!", Toast.LENGTH_SHORT).show()
+        mainHandler.post {
+            try {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText(label, text)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(context, "$label copied to clipboard!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                // Ignore safe fallback
+            }
+        }
     }
 
     @JavascriptInterface
     fun onTechniqueSelected(techniqueId: String) {
-        onTechniqueSelected(techniqueId)
+        mainHandler.post {
+            try {
+                onTechniqueSelected(techniqueId)
+            } catch (e: Exception) {
+                // Ignore safe fallback
+            }
+        }
     }
 }
 

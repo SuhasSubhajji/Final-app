@@ -279,7 +279,12 @@ fun DevSecOpsToolsScreen(
 
             when (selectedTab) {
                 0 -> ComprehensiveFeedCatalogTab(onOpenUrl = { url ->
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    try {
+                        val safeUrl = if (url.startsWith("http")) url else "https://$url"
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)))
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Cannot open browser: ${e.localizedMessage ?: "No browser app installed"}", Toast.LENGTH_SHORT).show()
+                    }
                 })
                 1 -> AttackScenariosTab(viewModel = viewModel)
                 2 -> MitreMatrixScreen()

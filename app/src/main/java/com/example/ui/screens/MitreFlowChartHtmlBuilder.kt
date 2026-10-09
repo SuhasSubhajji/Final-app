@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.ui.graphics.toArgb
 import com.example.data.mitre.MitreMatrixRepository
 import com.example.data.mitre.MitreTactic
 import org.json.JSONArray
@@ -26,7 +27,7 @@ object MitreFlowChartHtmlBuilder {
             val tacticObj = JSONObject()
             tacticObj.put("id", tactic.tacticId)
             tacticObj.put("name", tactic.displayName)
-            tacticObj.put("color", String.format("#%06X", (0xFFFFFF and tactic.color.hashCode())))
+            tacticObj.put("color", String.format("#%06X", (0xFFFFFF and tactic.color.toArgb())))
             tacticObj.put("description", tactic.description)
             tacticObj.put("type", "tactic")
 
@@ -48,7 +49,7 @@ object MitreFlowChartHtmlBuilder {
                 ttpObj.put("aptGroups", JSONArray(ttp.knownAptGroups))
                 ttpObj.put("tags", JSONArray(ttp.tags))
                 ttpObj.put("type", "technique")
-                ttpObj.put("color", String.format("#%06X", (0xFFFFFF and tactic.color.hashCode())))
+                ttpObj.put("color", String.format("#%06X", (0xFFFFFF and tactic.color.toArgb())))
                 ttpsArray.put(ttpObj)
             }
 

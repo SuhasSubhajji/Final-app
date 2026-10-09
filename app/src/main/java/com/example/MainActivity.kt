@@ -102,12 +102,12 @@ class MainActivity : ComponentActivity() {
 sealed class Screen(val route: String, val label: String) {
     data object Dashboard : Screen("dashboard", "Dashboard")
     data object Feeds : Screen("feeds", "Feeds")
-    data object Roadmaps : Screen("roadmaps", "Roadmaps")
+    data object Roadmaps : Screen("roadmaps", "Learning")
     data object Alerts : Screen("alerts", "Alerts")
     data object DevSecOps : Screen("devsecops", "Hub")
     data object Chatbot : Screen("chatbot", "Gemini AI")
     data object Detail : Screen("detail/{threatId}", "Threat Detail") {
-        fun createRoute(threatId: String) = "detail/$threatId"
+        fun createRoute(threatId: String) = "detail/${java.net.URLEncoder.encode(threatId, "UTF-8")}"
     }
 }
 
@@ -242,7 +242,7 @@ fun CyberShieldApp(
                         },
                         label = {
                             Text(
-                                text = "Roadmaps",
+                                text = "Learning",
                                 fontSize = 11.sp,
                                 fontWeight = if (currentRoute == Screen.Roadmaps.route) FontWeight.Bold else FontWeight.Normal
                             )
@@ -405,7 +405,8 @@ fun CyberShieldApp(
                 route = Screen.Detail.route,
                 arguments = listOf(navArgument("threatId") { type = NavType.StringType })
             ) { backStackEntry ->
-                val threatId = backStackEntry.arguments?.getString("threatId") ?: ""
+                val rawThreatId = backStackEntry.arguments?.getString("threatId") ?: ""
+                val threatId = try { java.net.URLDecoder.decode(rawThreatId, "UTF-8") } catch (e: Throwable) { rawThreatId }
                 ThreatDetailScreen(
                     threatId = threatId,
                     viewModel = viewModel,

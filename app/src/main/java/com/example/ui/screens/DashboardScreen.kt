@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,6 +53,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -121,6 +125,8 @@ fun DashboardScreen(
     val stats by viewModel.stats.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val threats by viewModel.filteredThreats.collectAsState()
+    val cveSearchQuery by viewModel.cveSearchQuery.collectAsState()
+    val searchedCveThreats by viewModel.searchedCveThreats.collectAsState()
     val points7Days by viewModel.alertTrends7Days.collectAsState()
     val points30Days by viewModel.alertTrends30Days.collectAsState()
     val cvePoints7Days by viewModel.cveTrends7Days.collectAsState()
@@ -427,30 +433,130 @@ fun DashboardScreen(
                     )
                 }
 
-                // SECTION 6: Recent Vulnerabilities Feed Header
+                // SECTION 6: Searchable CVE Query List View
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "Recent Security Vulnerabilities",
-                                color = CyberTextPrimary,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Real-time feed with CVSS severity badges & AI analysis",
-                                color = CyberTextMuted,
-                                fontSize = 12.sp
-                            )
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "CVE Threat Database Search",
+                                    color = CyberTextPrimary,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Query CVE identifiers, CVSS severity, or attack vectors in real-time",
+                                    color = CyberTextMuted,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Search Input Field
+                        androidx.compose.material3.OutlinedTextField(
+                            value = cveSearchQuery,
+                            onValueChange = { viewModel.setCveSearchQuery(it) },
+                            placeholder = {
+                                Text(
+                                    text = "Search CVEs (e.g. CVE-2025-0282, Log4j, RCE)...",
+                                    color = CyberTextMuted,
+                                    fontSize = 12.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.AutoAwesome,
+                                    contentDescription = "Search CVEs",
+                                    tint = CyberCyan,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            trailingIcon = {
+                                if (cveSearchQuery.isNotBlank()) {
+                                    IconButton(onClick = { viewModel.setCveSearchQuery("") }) {
+                                        Icon(
+                                            imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
+                                            contentDescription = "Clear Search",
+                                            tint = CyberTextMuted,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("cve_search_input_field"),
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = CyberNavySurface,
+                                unfocusedContainerColor = CyberNavySurface,
+                                focusedBorderColor = CyberCyan,
+                                unfocusedBorderColor = CyberBorder,
+                                focusedTextColor = CyberTextPrimary,
+                                unfocusedTextColor = CyberTextPrimary,
+                                cursorColor = CyberCyan
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Quick Search Shortcut Chips
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            val quickQueries = listOf(
+                                "ALL",
+                                "CVE-2025",
+                                "CVE-2024",
+                                "RCE",
+                                "Zero-Day",
+                                "Ivanti",
+                                "npm"
+                            )
+                            quickQueries.forEach { q ->
+                                val isSelected = (q == "ALL" && cveSearchQuery.isBlank()) || (q != "ALL" && cveSearchQuery.equals(q, true))
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        viewModel.setCveSearchQuery(if (q == "ALL") "" else q)
+                                    },
+                                    label = { Text(q, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CyberCyan.copy(alpha = 0.2f),
+                                        selectedLabelColor = CyberCyan
+                                    ),
+                                    modifier = Modifier.height(30.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = if (cveSearchQuery.isNotBlank()) {
+                                "Found ${searchedCveThreats.size} CVE items matching \"$cveSearchQuery\""
+                            } else {
+                                "Displaying ${searchedCveThreats.take(8).size} active CVE advisories"
+                            },
+                            color = if (cveSearchQuery.isNotBlank()) CyberCyan else CyberTextMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
 
-                items(threats.take(6), key = { it.id }) { item ->
+                val itemsToDisplay = if (cveSearchQuery.isNotBlank()) searchedCveThreats else searchedCveThreats.take(8)
+
+                items(itemsToDisplay, key = { it.id }) { item ->
                     val rlScore = viewModel.getThreatRelevanceScore(item)
                     DashboardThreatCard(
                         threat = item,

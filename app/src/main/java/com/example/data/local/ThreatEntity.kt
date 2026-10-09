@@ -181,4 +181,12 @@ data class ThreatHistoryEntity(
     }
 }
 
+@Entity(tableName = "ttp_progress")
+data class TtpProgressEntity(
+    @PrimaryKey
+    val techniqueId: String,
+    val status: String,
+    val timestampMillis: Long = System.currentTimeMillis()
+)
+
 

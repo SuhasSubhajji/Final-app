@@ -41,6 +41,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -138,6 +139,7 @@ fun LearningRoadmapScreen(
     val themeMode by viewModel.currentThemeMode.collectAsState()
     var showThemeDialog by remember { mutableStateOf(false) }
     val rlState by viewModel.rlAgentState.collectAsState()
+    val ttpProgressMap by viewModel.ttpProgressMap.collectAsState()
     val theme = CyberTheme.colors
 
     var userCustomQuestion by remember { mutableStateOf("") }
@@ -205,41 +207,17 @@ fun LearningRoadmapScreen(
 
     if (activeFlowChartMode != null) {
         val mode = activeFlowChartMode!!
-        val modalTitle = if (mode == "ATTACK") "MITRE ATT&CK Enterprise Flow Chart" else "MITRE D3FEND Countermeasures Knowledge Graph"
-        val modalAccent = if (mode == "ATTACK") Color(0xFFF43F5E) else Color(0xFF06B6D4)
-
         Dialog(
             onDismissRequest = { activeFlowChartMode = null },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                topBar = {
-                    TopAppBar(
-                        title = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Share, contentDescription = null, tint = modalAccent, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(modalTitle, color = theme.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            }
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = { activeFlowChartMode = null }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = modalAccent)
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = theme.surface)
-                    )
-                },
-                containerColor = theme.bg
-            ) { innerPad ->
-                MitreFlowChartWebView(
-                    initialFocusMode = mode,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPad)
-                )
-            }
+            com.example.ui.components.MitreInteractiveGraphComposable(
+                initialMode = mode,
+                progressMap = ttpProgressMap,
+                onUpdateProgress = { techniqueId, status -> viewModel.updateTtpProgress(techniqueId, status) },
+                onClose = { activeFlowChartMode = null },
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 
@@ -268,7 +246,7 @@ fun LearningRoadmapScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Cyber & DevSecOps Roadmaps",
+                                text = "Cybersecurity Learning Hub",
                                 color = theme.textPrimary,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
@@ -520,6 +498,80 @@ fun LearningRoadmapScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // TTP Mastery Progress Tracker Card
+                item {
+                    val allTtps = remember { com.example.data.mitre.MitreMatrixRepository.allTtps }
+                    val studiedCount = remember(ttpProgressMap) { allTtps.count { ttpProgressMap[it.techniqueId] == "STUDIED" } }
+                    val masteredCount = remember(ttpProgressMap) { allTtps.count { ttpProgressMap[it.techniqueId] == "MASTERED" } }
+                    val totalCount = allTtps.size
+                    val progressRatio = (studiedCount + masteredCount).toFloat() / totalCount.coerceAtLeast(1)
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("learning_ttp_progress_card"),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = theme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.School,
+                                        contentDescription = null,
+                                        tint = CyberEmerald,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = "MITRE Technique Mastery Tracker",
+                                            color = theme.textPrimary,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "$masteredCount Mastered • $studiedCount Studied of $totalCount Techniques",
+                                            color = CyberEmerald,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = CyberEmerald.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        text = "${(progressRatio * 100).toInt()}%",
+                                        color = CyberEmerald,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            LinearProgressIndicator(
+                                progress = { progressRatio },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                color = CyberEmerald,
+                                trackColor = CyberNavySurfaceVariant
+                            )
+                        }
+                    }
+                }
                 // RL Recommendation Banner
                 item {
                     val recommendedTrackId = viewModel.getRecommendedRoadmapTrackId()

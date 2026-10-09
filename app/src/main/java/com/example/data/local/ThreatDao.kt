@@ -105,6 +105,15 @@ interface ThreatDao {
     @Query("DELETE FROM threat_history")
     suspend fun clearAllHistory()
 
+    @Query("SELECT * FROM ttp_progress")
+    fun getAllTtpProgressFlow(): Flow<List<TtpProgressEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateTtpProgress(entity: TtpProgressEntity)
+
+    @Query("DELETE FROM ttp_progress WHERE techniqueId = :techniqueId")
+    suspend fun deleteTtpProgress(techniqueId: String)
+
     // --- Offline Caching and CVE Lookup Extensions ---
     @Query("SELECT COUNT(*) FROM threat_items")
     fun getThreatCountFlow(): Flow<Int>

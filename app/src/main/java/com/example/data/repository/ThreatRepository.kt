@@ -35,6 +35,23 @@ class ThreatRepository(
         entities.map { it.toDomain() }
     }
 
+    val allTtpProgressFlow: Flow<Map<String, String>> = threatDao.getAllTtpProgressFlow().map { list ->
+        list.associate { it.techniqueId to it.status }
+    }
+
+    suspend fun setTtpProgress(techniqueId: String, status: String) {
+        if (status == "UNSTARTED") {
+            threatDao.deleteTtpProgress(techniqueId)
+        } else {
+            threatDao.insertOrUpdateTtpProgress(
+                com.example.data.local.TtpProgressEntity(
+                    techniqueId = techniqueId,
+                    status = status
+                )
+            )
+        }
+    }
+
     val totalCachedCountFlow: Flow<Int> = threatDao.getThreatCountFlow()
 
     val allCveThreatsFlow: Flow<List<ThreatItem>> = threatDao.getAllCveThreatsFlow().map { entities ->

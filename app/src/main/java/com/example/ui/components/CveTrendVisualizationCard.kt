@@ -697,11 +697,15 @@ private fun D3JsWebViewChart(
                         builtInZoomControls = false
                         displayZoomControls = false
                     }
+                    tag = html
                     loadDataWithBaseURL("https://d3js.org", html, "text/html", "UTF-8", null)
                 }
             },
             update = { webView ->
-                webView.loadDataWithBaseURL("https://d3js.org", html, "text/html", "UTF-8", null)
+                if (webView.tag != html) {
+                    webView.tag = html
+                    webView.loadDataWithBaseURL("https://d3js.org", html, "text/html", "UTF-8", null)
+                }
             }
         )
     }

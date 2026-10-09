@@ -158,30 +158,42 @@ fun GeminiChatbotScreen(
                     val contentResolver = context.contentResolver
                     val mime = contentResolver.getType(uri) ?: "image/jpeg"
                     selectedImageMimeType = mime
-                    val inputStream: InputStream? = contentResolver.openInputStream(uri)
-                    val bitmap = BitmapFactory.decodeStream(inputStream)
-                    inputStream?.close()
+
+                    // 1. First pass: Measure dimensions
+                    val boundsOptions = BitmapFactory.Options().apply {
+                        inJustDecodeBounds = true
+                    }
+                    contentResolver.openInputStream(uri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, boundsOptions)
+                    }
+
+                    // 2. Calculate inSampleSize
+                    var sampleSize = 1
+                    val maxDim = 1024
+                    while (boundsOptions.outWidth / sampleSize > maxDim || boundsOptions.outHeight / sampleSize > maxDim) {
+                        sampleSize *= 2
+                    }
+
+                    // 3. Second pass: Decode downsampled bitmap
+                    val decodeOptions = BitmapFactory.Options().apply {
+                        inSampleSize = sampleSize
+                    }
+                    val bitmap = contentResolver.openInputStream(uri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream, null, decodeOptions)
+                    }
 
                     if (bitmap != null) {
                         val outputStream = ByteArrayOutputStream()
-                        // Resize if too large to ensure snappy transmission
-                        val maxDim = 1024
-                        val scaled = if (bitmap.width > maxDim || bitmap.height > maxDim) {
-                            val ratio = minOf(maxDim.toFloat() / bitmap.width, maxDim.toFloat() / bitmap.height)
-                            Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true)
-                        } else {
-                            bitmap
-                        }
-                        scaled.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
                         val b64 = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
                         withContext(Dispatchers.Main) {
                             selectedImageBase64 = b64
                             Toast.makeText(context, "Image attached for Gemini analysis", Toast.LENGTH_SHORT).show()
                         }
                     }
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Failed to load image: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Failed to load image safely: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -751,7 +763,11 @@ fun ChatMessageBubble(
                             }
                         }
                         val userBitmap = remember(decodedBytes) {
-                            decodedBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                            try {
+                                decodedBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                            } catch (e: Throwable) {
+                                null
+                            }
                         }
                         if (userBitmap != null) {
                             Image(
@@ -778,7 +794,11 @@ fun ChatMessageBubble(
                             }
                         }
                         val geminiBitmap = remember(decodedBytes) {
-                            decodedBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                            try {
+                                decodedBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                            } catch (e: Throwable) {
+                                null
+                            }
                         }
                         if (geminiBitmap != null) {
                             Surface(

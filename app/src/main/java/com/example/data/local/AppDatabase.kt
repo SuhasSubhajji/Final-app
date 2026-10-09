@@ -12,9 +12,10 @@ import androidx.room.RoomDatabase
         GlossaryTermEntity::class,
         DynamicRoadmapTopicEntity::class,
         AttackScenarioEntity::class,
-        ThreatHistoryEntity::class
+        ThreatHistoryEntity::class,
+        TtpProgressEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -96,13 +96,15 @@ object RssFeedParser {
                                 val tags = extractTags(rawText, category)
                                 val pubMillis = parsePubDate(currentPubDate)
 
-                                val id = currentGuid?.takeIf { it.isNotBlank() }
+                                val rawKey = currentGuid?.takeIf { it.isNotBlank() }
                                     ?: currentLink?.takeIf { it.isNotBlank() }
-                                    ?: UUID.randomUUID().toString()
+                                    ?: "$currentTitle-$pubMillis"
+
+                                val safeId = "${source.name.lowercase().replace("[^a-z0-9]".toRegex(), "")}_${kotlin.math.abs(rawKey.hashCode())}"
 
                                 items.add(
                                     ThreatItem(
-                                        id = id,
+                                        id = safeId,
                                         title = cleanHtml(currentTitle),
                                         description = cleanDesc.take(280).ifEmpty { "No description provided." },
                                         fullContent = cleanDesc,

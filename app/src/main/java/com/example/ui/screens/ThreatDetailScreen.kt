@@ -174,12 +174,16 @@ fun ThreatDetailScreen(
 
                         IconButton(
                             onClick = {
-                                val sendIntent = Intent().apply {
-                                    action = Intent.ACTION_SEND
-                                    putExtra(Intent.EXTRA_TEXT, "${item.title}\n\n${item.link}")
-                                    type = "text/plain"
+                                try {
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, "${item.title}\n\n${item.link}")
+                                        type = "text/plain"
+                                    }
+                                    context.startActivity(Intent.createChooser(sendIntent, "Share Threat Advisory"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Sharing unavailable: ${e.localizedMessage ?: "No handler found"}", Toast.LENGTH_SHORT).show()
                                 }
-                                context.startActivity(Intent.createChooser(sendIntent, "Share Threat Advisory"))
                             }
                         ) {
                             Icon(
@@ -1014,8 +1018,16 @@ fun ThreatDetailScreen(
                 // Open External Source Link
                 OutlinedButton(
                     onClick = {
-                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(item.link))
-                        context.startActivity(browserIntent)
+                        try {
+                            val rawUrl = item.link.ifBlank { item.source.websiteUrl }
+                            val url = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) rawUrl else "https://$rawUrl"
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(browserIntent)
+                        } catch (e: Throwable) {
+                            Toast.makeText(context, "Unable to open browser: ${e.localizedMessage ?: "No web browser app available"}", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()

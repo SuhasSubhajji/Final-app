@@ -352,7 +352,47 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         initialValue = emptyList()
     )
 
+    val cveSearchQuery = MutableStateFlow("")
+
+    fun setCveSearchQuery(query: String) {
+        cveSearchQuery.value = query
+    }
+
+    val searchedCveThreats: StateFlow<List<ThreatItem>> = combine(
+        allThreatsFlow,
+        cveSearchQuery
+    ) { threats, query ->
+        val trimmed = query.trim().lowercase()
+        if (trimmed.isEmpty()) {
+            threats
+        } else {
+            threats.filter { item ->
+                item.cveIds.any { cve -> cve.lowercase().contains(trimmed) } ||
+                item.title.lowercase().contains(trimmed) ||
+                item.description.lowercase().contains(trimmed) ||
+                item.category.displayName.lowercase().contains(trimmed) ||
+                item.source.displayName.lowercase().contains(trimmed)
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     val offlineCacheStatus: StateFlow<com.example.data.model.OfflineCacheStatus> = repository.offlineCacheStatus
+
+    val ttpProgressMap: StateFlow<Map<String, String>> = repository.allTtpProgressFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyMap()
+    )
+
+    fun updateTtpProgress(techniqueId: String, status: String) {
+        viewModelScope.launch {
+            repository.setTtpProgress(techniqueId, status)
+        }
+    }
 
     val allCveThreats: StateFlow<List<ThreatItem>> = repository.allCveThreatsFlow.stateIn(
         scope = viewModelScope,
