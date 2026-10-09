@@ -14,5 +14,8 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val modelUsed: GeminiModel? = null,
     val isError: Boolean = false,
-    val isThinking: Boolean = false
+    val isThinking: Boolean = false,
+    val imageUri: String? = null,
+    val imageBase64: String? = null,
+    val imageMimeType: String? = "image/jpeg"
 )

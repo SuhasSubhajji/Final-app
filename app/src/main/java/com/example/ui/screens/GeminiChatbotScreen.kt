@@ -3,14 +3,22 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,12 +44,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
@@ -73,11 +84,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -86,6 +100,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import com.example.data.model.ChatMessage
 import com.example.data.model.ChatSender
 import com.example.data.model.GeminiModel
@@ -119,6 +140,53 @@ fun GeminiChatbotScreen(
 
     var inputQuery by remember { mutableStateOf("") }
     var showModelSelectorSheet by remember { mutableStateOf(false) }
+
+    // Uploaded Image State
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedImageBase64 by remember { mutableStateOf<String?>(null) }
+    var selectedImageMimeType by remember { mutableStateOf("image/jpeg") }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Android Photo Picker launcher (zero permission, Google Play compliant)
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            selectedImageUri = uri
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val contentResolver = context.contentResolver
+                    val mime = contentResolver.getType(uri) ?: "image/jpeg"
+                    selectedImageMimeType = mime
+                    val inputStream: InputStream? = contentResolver.openInputStream(uri)
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    inputStream?.close()
+
+                    if (bitmap != null) {
+                        val outputStream = ByteArrayOutputStream()
+                        // Resize if too large to ensure snappy transmission
+                        val maxDim = 1024
+                        val scaled = if (bitmap.width > maxDim || bitmap.height > maxDim) {
+                            val ratio = minOf(maxDim.toFloat() / bitmap.width, maxDim.toFloat() / bitmap.height)
+                            Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true)
+                        } else {
+                            bitmap
+                        }
+                        scaled.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
+                        val b64 = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+                        withContext(Dispatchers.Main) {
+                            selectedImageBase64 = b64
+                            Toast.makeText(context, "Image attached for Gemini analysis", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Failed to load image: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
 
     val listState = rememberLazyListState()
 
@@ -324,19 +392,100 @@ fun GeminiChatbotScreen(
                         )
                     }
 
-                    // Input Field & Send Action
+                    // Selected Image Preview Banner (if user picked an image)
+                    AnimatedVisibility(visible = selectedImageUri != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = theme.surfaceVariant,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, theme.accentPrimary),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(selectedImageUri)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "Attached Image",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Attached for Gemini Analysis",
+                                        color = theme.accentPrimary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Multimodal payload ready • Tap Send",
+                                        color = theme.textMuted,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        selectedImageUri = null
+                                        selectedImageBase64 = null
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove attachment",
+                                        tint = theme.textSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Input Field, Photo Upload Button & Send Action
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Image Picker Button
+                        IconButton(
+                            onClick = {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(theme.surfaceVariant)
+                                .border(1.dp, if (selectedImageUri != null) theme.accentPrimary else theme.border, CircleShape)
+                                .testTag("chatbot_attach_image_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AddPhotoAlternate,
+                                contentDescription = "Attach Image",
+                                tint = if (selectedImageUri != null) theme.accentPrimary else theme.textSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
                         OutlinedTextField(
                             value = inputQuery,
                             onValueChange = { inputQuery = it },
                             placeholder = {
                                 Text(
-                                    text = "Ask Gemini about threats, CVEs, Sigma...",
+                                    text = if (selectedImageUri != null) "Ask about this image (e.g. Audit topology)..." else "Ask Gemini or attach diagram / architecture image...",
                                     color = theme.textMuted,
-                                    fontSize = 13.sp
+                                    fontSize = 12.sp
                                 )
                             },
                             modifier = Modifier
@@ -357,14 +506,26 @@ fun GeminiChatbotScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        val canSend = inputQuery.isNotBlank() && !isLoading
+                        val canSend = (inputQuery.isNotBlank() || selectedImageBase64 != null) && !isLoading
 
                         IconButton(
                             onClick = {
                                 if (canSend) {
                                     val queryToSend = inputQuery
+                                    val imageB64ToSend = selectedImageBase64
+                                    val imageMimeToSend = selectedImageMimeType
+                                    val imageUriToSend = selectedImageUri?.toString()
+
                                     inputQuery = ""
-                                    viewModel.sendChatMessage(queryToSend)
+                                    selectedImageUri = null
+                                    selectedImageBase64 = null
+
+                                    viewModel.sendChatMessage(
+                                        query = queryToSend,
+                                        imageUri = imageUriToSend,
+                                        imageBase64 = imageB64ToSend,
+                                        imageMimeType = imageMimeToSend
+                                    )
                                 }
                             },
                             enabled = canSend,
@@ -450,7 +611,9 @@ fun QuickStarterPromptsRow(
 ) {
     val theme = CyberTheme.colors
     val prompts = listOf(
+        "🎨 Generate Network Topology Diagram",
         "🛡️ Audit Zero-Trust Architecture",
+        "🖼️ Draw Multi-Tier DMZ Architecture",
         "⚡ Generate Sigma Rule for PowerShell",
         "🔍 Analyze CVE-2024-3094 Backdoor",
         "📜 Kubernetes Pod Security Standards",
@@ -563,6 +726,110 @@ fun ChatMessageBubble(
                 tonalElevation = 2.dp
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
+                    // Render user uploaded image if present
+                    if (message.imageUri != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(message.imageUri)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Uploaded User Image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, theme.border, RoundedCornerShape(8.dp))
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    } else if (isUser && message.imageBase64 != null) {
+                        val decodedBytes = remember(message.imageBase64) {
+                            try {
+                                Base64.decode(message.imageBase64, Base64.DEFAULT)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        val userBitmap = remember(decodedBytes) {
+                            decodedBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                        }
+                        if (userBitmap != null) {
+                            Image(
+                                bitmap = userBitmap.asImageBitmap(),
+                                contentDescription = "User uploaded image",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(1.dp, theme.border, RoundedCornerShape(8.dp))
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    // Render Gemini returned/generated image if present
+                    if (!isUser && message.imageBase64 != null) {
+                        val decodedBytes = remember(message.imageBase64) {
+                            try {
+                                Base64.decode(message.imageBase64, Base64.DEFAULT)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        val geminiBitmap = remember(decodedBytes) {
+                            decodedBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                        }
+                        if (geminiBitmap != null) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF070B14),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, theme.accentPrimary),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(6.dp)) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "🎨 Gemini Generated Diagram / Image",
+                                            color = theme.accentPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = theme.accentPrimary.copy(alpha = 0.2f)
+                                        ) {
+                                            Text(
+                                                text = "VISION 1K",
+                                                color = theme.accentPrimary,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Image(
+                                        bitmap = geminiBitmap.asImageBitmap(),
+                                        contentDescription = "Gemini Generated Image",
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(200.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     FormattedChatText(
                         text = message.text,
                         isUser = isUser

@@ -13,18 +13,38 @@ import com.example.data.remote.FeedFetcherService
 import com.example.data.remote.GeminiAnalysisResult
 import com.example.data.remote.GeminiService
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import java.util.Locale
 
 class ThreatRepository(
     private val database: AppDatabase,
     private val fetcherService: FeedFetcherService = FeedFetcherService(),
-    private val geminiService: GeminiService = GeminiService()
+    private val geminiService: GeminiService = GeminiService(),
+    private val cveSummaryService: com.example.data.remote.CveSummaryService = com.example.data.remote.CveSummaryService()
 ) {
     private val threatDao = database.threatDao()
 
+    private val _offlineCacheStatus = kotlinx.coroutines.flow.MutableStateFlow(
+        com.example.data.model.OfflineCacheStatus()
+    )
+    val offlineCacheStatus: kotlinx.coroutines.flow.StateFlow<com.example.data.model.OfflineCacheStatus> = 
+        _offlineCacheStatus.asStateFlow()
+
     val allThreatsFlow: Flow<List<ThreatItem>> = threatDao.getAllThreatsFlow().map { entities ->
         entities.map { it.toDomain() }
+    }
+
+    val totalCachedCountFlow: Flow<Int> = threatDao.getThreatCountFlow()
+
+    val allCveThreatsFlow: Flow<List<ThreatItem>> = threatDao.getAllCveThreatsFlow().map { entities ->
+        entities.map { it.toDomain() }
+    }
+
+    fun getThreatsByCveFlow(cveId: String): Flow<List<ThreatItem>> {
+        return threatDao.getThreatsByCveFlow(cveId).map { entities ->
+            entities.map { it.toDomain() }
+        }
     }
 
     val allAlertsFlow: Flow<List<SecurityAlert>> = threatDao.getAllAlertsFlow().map { entities ->
@@ -88,37 +108,76 @@ class ThreatRepository(
         threatDao.clearAllHistory()
     }
 
-    suspend fun initializeWithSeedsIfNeeded() {
-        val seeds = fetcherService.getCuratedSeedThreats()
-        threatDao.insertAll(seeds.map { ThreatItemEntity.fromDomain(it) })
+    suspend fun updateCacheStatus() {
+        val totalThreats = threatDao.getThreatCount()
+        val cveCount = threatDao.getAllCveThreats().size
+        val latestTimestamp = threatDao.getLatestCachedTimestamp()
+        _offlineCacheStatus.value = _offlineCacheStatus.value.copy(
+            totalCachedThreats = totalThreats,
+            totalCachedCves = cveCount,
+            lastSyncTimestampMillis = latestTimestamp ?: _offlineCacheStatus.value.lastSyncTimestampMillis,
+            isSyncing = false
+        )
+    }
 
-        // Prepopulate baseline investigation history if empty
-        val sampleThreat = seeds.firstOrNull()
-        if (sampleThreat != null) {
-            recordThreatHistory(
-                threat = sampleThreat,
-                actionType = "INVESTIGATED",
-                triageStatus = "INVESTIGATING",
-                analystNotes = "Initial SOC telemetry triage completed. High priority alert flagged for remediation."
-            )
-            if (seeds.size > 1) {
+    suspend fun initializeWithSeedsIfNeeded() {
+        val count = threatDao.getThreatCount()
+        if (count == 0) {
+            val seeds = fetcherService.getCuratedSeedThreats()
+            threatDao.insertAll(seeds.map { ThreatItemEntity.fromDomain(it) })
+
+            // Prepopulate baseline investigation history if empty
+            val sampleThreat = seeds.firstOrNull()
+            if (sampleThreat != null) {
                 recordThreatHistory(
-                    threat = seeds[1],
-                    actionType = "AI_ANALYSIS",
-                    triageStatus = "RESOLVED",
-                    analystNotes = "Remediation verified: ingress rules restricted and credentials rotated."
+                    threat = sampleThreat,
+                    actionType = "INVESTIGATED",
+                    triageStatus = "INVESTIGATING",
+                    analystNotes = "Initial SOC telemetry triage completed. High priority alert flagged for remediation."
                 )
+                if (seeds.size > 1) {
+                    recordThreatHistory(
+                        threat = seeds[1],
+                        actionType = "AI_ANALYSIS",
+                        triageStatus = "RESOLVED",
+                        analystNotes = "Remediation verified: ingress rules restricted and credentials rotated."
+                    )
+                }
             }
         }
+        updateCacheStatus()
     }
 
     suspend fun refreshFeeds(): Result<Int> {
+        _offlineCacheStatus.value = _offlineCacheStatus.value.copy(
+            isSyncing = true,
+            lastSyncMessage = "Fetching latest feeds..."
+        )
         return try {
             val remoteItems = fetcherService.fetchAllFeeds()
             val entities = remoteItems.map { ThreatItemEntity.fromDomain(it) }
             threatDao.insertAll(entities)
+            val updatedTotal = threatDao.getThreatCount()
+            val cveCount = threatDao.getAllCveThreats().size
+            _offlineCacheStatus.value = _offlineCacheStatus.value.copy(
+                totalCachedThreats = updatedTotal,
+                totalCachedCves = cveCount,
+                lastSyncTimestampMillis = System.currentTimeMillis(),
+                isSyncing = false,
+                isOfflineMode = false,
+                lastSyncMessage = "Updated ${remoteItems.size} threats (all cached offline)"
+            )
             Result.success(remoteItems.size)
         } catch (e: Exception) {
+            val currentTotal = threatDao.getThreatCount()
+            val cveCount = threatDao.getAllCveThreats().size
+            _offlineCacheStatus.value = _offlineCacheStatus.value.copy(
+                totalCachedThreats = currentTotal,
+                totalCachedCves = cveCount,
+                isSyncing = false,
+                isOfflineMode = true,
+                lastSyncMessage = "Network unavailable • Running in Offline Cached Mode ($currentTotal items stored)"
+            )
             Result.failure(e)
         }
     }
@@ -145,6 +204,16 @@ class ThreatRepository(
             code = result.mitigationCode
         )
         return result
+    }
+
+    /**
+     * Generates a concise human-readable threat summary from raw CVE description
+     * and saves it to local persistence.
+     */
+    suspend fun generateAndSaveCveSummary(threat: ThreatItem): String {
+        val summary = cveSummaryService.summarizeThreat(threat)
+        threatDao.updateAiSummary(threat.id, summary)
+        return summary
     }
 
     suspend fun askGeminiQuestion(threat: ThreatItem, question: String): String {

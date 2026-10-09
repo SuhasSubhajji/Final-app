@@ -230,7 +230,9 @@ fun ThreatItemCard(
     onClick: () -> Unit,
     onBookmarkToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    rlMatchScore: Int? = null
+    rlMatchScore: Int? = null,
+    onSummarizeCveClick: (() -> Unit)? = null,
+    isSummarizing: Boolean = false
 ) {
     val theme = CyberTheme.colors
 
@@ -297,19 +299,74 @@ fun ThreatItemCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Snippet Description
-            Text(
-                text = threat.description,
-                color = theme.textSecondary,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Concise Human-Readable Gemini Summary Banner or Raw Description
+            if (!threat.aiSummary.isNullOrBlank()) {
+                Surface(
+                    color = CyberNavyDark,
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.45f)),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = CyberCyan,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "GEMINI CVE THREAT SUMMARY",
+                                    color = CyberCyan,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.4.sp
+                                )
+                            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                            if (threat.cveIds.isNotEmpty()) {
+                                Text(
+                                    text = threat.cveIds.first(),
+                                    color = CyberTextMuted,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
 
-            // Tags, CVE pills & RL affinity
+                        Spacer(modifier = Modifier.height(5.dp))
+
+                        Text(
+                            text = threat.aiSummary,
+                            color = CyberTextPrimary,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+                }
+            } else {
+                // Raw Snippet Description
+                Text(
+                    text = threat.description,
+                    color = theme.textSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Tags, CVE pills & Quick Summarize Action
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -319,7 +376,8 @@ fun ThreatItemCard(
                     modifier = Modifier
                         .weight(1f)
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Category Chip
                     Surface(
@@ -379,29 +437,36 @@ fun ThreatItemCard(
                         }
                     }
 
-                    if (threat.aiSummary != null) {
+                    // On-demand Summarize CVE Action if not summarized yet
+                    if (threat.aiSummary.isNullOrBlank() && onSummarizeCveClick != null) {
                         Surface(
-                            color = theme.accentSecondary.copy(alpha = 0.15f),
+                            color = CyberCyan.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(4.dp),
-                            border = androidx.compose.foundation.BorderStroke(0.8.dp, theme.accentSecondary.copy(alpha = 0.4f))
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, CyberCyan.copy(alpha = 0.6f)),
+                            modifier = Modifier.clickable(enabled = !isSummarizing) { onSummarizeCveClick() }
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = null,
-                                    tint = theme.accentSecondary,
-                                    modifier = Modifier.size(10.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(
-                                    text = "AI Ready",
-                                    color = theme.accentSecondary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                if (isSummarizing) {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(10.dp),
+                                        color = CyberCyan,
+                                        strokeWidth = 1.5.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Summarizing...", color = CyberCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = CyberCyan,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Summarize with Gemini", color = CyberCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }

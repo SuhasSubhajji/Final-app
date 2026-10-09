@@ -2,6 +2,7 @@ package com.example.ui.viewmodel
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.graphics.Color
@@ -252,6 +253,10 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     private val _isAskingQuestion = MutableStateFlow(false)
     val isAskingQuestion: StateFlow<Boolean> = _isAskingQuestion.asStateFlow()
 
+    // Map of threatId to loading state for inline CVE summaries
+    private val _summarizingThreatIds = MutableStateFlow<Set<String>>(emptySet())
+    val summarizingThreatIds: StateFlow<Set<String>> = _summarizingThreatIds.asStateFlow()
+
     // --- Gemini Interactive Chatbot Engine ---
     private val geminiService = GeminiService()
 
@@ -276,13 +281,21 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         _selectedGeminiModel.value = model
     }
 
-    fun sendChatMessage(query: String) {
+    fun sendChatMessage(
+        query: String,
+        imageUri: String? = null,
+        imageBase64: String? = null,
+        imageMimeType: String = "image/jpeg"
+    ) {
         val trimmed = query.trim()
-        if (trimmed.isBlank() || _isChatLoading.value) return
+        if ((trimmed.isBlank() && imageBase64 == null) || _isChatLoading.value) return
 
         val userMessage = ChatMessage(
             sender = ChatSender.USER,
-            text = trimmed
+            text = trimmed,
+            imageUri = imageUri,
+            imageBase64 = imageBase64,
+            imageMimeType = imageMimeType
         )
         val currentModel = _selectedGeminiModel.value
 
@@ -292,16 +305,20 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             try {
                 val currentHistory = _chatMessages.value.filter { !it.isError && !it.isThinking }
-                val responseText = geminiService.sendChatMessage(
+                val reply = geminiService.sendChatMessage(
                     model = currentModel,
                     conversationHistory = currentHistory,
-                    userPrompt = trimmed
+                    userPrompt = trimmed,
+                    userImageBase64 = imageBase64,
+                    userImageMimeType = imageMimeType
                 )
 
                 val geminiMessage = ChatMessage(
                     sender = ChatSender.GEMINI,
-                    text = responseText,
-                    modelUsed = currentModel
+                    text = reply.text,
+                    imageBase64 = reply.imageBase64,
+                    imageMimeType = reply.imageMimeType,
+                    modelUsed = reply.modelUsed ?: currentModel
                 )
                 _chatMessages.update { it + geminiMessage }
             } catch (e: Exception) {
@@ -333,6 +350,20 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
+    )
+
+    val offlineCacheStatus: StateFlow<com.example.data.model.OfflineCacheStatus> = repository.offlineCacheStatus
+
+    val allCveThreats: StateFlow<List<ThreatItem>> = repository.allCveThreatsFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val totalCachedThreatsCount: StateFlow<Int> = repository.totalCachedCountFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
     )
 
     val alerts: StateFlow<List<SecurityAlert>> = repository.allAlertsFlow.stateIn(
@@ -803,6 +834,45 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
                 )
             } catch (e: Exception) {
                 _aiAnalysisState.value = AiAnalysisUiState.Error(e.message ?: "Failed to generate AI summary")
+            }
+        }
+    }
+
+    /**
+     * Sends raw CVE description data to Gemini API and generates a concise human-readable summary
+     * for a specific entry in the threat feed.
+     */
+    fun summarizeCveForThreat(threat: ThreatItem) {
+        viewModelScope.launch {
+            _summarizingThreatIds.update { it + threat.id }
+            try {
+                val summary = repository.generateAndSaveCveSummary(threat)
+                if (_selectedThreat.value?.id == threat.id) {
+                    _selectedThreat.value = _selectedThreat.value?.copy(aiSummary = summary)
+                }
+            } catch (e: Exception) {
+                Log.e("ThreatFeedViewModel", "Error generating CVE summary for ${threat.id}: ${e.message}")
+            } finally {
+                _summarizingThreatIds.update { it - threat.id }
+            }
+        }
+    }
+
+    /**
+     * Automatically summarizes all unsummarized threats with CVE identifiers in the feed using Gemini API.
+     */
+    fun summarizeAllCvesInFeed() {
+        viewModelScope.launch {
+            val unsummarized = allThreatsFlow.value.filter { it.aiSummary.isNullOrBlank() }
+            for (threat in unsummarized) {
+                _summarizingThreatIds.update { it + threat.id }
+                try {
+                    repository.generateAndSaveCveSummary(threat)
+                } catch (e: Exception) {
+                    // Continue with next
+                } finally {
+                    _summarizingThreatIds.update { it - threat.id }
+                }
             }
         }
     }

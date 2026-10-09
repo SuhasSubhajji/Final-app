@@ -290,4 +290,23 @@ data class RoadmapResourceLink(
     val domainOrProvider: String
 )
 
+data class OfflineCacheStatus(
+    val totalCachedThreats: Int = 0,
+    val totalCachedCves: Int = 0,
+    val lastSyncTimestampMillis: Long? = null,
+    val isSyncing: Boolean = false,
+    val isOfflineMode: Boolean = false,
+    val lastSyncMessage: String = "Cache ready"
+) {
+    val formattedLastSync: String
+        get() = if (lastSyncTimestampMillis != null && lastSyncTimestampMillis > 0) {
+            val diffMinutes = (System.currentTimeMillis() - lastSyncTimestampMillis) / (60 * 1000)
+            if (diffMinutes < 1) "Just now"
+            else if (diffMinutes < 60) "${diffMinutes}m ago"
+            else "${diffMinutes / 60}h ago"
+        } else {
+            "Never synced"
+        }
+}
+
 

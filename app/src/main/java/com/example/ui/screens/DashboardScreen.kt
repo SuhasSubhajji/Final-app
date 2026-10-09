@@ -128,6 +128,7 @@ fun DashboardScreen(
     val cveSummary by viewModel.cveBreakdownSummary.collectAsState()
     val topVulns by viewModel.topVulnerabilities.collectAsState()
     val sourceBreakdown by viewModel.sourceBreakdown.collectAsState()
+    val offlineCacheStatus by viewModel.offlineCacheStatus.collectAsState()
     val dailyTopic by viewModel.topicOfTheDay.collectAsState()
     val topicExplanation by viewModel.topicExplanation.collectAsState()
     val isExplainingTopic by viewModel.isExplainingTopic.collectAsState()
@@ -364,6 +365,14 @@ fun DashboardScreen(
             }
 
             if (selectedTab == DashboardTab.LIVE_FEED) {
+                // Room Database Offline Caching & Telemetry Sync Banner
+                item {
+                    com.example.ui.components.OfflineCacheBanner(
+                        cacheStatus = offlineCacheStatus,
+                        onSyncClick = { viewModel.refreshFeeds() }
+                    )
+                }
+
                 // SECTION 1: Key Metrics Row
                 item {
                     Row(
@@ -968,15 +977,52 @@ private fun DashboardThreatCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Description Snippet
-            Text(
-                text = threat.description,
-                color = theme.textSecondary,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            // Concise Human-Readable Gemini Summary or Description Snippet
+            if (!threat.aiSummary.isNullOrBlank()) {
+                Surface(
+                    color = CyberNavyDark,
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = CyberCyan,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "GEMINI SUMMARY",
+                                color = CyberCyan,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.4.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = threat.aiSummary,
+                            color = CyberTextPrimary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = threat.description,
+                    color = theme.textSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 

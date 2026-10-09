@@ -26,6 +26,9 @@ interface ThreatDao {
     @Query("UPDATE threat_items SET isRead = :isRead WHERE id = :id")
     suspend fun updateReadStatus(id: String, isRead: Boolean)
 
+    @Query("UPDATE threat_items SET aiSummary = :summary WHERE id = :id")
+    suspend fun updateAiSummary(id: String, summary: String)
+
     @Query("""
         UPDATE threat_items 
         SET aiSummary = :summary, 
@@ -101,4 +104,29 @@ interface ThreatDao {
 
     @Query("DELETE FROM threat_history")
     suspend fun clearAllHistory()
+
+    // --- Offline Caching and CVE Lookup Extensions ---
+    @Query("SELECT COUNT(*) FROM threat_items")
+    fun getThreatCountFlow(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM threat_items")
+    suspend fun getThreatCount(): Int
+
+    @Query("SELECT * FROM threat_items WHERE cveIdsJson LIKE '%' || :cveId || '%' ORDER BY pubDateMillis DESC")
+    fun getThreatsByCveFlow(cveId: String): Flow<List<ThreatItemEntity>>
+
+    @Query("SELECT * FROM threat_items WHERE cveIdsJson != '' ORDER BY pubDateMillis DESC")
+    fun getAllCveThreatsFlow(): Flow<List<ThreatItemEntity>>
+
+    @Query("SELECT * FROM threat_items WHERE cveIdsJson != '' ORDER BY pubDateMillis DESC")
+    suspend fun getAllCveThreats(): List<ThreatItemEntity>
+
+    @Query("SELECT * FROM threat_items ORDER BY pubDateMillis DESC")
+    suspend fun getAllThreatsList(): List<ThreatItemEntity>
+
+    @Query("SELECT MAX(pubDateMillis) FROM threat_items")
+    suspend fun getLatestCachedTimestamp(): Long?
+
+    @Query("DELETE FROM threat_items")
+    suspend fun clearAllThreats()
 }

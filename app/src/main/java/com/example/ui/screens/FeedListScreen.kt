@@ -103,6 +103,8 @@ fun FeedListScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val themeMode by viewModel.currentThemeMode.collectAsState()
     val isRlSortEnabled by viewModel.isRlSortEnabled.collectAsState()
+    val summarizingThreatIds by viewModel.summarizingThreatIds.collectAsState()
+    val offlineCacheStatus by viewModel.offlineCacheStatus.collectAsState()
 
     var showFilterSheet by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
@@ -214,6 +216,18 @@ fun FeedListScreen(
                         )
                     }
 
+                    // Batch Summarize All CVEs with Gemini
+                    IconButton(
+                        onClick = { viewModel.summarizeAllCvesInFeed() },
+                        modifier = Modifier.testTag("summarize_all_cves_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "Summarize All Feed CVEs with Gemini",
+                            tint = CyberCyan
+                        )
+                    }
+
                     // Threat History Button
                     IconButton(
                         onClick = { showHistorySheet = true },
@@ -283,6 +297,13 @@ fun FeedListScreen(
                 onAlertsClick = onNavigateToAlerts
             )
 
+            // Room Database Offline Caching & Sync Banner
+            com.example.ui.components.OfflineCacheBanner(
+                cacheStatus = offlineCacheStatus,
+                onSyncClick = { viewModel.refreshFeeds() },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+
             // Search bar
             CyberSearchBar(
                 query = filterState.searchQuery,
@@ -325,11 +346,14 @@ fun FeedListScreen(
                         items = threats,
                         key = { it.id }
                     ) { item ->
+                        val isItemSummarizing = summarizingThreatIds.contains(item.id)
                         ThreatItemCard(
                             threat = item,
                             onClick = { onThreatClick(item.id) },
                             onBookmarkToggle = { viewModel.toggleBookmark(item) },
-                            rlMatchScore = viewModel.getThreatRelevanceScore(item)
+                            rlMatchScore = viewModel.getThreatRelevanceScore(item),
+                            onSummarizeCveClick = { viewModel.summarizeCveForThreat(item) },
+                            isSummarizing = isItemSummarizing
                         )
                     }
                 }
