@@ -263,12 +263,24 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     private val _selectedGeminiModel = MutableStateFlow(GeminiModel.defaultModel())
     val selectedGeminiModel: StateFlow<GeminiModel> = _selectedGeminiModel.asStateFlow()
 
+    private val _isSearchGroundingEnabled = MutableStateFlow(true)
+    val isSearchGroundingEnabled: StateFlow<Boolean> = _isSearchGroundingEnabled.asStateFlow()
+
+    fun toggleSearchGrounding() {
+        _isSearchGroundingEnabled.value = !_isSearchGroundingEnabled.value
+    }
+
+    fun setSearchGroundingEnabled(enabled: Boolean) {
+        _isSearchGroundingEnabled.value = enabled
+    }
+
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
         listOf(
             ChatMessage(
                 sender = ChatSender.GEMINI,
-                text = "Hello! I am Gemini, your cybersecurity & DevSecOps AI assistant. You can switch between all available Gemini models using the model selector above. Ask me anything about threat telemetry, CVE mitigations, Sigma rules, or defensive architecture.",
-                modelUsed = GeminiModel.defaultModel()
+                text = "Hello! I am Gemini 3.5 Flash, equipped with Google Search Grounding for live threat intelligence, CVE status, and zero-day research. Ask me anything about active exploits, vendor patches, Sigma rules, or defensive architecture.",
+                modelUsed = GeminiModel.defaultModel(),
+                isSearchGrounded = true
             )
         )
     )
@@ -285,7 +297,8 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         query: String,
         imageUri: String? = null,
         imageBase64: String? = null,
-        imageMimeType: String = "image/jpeg"
+        imageMimeType: String = "image/jpeg",
+        forceSearchGrounding: Boolean? = null
     ) {
         val trimmed = query.trim()
         if ((trimmed.isBlank() && imageBase64 == null) || _isChatLoading.value) return
@@ -298,6 +311,7 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
             imageMimeType = imageMimeType
         )
         val currentModel = _selectedGeminiModel.value
+        val useSearchGrounding = forceSearchGrounding ?: _isSearchGroundingEnabled.value
 
         _chatMessages.update { it + userMessage }
         _isChatLoading.value = true
@@ -310,7 +324,8 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
                     conversationHistory = currentHistory,
                     userPrompt = trimmed,
                     userImageBase64 = imageBase64,
-                    userImageMimeType = imageMimeType
+                    userImageMimeType = imageMimeType,
+                    enableSearchGrounding = useSearchGrounding
                 )
 
                 val geminiMessage = ChatMessage(
@@ -318,7 +333,10 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
                     text = reply.text,
                     imageBase64 = reply.imageBase64,
                     imageMimeType = reply.imageMimeType,
-                    modelUsed = reply.modelUsed ?: currentModel
+                    modelUsed = reply.modelUsed ?: currentModel,
+                    isSearchGrounded = reply.isSearchGrounded,
+                    searchQueries = reply.searchQueries,
+                    groundingSources = reply.groundingSources
                 )
                 _chatMessages.update { it + geminiMessage }
             } catch (e: Exception) {
@@ -340,8 +358,9 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         _chatMessages.value = listOf(
             ChatMessage(
                 sender = ChatSender.GEMINI,
-                text = "Conversation reset. Active model: **${currentModel.displayName}** (${currentModel.speed}). How can I assist you?",
-                modelUsed = currentModel
+                text = "Conversation reset. Active model: **${currentModel.displayName}** (${currentModel.speed}). Google Search Grounding is ${if (_isSearchGroundingEnabled.value) "Active 🌐" else "Off"}. How can I assist you?",
+                modelUsed = currentModel,
+                isSearchGrounded = _isSearchGroundingEnabled.value
             )
         )
     }
@@ -854,11 +873,11 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun requestAiSummary(threat: ThreatItem) {
+    fun requestAiSummary(threat: ThreatItem, enableSearchGrounding: Boolean = true) {
         viewModelScope.launch {
             _aiAnalysisState.value = AiAnalysisUiState.Loading
             try {
-                val result = repository.requestAiAnalysis(threat)
+                val result = repository.requestAiAnalysis(threat, enableSearchGrounding = enableSearchGrounding)
                 _aiAnalysisState.value = AiAnalysisUiState.Success(result)
                 _selectedThreat.value = _selectedThreat.value?.copy(
                     aiSummary = result.summary,
@@ -870,7 +889,7 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
                     threat = threat,
                     actionType = "AI_ANALYSIS",
                     triageStatus = "ANALYZED",
-                    analystNotes = "Gemini AI security analysis, risk score (${result.riskScore}/10), and automated mitigation generated."
+                    analystNotes = "Gemini AI analysis with Google Search Grounding: risk score (${result.riskScore}/10)."
                 )
             } catch (e: Exception) {
                 _aiAnalysisState.value = AiAnalysisUiState.Error(e.message ?: "Failed to generate AI summary")
@@ -917,12 +936,12 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun askCustomQuestion(threat: ThreatItem, question: String) {
+    fun askCustomQuestion(threat: ThreatItem, question: String, enableSearchGrounding: Boolean = true) {
         if (question.isBlank()) return
         viewModelScope.launch {
             _isAskingQuestion.value = true
             try {
-                val answer = repository.askGeminiQuestion(threat, question)
+                val answer = repository.askGeminiQuestion(threat, question, enableSearchGrounding = enableSearchGrounding)
                 _customQuestionAnswer.value = answer
             } finally {
                 _isAskingQuestion.value = false

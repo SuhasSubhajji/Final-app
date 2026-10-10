@@ -53,6 +53,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
@@ -137,6 +139,7 @@ fun GeminiChatbotScreen(
     val chatMessages by viewModel.chatMessages.collectAsState()
     val selectedModel by viewModel.selectedGeminiModel.collectAsState()
     val isLoading by viewModel.isChatLoading.collectAsState()
+    val isSearchGrounded by viewModel.isSearchGroundingEnabled.collectAsState()
 
     var inputQuery by remember { mutableStateOf("") }
     var showModelSelectorSheet by remember { mutableStateOf(false) }
@@ -397,11 +400,56 @@ fun GeminiChatbotScreen(
                             }
                         }
 
-                        Text(
-                            text = "Tap model to switch",
-                            color = theme.textMuted,
-                            fontSize = 10.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Google Search Grounding interactive Toggle Chip
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSearchGrounded) theme.accentPrimary.copy(alpha = 0.2f) else theme.surfaceVariant,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSearchGrounded) theme.accentPrimary else theme.border
+                                ),
+                                modifier = Modifier
+                                    .clickable {
+                                        viewModel.toggleSearchGrounding()
+                                        Toast.makeText(
+                                            context,
+                                            if (!isSearchGrounded) "Google Search Grounding Enabled 🌐" else "Google Search Grounding Disabled",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                    .testTag("toggle_search_grounding_button")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Language,
+                                        contentDescription = "Search Grounding",
+                                        tint = if (isSearchGrounded) theme.accentPrimary else theme.textMuted,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isSearchGrounded) "Search Grounded" else "Offline Only",
+                                        color = if (isSearchGrounded) theme.accentPrimary else theme.textMuted,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            Text(
+                                text = "Tap model to switch",
+                                color = theme.textMuted,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
 
                     // Selected Image Preview Banner (if user picked an image)
@@ -623,14 +671,15 @@ fun QuickStarterPromptsRow(
 ) {
     val theme = CyberTheme.colors
     val prompts = listOf(
+        "🌐 Search Active Zero-Days in CISA KEV Today",
+        "🔍 Latest OpenSSH / XZ Backdoor Exploits",
+        "🌐 Live Ransomware Campaign Indicators",
         "🎨 Generate Network Topology Diagram",
         "🛡️ Audit Zero-Trust Architecture",
-        "🖼️ Draw Multi-Tier DMZ Architecture",
         "⚡ Generate Sigma Rule for PowerShell",
         "🔍 Analyze CVE-2024-3094 Backdoor",
         "📜 Kubernetes Pod Security Standards",
         "⚔️ Explain MITRE T1059 Command & Scripting",
-        "🎯 Red Team vs Blue Team Strategy",
         "📊 Calculate CVSS 4.0 Vector"
     )
 
@@ -667,6 +716,7 @@ fun ChatMessageBubble(
     message: ChatMessage,
     onCopyText: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val theme = CyberTheme.colors
     val isUser = message.sender == ChatSender.USER
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
@@ -854,6 +904,96 @@ fun ChatMessageBubble(
                         text = message.text,
                         isUser = isUser
                     )
+
+                    // Grounding Sources & Search Queries section
+                    if (!isUser && (message.isSearchGrounded || message.groundingSources.isNotEmpty() || message.searchQueries.isNotEmpty())) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = theme.surfaceVariant,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, theme.accentPrimary.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Language,
+                                        contentDescription = "Google Search Grounding",
+                                        tint = theme.accentPrimary,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "Google Search Live Intelligence",
+                                        color = theme.accentPrimary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                if (message.searchQueries.isNotEmpty()) {
+                                    Text(
+                                        text = "Queries: " + message.searchQueries.joinToString(", "),
+                                        color = theme.textMuted,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier.padding(bottom = 6.dp)
+                                    )
+                                }
+
+                                if (message.groundingSources.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        message.groundingSources.take(5).forEach { source ->
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = theme.surfaceVariant,
+                                                border = androidx.compose.foundation.BorderStroke(0.6.dp, theme.border),
+                                                modifier = Modifier.clickable {
+                                                    try {
+                                                        val intent = android.content.Intent(
+                                                            android.content.Intent.ACTION_VIEW,
+                                                            android.net.Uri.parse(source.url)
+                                                        ).apply {
+                                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        }
+                                                        context.startActivity(intent)
+                                                    } catch (e: Exception) {
+                                                        Toast.makeText(context, "Could not open link: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.OpenInNew,
+                                                        contentDescription = null,
+                                                        tint = theme.accentSecondary,
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = source.title.take(24) + if (source.title.length > 24) "…" else "",
+                                                        color = theme.textSecondary,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(6.dp))
 

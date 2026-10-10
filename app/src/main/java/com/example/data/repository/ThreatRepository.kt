@@ -211,8 +211,8 @@ class ThreatRepository(
         threatDao.updateReadStatus(id, true)
     }
 
-    suspend fun requestAiAnalysis(threat: ThreatItem): GeminiAnalysisResult {
-        val result = geminiService.analyzeThreat(threat)
+    suspend fun requestAiAnalysis(threat: ThreatItem, enableSearchGrounding: Boolean = true): GeminiAnalysisResult {
+        val result = geminiService.analyzeThreat(threat, enableSearchGrounding = enableSearchGrounding)
         threatDao.updateAiAnalysis(
             id = threat.id,
             summary = result.summary,
@@ -233,8 +233,8 @@ class ThreatRepository(
         return summary
     }
 
-    suspend fun askGeminiQuestion(threat: ThreatItem, question: String): String {
-        return geminiService.askCustomQuestion(threat, question)
+    suspend fun askGeminiQuestion(threat: ThreatItem, question: String, enableSearchGrounding: Boolean = true): String {
+        return geminiService.askCustomQuestion(threat, question, enableSearchGrounding = enableSearchGrounding)
     }
 
     suspend fun recordAlert(alert: SecurityAlert) {

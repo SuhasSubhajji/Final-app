@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -500,24 +501,42 @@ fun ThreatDetailScreen(
                                     lineHeight = 18.sp
                                 )
                                 Spacer(modifier = Modifier.height(14.dp))
-                                Button(
-                                    onClick = { viewModel.requestAiSummary(item) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("request_ai_analysis_button"),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = CyberCyan,
-                                        contentColor = CyberNavyDark
-                                    ),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Analyze with Gemini", fontWeight = FontWeight.Bold)
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { viewModel.requestAiSummary(item, enableSearchGrounding = true) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("request_ai_analysis_grounded_button"),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = CyberCyan,
+                                            contentColor = CyberNavyDark
+                                        ),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Language,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Analyze with Google Search Grounding", fontWeight = FontWeight.Bold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { viewModel.requestAiSummary(item, enableSearchGrounding = false) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("request_ai_analysis_offline_button"),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Fast Standard Analysis", fontSize = 12.sp)
+                                    }
                                 }
                             }
 
@@ -568,6 +587,96 @@ fun ThreatDetailScreen(
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
+                                    }
+                                }
+
+                                // Google Search Grounding Status Banner (if live search was used)
+                                if (result.isSearchGrounded || result.groundingSources.isNotEmpty() || result.searchQueries.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = CyberNavyDark,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.4f)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp)) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Language,
+                                                    contentDescription = null,
+                                                    tint = CyberCyan,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "🌐 Grounded with Google Search Live Data",
+                                                    color = CyberCyan,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+
+                                            if (result.searchQueries.isNotEmpty()) {
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "Search Queries: " + result.searchQueries.joinToString(", "),
+                                                    color = CyberTextMuted,
+                                                    fontSize = 10.sp
+                                                )
+                                            }
+
+                                            if (result.groundingSources.isNotEmpty()) {
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .horizontalScroll(rememberScrollState()),
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    result.groundingSources.take(5).forEach { source ->
+                                                        Surface(
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            color = CyberNavySurfaceVariant,
+                                                            border = androidx.compose.foundation.BorderStroke(0.6.dp, CyberBorder),
+                                                            modifier = Modifier.clickable {
+                                                                try {
+                                                                    val intent = android.content.Intent(
+                                                                        android.content.Intent.ACTION_VIEW,
+                                                                        android.net.Uri.parse(source.url)
+                                                                    ).apply {
+                                                                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                                    }
+                                                                    context.startActivity(intent)
+                                                                } catch (e: Exception) {
+                                                                    android.widget.Toast.makeText(context, "Could not open link", android.widget.Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            }
+                                                        ) {
+                                                            Row(
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                                            ) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.OpenInBrowser,
+                                                                    contentDescription = null,
+                                                                    tint = CyberCyan,
+                                                                    modifier = Modifier.size(11.dp)
+                                                                )
+                                                                Spacer(modifier = Modifier.width(4.dp))
+                                                                Text(
+                                                                    text = source.title.take(24) + if (source.title.length > 24) "…" else "",
+                                                                    color = CyberTextSecondary,
+                                                                    fontSize = 10.sp,
+                                                                    fontWeight = FontWeight.Medium
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
 
@@ -680,6 +789,8 @@ fun ThreatDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             listOf(
+                                "🌐 Google Search active exploit status",
+                                "🔍 Latest vendor patches today",
                                 "Generate Kubernetes mitigation",
                                 "WAF ModSecurity rule",
                                 "Draft team advisory email"

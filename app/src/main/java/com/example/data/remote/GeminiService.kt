@@ -58,15 +58,39 @@ data class GeminiContent(
 )
 
 @JsonClass(generateAdapter = true)
+data class GeminiWebSearchTool(
+    @Json(name = "googleSearch") val googleSearch: Map<String, String> = emptyMap()
+)
+
+@JsonClass(generateAdapter = true)
 data class GeminiGenerateRequest(
     @Json(name = "contents") val contents: List<GeminiContent>,
     @Json(name = "systemInstruction") val systemInstruction: GeminiContent? = null,
-    @Json(name = "generationConfig") val generationConfig: GeminiGenerationConfig? = null
+    @Json(name = "generationConfig") val generationConfig: GeminiGenerationConfig? = null,
+    @Json(name = "tools") val tools: List<GeminiWebSearchTool>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiWebSource(
+    @Json(name = "uri") val uri: String? = null,
+    @Json(name = "title") val title: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiGroundingChunk(
+    @Json(name = "web") val web: GeminiWebSource? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiGroundingMetadata(
+    @Json(name = "webSearchQueries") val webSearchQueries: List<String>? = null,
+    @Json(name = "groundingChunks") val groundingChunks: List<GeminiGroundingChunk>? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class GeminiCandidate(
-    @Json(name = "content") val content: GeminiContent?
+    @Json(name = "content") val content: GeminiContent?,
+    @Json(name = "groundingMetadata") val groundingMetadata: GeminiGroundingMetadata? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -117,7 +141,10 @@ data class GeminiAnalysisResult(
     val remediationSteps: List<String>,
     val riskScore: Int,
     val mitigationCode: String,
-    val rawAnswer: String
+    val rawAnswer: String,
+    val isSearchGrounded: Boolean = false,
+    val searchQueries: List<String> = emptyList(),
+    val groundingSources: List<com.example.data.model.GroundingSource> = emptyList()
 )
 
 data class ChatbotReply(
@@ -125,7 +152,10 @@ data class ChatbotReply(
     val imageBase64: String? = null,
     val imageMimeType: String? = "image/png",
     val modelUsed: GeminiModel? = null,
-    val wasSwitchedDueToQuota: Boolean = false
+    val wasSwitchedDueToQuota: Boolean = false,
+    val isSearchGrounded: Boolean = false,
+    val searchQueries: List<String> = emptyList(),
+    val groundingSources: List<com.example.data.model.GroundingSource> = emptyList()
 )
 
 // --- Primary Service Class ---
@@ -160,9 +190,9 @@ class GeminiService {
     }
 
     /**
-     * Analyzes and summarizes threat intelligence articles using the Retrofit-based client.
+     * Analyzes and summarizes threat intelligence articles using the Retrofit-based client with optional Google Search Grounding.
      */
-    suspend fun analyzeThreat(threat: ThreatItem): GeminiAnalysisResult = withContext(Dispatchers.IO) {
+    suspend fun analyzeThreat(threat: ThreatItem, enableSearchGrounding: Boolean = true): GeminiAnalysisResult = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
 
         val prompt = """
@@ -174,9 +204,11 @@ class GeminiService {
             Category: ${threat.category.displayName}
             Content/Advisory: ${threat.fullContent.ifEmpty { threat.description }}
 
+            If search grounding is available, verify if there is active in-the-wild exploitation, CISA KEV presence, or vendor patch release.
+
             Provide a comprehensive, actionable response in the following exact format:
             ===EXECUTIVE_SUMMARY===
-            (2-3 sentences explaining the core threat, the attack vector, and business/technical impact)
+            (2-3 sentences explaining the core threat, the attack vector, active exploitation status, and business/technical impact)
 
             ===RISK_SCORE===
             (A single integer from 1 to 10, where 10 is catastrophic zero-day / critical RCE, and 1 is informational)
@@ -197,23 +229,48 @@ class GeminiService {
         }
 
         try {
+            val tools = if (enableSearchGrounding) listOf(GeminiWebSearchTool()) else null
             val request = GeminiGenerateRequest(
                 contents = listOf(
                     GeminiContent(parts = listOf(GeminiPart(text = prompt)))
-                )
+                ),
+                tools = tools
             )
 
-            val result = GeminiModelDispatcher.executeWithQuotaFallback { model ->
+            // When search grounding is enabled, prioritize gemini-3.5-flash
+            val preferredModel = if (enableSearchGrounding) GeminiModel.GEMINI_3_5_FLASH else null
+
+            val result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
                 RetrofitClient.service.generateContent(model.modelId, apiKey, request)
             }
 
             when (result) {
                 is QuotaExecutionResult.Success -> {
-                    val generatedText = result.data.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+                    val candidate = result.data.candidates?.firstOrNull()
+                    val generatedText = candidate?.content?.parts?.firstOrNull()?.text ?: ""
+                    val metadata = candidate?.groundingMetadata
+
+                    val searchQueries = metadata?.webSearchQueries ?: emptyList()
+                    val sources = metadata?.groundingChunks?.mapNotNull { chunk ->
+                        val uri = chunk.web?.uri
+                        val title = chunk.web?.title ?: uri
+                        if (!uri.isNullOrBlank()) {
+                            com.example.data.model.GroundingSource(
+                                title = title?.ifBlank { "Google Search Result" } ?: "Google Search Result",
+                                url = uri
+                            )
+                        } else null
+                    } ?: emptyList()
+
                     if (generatedText.isBlank()) {
                         generateFallbackAnalysis(threat)
                     } else {
-                        parseGeminiOutput(generatedText, threat)
+                        val parsed = parseGeminiOutput(generatedText, threat)
+                        parsed.copy(
+                            isSearchGrounded = enableSearchGrounding && (searchQueries.isNotEmpty() || sources.isNotEmpty()),
+                            searchQueries = searchQueries,
+                            groundingSources = sources
+                        )
                     }
                 }
                 is QuotaExecutionResult.Error -> {
@@ -228,9 +285,9 @@ class GeminiService {
     }
 
     /**
-     * Solves custom user DevSecOps questions regarding a threat using the Retrofit client.
+     * Solves custom user DevSecOps questions regarding a threat using the Retrofit client with Google Search Grounding.
      */
-    suspend fun askCustomQuestion(threat: ThreatItem, userQuestion: String): String = withContext(Dispatchers.IO) {
+    suspend fun askCustomQuestion(threat: ThreatItem, userQuestion: String, enableSearchGrounding: Boolean = true): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
             return@withContext "ℹ️ Gemini API key is not configured. Baseline DevSecOps guidance for ${threat.title}:\n\nEnsure dependencies are updated to the latest secure release, enforce robust network segmentation, and continuously scan build packages."
@@ -246,23 +303,34 @@ class GeminiService {
                 User Security Engineer Question:
                 $userQuestion
 
-                Provide a direct, practical, and highly technical DevSecOps response with actionable commands or configurations where applicable.
+                Provide a direct, practical, and highly technical DevSecOps response with actionable commands or configurations where applicable. If relevant, verify current live exploit activity and vendor patch releases via Google Search.
             """.trimIndent()
 
+            val tools = if (enableSearchGrounding) listOf(GeminiWebSearchTool()) else null
             val request = GeminiGenerateRequest(
                 contents = listOf(
                     GeminiContent(parts = listOf(GeminiPart(text = prompt)))
-                )
+                ),
+                tools = tools
             )
 
-            val result = GeminiModelDispatcher.executeWithQuotaFallback { model ->
+            val preferredModel = if (enableSearchGrounding) GeminiModel.GEMINI_3_5_FLASH else null
+
+            val result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
                 RetrofitClient.service.generateContent(model.modelId, apiKey, request)
             }
 
             when (result) {
                 is QuotaExecutionResult.Success -> {
-                    result.data.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                        ?: "No response generated by Gemini."
+                    val candidate = result.data.candidates?.firstOrNull()
+                    val text = candidate?.content?.parts?.firstOrNull()?.text ?: "No response generated by Gemini."
+                    val metadata = candidate?.groundingMetadata
+                    val sources = metadata?.groundingChunks?.mapNotNull { it.web?.uri } ?: emptyList()
+                    if (sources.isNotEmpty()) {
+                        "$text\n\n**🌐 Grounded Sources:**\n" + sources.distinct().take(4).joinToString("\n") { "• $it" }
+                    } else {
+                        text
+                    }
                 }
                 is QuotaExecutionResult.Error -> {
                     "Error querying Gemini (${result.lastAttemptedModel.displayName}): ${result.throwable.localizedMessage ?: "Unknown error"}"
@@ -274,7 +342,7 @@ class GeminiService {
     }
 
     /**
-     * Executes conversational multi-turn AI dialogue with dynamic model routing and auto quota switching via Retrofit.
+     * Executes conversational multi-turn AI dialogue with dynamic model routing, Google Search Grounding, and auto quota switching via Retrofit.
      * Supports multimodal image inputs and returns generated images when requested or generated by vision models.
      */
     suspend fun sendChatMessage(
@@ -282,7 +350,8 @@ class GeminiService {
         conversationHistory: List<ChatMessage>,
         userPrompt: String,
         userImageBase64: String? = null,
-        userImageMimeType: String = "image/jpeg"
+        userImageMimeType: String = "image/jpeg",
+        enableSearchGrounding: Boolean = true
     ): ChatbotReply = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
@@ -334,10 +403,10 @@ class GeminiService {
             )
 
             val wantsImageGeneration = isImageGenerationIntent(userPrompt) || model == GeminiModel.GEMINI_2_5_FLASH_IMAGE
-            val effectiveTargetModel = if (wantsImageGeneration && model.category != com.example.data.model.ModelCategory.IMAGE_AND_VISION) {
-                GeminiModel.GEMINI_2_5_FLASH_IMAGE
-            } else {
-                model
+            val effectiveTargetModel = when {
+                wantsImageGeneration && model.category != com.example.data.model.ModelCategory.IMAGE_AND_VISION -> GeminiModel.GEMINI_2_5_FLASH_IMAGE
+                enableSearchGrounding && !wantsImageGeneration -> GeminiModel.GEMINI_3_5_FLASH
+                else -> model
             }
 
             val generationConfig = if (wantsImageGeneration) {
@@ -347,16 +416,19 @@ class GeminiService {
                 )
             } else null
 
+            val tools = if (enableSearchGrounding && !wantsImageGeneration) listOf(GeminiWebSearchTool()) else null
+
             val request = GeminiGenerateRequest(
                 contents = reqContents,
                 systemInstruction = GeminiContent(
                     parts = listOf(
                         GeminiPart(
-                            text = "You are Gemini, an expert DevSecOps and Cybersecurity architect. Provide concise, highly technical, and actionable guidance with code snippets, MITRE ATT&CK/D3FEND references, CLI commands, and defensive blueprints. If the user provides an image or architecture diagram, audit it for security vulnerabilities. If asked to generate an image or diagram, describe it and provide visual topology."
+                            text = "You are Gemini 3.5 Flash, an expert DevSecOps and Cybersecurity architect. Provide concise, highly technical, and actionable guidance with code snippets, MITRE ATT&CK/D3FEND references, CLI commands, and defensive blueprints. When Google Search data is provided, synthesize the latest live intelligence and reference accurate zero-day/CVE status. If the user provides an image or architecture diagram, audit it for security vulnerabilities. If asked to generate an image or diagram, describe it and provide visual topology."
                         )
                     )
                 ),
-                generationConfig = generationConfig
+                generationConfig = generationConfig,
+                tools = tools
             )
 
             val execResult = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = effectiveTargetModel) { targetModel ->
@@ -365,9 +437,23 @@ class GeminiService {
 
             when (execResult) {
                 is QuotaExecutionResult.Success -> {
-                    val candidate = execResult.data.candidates?.firstOrNull()?.content
-                    val textPart = candidate?.parts?.firstOrNull { it.text != null }?.text
-                    val imagePart = candidate?.parts?.firstOrNull { it.inlineData != null }?.inlineData
+                    val candidate = execResult.data.candidates?.firstOrNull()
+                    val candidateContent = candidate?.content
+                    val textPart = candidateContent?.parts?.firstOrNull { it.text != null }?.text
+                    val imagePart = candidateContent?.parts?.firstOrNull { it.inlineData != null }?.inlineData
+                    val metadata = candidate?.groundingMetadata
+
+                    val searchQueries = metadata?.webSearchQueries ?: emptyList()
+                    val sources = metadata?.groundingChunks?.mapNotNull { chunk ->
+                        val uri = chunk.web?.uri
+                        val title = chunk.web?.title ?: uri
+                        if (!uri.isNullOrBlank()) {
+                            com.example.data.model.GroundingSource(
+                                title = title?.ifBlank { "Google Search Result" } ?: "Google Search Result",
+                                url = uri
+                            )
+                        } else null
+                    } ?: emptyList()
 
                     val quotaNotice = if (execResult.wasSwitchedDueToQuota) {
                         "\n\n> ℹ️ *Notice: Primary model quota was exceeded. Auto-switched to **${execResult.modelUsed.displayName}**.*"
@@ -380,7 +466,10 @@ class GeminiService {
                         imageBase64 = imagePart?.data,
                         imageMimeType = imagePart?.mimeType ?: "image/png",
                         modelUsed = execResult.modelUsed,
-                        wasSwitchedDueToQuota = execResult.wasSwitchedDueToQuota
+                        wasSwitchedDueToQuota = execResult.wasSwitchedDueToQuota,
+                        isSearchGrounded = enableSearchGrounding && (searchQueries.isNotEmpty() || sources.isNotEmpty()),
+                        searchQueries = searchQueries,
+                        groundingSources = sources
                     )
                 }
                 is QuotaExecutionResult.Error -> {
