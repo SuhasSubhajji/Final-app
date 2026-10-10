@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Brightness2
 import androidx.compose.material.icons.filled.DarkMode
@@ -677,6 +678,9 @@ fun DashboardScreen(
                             },
                             onFeedback = { isPositive ->
                                 viewModel.recordThreatFeedback(item, isPositive)
+                            },
+                            onCveClick = { cveId ->
+                                viewModel.selectCve(cveId, item)
                             }
                         )
                     }
@@ -793,7 +797,10 @@ fun DashboardScreen(
                     com.example.ui.components.CveTrendVisualizationCard(
                         points7Days = cvePoints7Days,
                         points30Days = cvePoints30Days,
-                        summary = cveSummary
+                        summary = cveSummary,
+                        onCveClick = { cveId ->
+                            viewModel.selectCve(cveId)
+                        }
                     )
                 }
 
@@ -1099,6 +1106,7 @@ private fun DashboardThreatCard(
     onBookmarkToggle: () -> Unit,
     onSummarizeClick: () -> Unit,
     onFeedback: ((Boolean) -> Unit)? = null,
+    onCveClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val theme = CyberTheme.colors
@@ -1243,17 +1251,35 @@ private fun DashboardThreatCard(
             ) {
                 // CVE Tag or Category
                 if (threat.cveIds.isNotEmpty()) {
+                    val cveId = threat.cveIds.first()
                     Surface(
                         color = theme.accentPrimary.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(4.dp)
+                        shape = RoundedCornerShape(4.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.6.dp, theme.accentPrimary.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .clickable(enabled = onCveClick != null) { onCveClick?.invoke(cveId) }
+                            .testTag("dashboard_cve_tag_$cveId")
                     ) {
-                        Text(
-                            text = threat.cveIds.first(),
-                            color = theme.accentPrimary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = cveId,
+                                color = theme.accentPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (onCveClick != null) {
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "CVE Info",
+                                    tint = theme.accentPrimary.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(10.dp)
+                                )
+                            }
+                        }
                     }
                 } else {
                     Text(

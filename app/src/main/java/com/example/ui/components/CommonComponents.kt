@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
@@ -232,7 +233,8 @@ fun ThreatItemCard(
     modifier: Modifier = Modifier,
     rlMatchScore: Int? = null,
     onSummarizeCveClick: (() -> Unit)? = null,
-    isSummarizing: Boolean = false
+    isSummarizing: Boolean = false,
+    onCveClick: ((String) -> Unit)? = null
 ) {
     val theme = CyberTheme.colors
 
@@ -425,15 +427,31 @@ fun ThreatItemCard(
                         Surface(
                             color = theme.accentPrimary.copy(alpha = 0.12f),
                             shape = RoundedCornerShape(4.dp),
-                            border = androidx.compose.foundation.BorderStroke(0.8.dp, theme.accentPrimary.copy(alpha = 0.4f))
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, theme.accentPrimary.copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .clickable(enabled = onCveClick != null) { onCveClick?.invoke(cve) }
+                                .testTag("feed_cve_pill_$cve")
                         ) {
-                            Text(
-                                text = cve,
-                                color = theme.accentPrimary,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = cve,
+                                    color = theme.accentPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                if (onCveClick != null) {
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "Expand CVE details",
+                                        tint = theme.accentPrimary.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 

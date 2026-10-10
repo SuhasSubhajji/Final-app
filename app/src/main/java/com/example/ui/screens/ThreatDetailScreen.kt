@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInBrowser
@@ -287,15 +288,29 @@ fun ThreatDetailScreen(
                         Surface(
                             color = CyberCyan.copy(alpha = 0.15f),
                             shape = RoundedCornerShape(6.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .clickable { viewModel.selectCve(cve, item) }
+                                .testTag("detail_cve_chip_$cve")
                         ) {
-                            Text(
-                                text = cve,
-                                color = CyberCyan,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = cve,
+                                    color = CyberCyan,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Expand CVE details",
+                                    tint = CyberCyan.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
                         }
                     }
 

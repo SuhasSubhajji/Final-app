@@ -353,7 +353,8 @@ fun FeedListScreen(
                             onBookmarkToggle = { viewModel.toggleBookmark(item) },
                             rlMatchScore = viewModel.getThreatRelevanceScore(item),
                             onSummarizeCveClick = { viewModel.summarizeCveForThreat(item) },
-                            isSummarizing = isItemSummarizing
+                            isSummarizing = isItemSummarizing,
+                            onCveClick = { cveId -> viewModel.selectCve(cveId, item) }
                         )
                     }
                 }

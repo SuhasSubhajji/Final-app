@@ -25,7 +25,8 @@ import com.example.ui.theme.*
 fun AttackScenarioCard(
     scenario: AttackScenario,
     modifier: Modifier = Modifier,
-    onExplainWithGemini: ((AttackScenario) -> Unit)? = null
+    onExplainWithGemini: ((AttackScenario) -> Unit)? = null,
+    onCveClick: ((String) -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -214,19 +215,39 @@ fun AttackScenarioCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            scenario.cveReferences.split(",").map { it.trim() }.forEach { cve ->
+                            scenario.cveReferences.split(",").map { it.trim() }.forEach { ref ->
+                                val isCve = ref.startsWith("CVE-", ignoreCase = true)
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
                                     color = CyberNavySurfaceVariant,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder)
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isCve) CyberCyan.copy(alpha = 0.5f) else CyberBorder),
+                                    modifier = Modifier
+                                        .clickable(enabled = isCve && onCveClick != null) {
+                                            val cveToken = ref.split(" ").firstOrNull { it.startsWith("CVE-", ignoreCase = true) } ?: ref
+                                            onCveClick?.invoke(cveToken)
+                                        }
+                                        .testTag("scenario_cve_chip_${ref.replace(" ", "_")}")
                                 ) {
-                                    Text(
-                                        text = cve,
-                                        color = CyberCyan,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = ref,
+                                            color = if (isCve) CyberCyan else CyberTextSecondary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        if (isCve && onCveClick != null) {
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = "View CVE details",
+                                                tint = CyberCyan.copy(alpha = 0.8f),
+                                                modifier = Modifier.size(10.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

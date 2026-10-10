@@ -842,7 +842,10 @@ fun LearningRoadmapScreen(
                         }
                     } else {
                         items(filteredScenarios, key = { it.id }) { scenario ->
-                            AttackScenarioCard(scenario = scenario)
+                            AttackScenarioCard(
+                                scenario = scenario,
+                                onCveClick = { cveId -> viewModel.selectCve(cveId) }
+                            )
                         }
                     }
                 }

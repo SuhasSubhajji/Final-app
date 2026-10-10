@@ -34,7 +34,9 @@ import com.example.data.model.ThreatSeverity
 import com.example.data.model.ThreatStats
 import com.example.data.model.TopicOfTheDay
 import com.example.data.model.VulnerabilityTypeStat
+import com.example.data.model.CveDetail
 import com.example.data.remote.GeminiAnalysisResult
+import com.example.data.repository.CveIntelligenceRepository
 import com.example.data.repository.ThreatRepository
 import com.example.data.repository.BreachRepository
 import com.example.notification.SecurityAlertManager
@@ -457,6 +459,26 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    // Expanded CVE details bottom sheet state
+    private val _selectedCveDetail = MutableStateFlow<CveDetail?>(null)
+    val selectedCveDetail: StateFlow<CveDetail?> = _selectedCveDetail.asStateFlow()
+
+    private val _selectedCveMatchingThreat = MutableStateFlow<ThreatItem?>(null)
+    val selectedCveMatchingThreat: StateFlow<ThreatItem?> = _selectedCveMatchingThreat.asStateFlow()
+
+    fun selectCve(cveId: String, matchingThreat: ThreatItem? = null) {
+        val resolvedThreat = matchingThreat ?: allThreatsFlow.value.firstOrNull { threat ->
+            threat.cveIds.any { it.equals(cveId, ignoreCase = true) }
+        }
+        _selectedCveMatchingThreat.value = resolvedThreat
+        _selectedCveDetail.value = CveIntelligenceRepository.getCveDetail(cveId, resolvedThreat)
+    }
+
+    fun clearSelectedCve() {
+        _selectedCveDetail.value = null
+        _selectedCveMatchingThreat.value = null
+    }
 
     val totalCachedThreatsCount: StateFlow<Int> = repository.totalCachedCountFlow.stateIn(
         scope = viewModelScope,

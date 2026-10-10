@@ -102,6 +102,7 @@ fun CveTrendVisualizationCard(
     points7Days: List<CveTimelineTrendPoint>,
     points30Days: List<CveTimelineTrendPoint>,
     summary: CveSeverityBreakdownSummary,
+    onCveClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var selectedRange by remember { mutableIntStateOf(7) }
@@ -308,7 +309,10 @@ fun CveTrendVisualizationCard(
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = CyberNavySurfaceVariant,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder)
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder),
+                                modifier = Modifier
+                                    .clickable(enabled = onCveClick != null) { onCveClick?.invoke(cveId) }
+                                    .testTag("trend_cve_chip_$cveId")
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -328,6 +332,15 @@ fun CveTrendVisualizationCard(
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Medium
                                     )
+                                    if (onCveClick != null) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = "View CVE Dossier",
+                                            tint = CyberCyan.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

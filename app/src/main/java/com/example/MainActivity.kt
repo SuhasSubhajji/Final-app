@@ -53,7 +53,10 @@ import com.example.ui.screens.FeedListScreen
 import com.example.ui.screens.GeminiChatbotScreen
 import com.example.ui.screens.LearningRoadmapScreen
 import com.example.ui.screens.ThreatDetailScreen
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.ui.components.AppUpdatePromptDialog
+import com.example.ui.components.CveDetailModalSheet
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
 import com.example.ui.theme.CyberNavyDark
@@ -113,6 +116,7 @@ sealed class Screen(val route: String, val label: String) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CyberShieldApp(
     viewModel: ThreatFeedViewModel,
@@ -452,6 +456,25 @@ fun CyberShieldApp(
                     }
                 )
             }
+        }
+
+        // Expanded CVE Details Modal Bottom Sheet
+        val selectedCveDetail by viewModel.selectedCveDetail.collectAsState()
+        val selectedCveMatchingThreat by viewModel.selectedCveMatchingThreat.collectAsState()
+        val cveSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        selectedCveDetail?.let { detail ->
+            CveDetailModalSheet(
+                cveDetail = detail,
+                sheetState = cveSheetState,
+                matchingThreat = selectedCveMatchingThreat,
+                onDismissRequest = {
+                    viewModel.clearSelectedCve()
+                },
+                onViewThreatDetail = { threatId ->
+                    navController.navigate(Screen.Detail.createRoute(threatId))
+                }
+            )
         }
     }
 }
