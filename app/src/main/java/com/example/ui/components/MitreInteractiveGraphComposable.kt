@@ -64,6 +64,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.mitre.MitreD3fendItem
+import com.example.data.mitre.MitreDefendTactic
 import com.example.data.mitre.MitreMatrixRepository
 import com.example.data.mitre.MitreTactic
 import com.example.data.mitre.MitreTtpItem
@@ -101,22 +103,38 @@ fun MitreInteractiveGraphComposable(
             when (initialMode) {
                 "DEFEND" -> MitreGraphViewMode.DEFEND
                 "UNIFIED" -> MitreGraphViewMode.UNIFIED
+                "D3_CANVAS" -> MitreGraphViewMode.D3_CANVAS
                 else -> MitreGraphViewMode.ATTACK
             }
         )
     }
-    var selectedTacticFilter by remember { mutableStateOf<MitreTactic?>(null) }
+    var selectedAttackTacticFilter by remember { mutableStateOf<MitreTactic?>(null) }
+    var selectedDefendTacticFilter by remember { mutableStateOf<MitreDefendTactic?>(null) }
     var selectedTtpForInspection by remember { mutableStateOf<MitreTtpItem?>(null) }
+    var selectedD3fendForInspection by remember { mutableStateOf<MitreD3fendItem?>(null) }
 
     val allTtps = remember { MitreMatrixRepository.allTtps }
-    val filteredTtps = remember(selectedTacticFilter) {
-        if (selectedTacticFilter == null) allTtps else allTtps.filter { it.tactic == selectedTacticFilter }
+    val allD3fendItems = remember { MitreMatrixRepository.allD3fendItems }
+
+    val filteredAttackTtps = remember(selectedAttackTacticFilter) {
+        if (selectedAttackTacticFilter == null) allTtps else allTtps.filter { it.tactic == selectedAttackTacticFilter }
+    }
+
+    val filteredD3fendItems = remember(selectedDefendTacticFilter) {
+        if (selectedDefendTacticFilter == null) allD3fendItems else allD3fendItems.filter { it.tactic == selectedDefendTacticFilter }
     }
 
     val studiedCount = remember(progressMap) { allTtps.count { progressMap[it.techniqueId] == "STUDIED" } }
     val masteredCount = remember(progressMap) { allTtps.count { progressMap[it.techniqueId] == "MASTERED" } }
     val totalCount = allTtps.size
     val progressRatio = (studiedCount + masteredCount).toFloat() / totalCount.coerceAtLeast(1)
+
+    val currentBadgeText = when (selectedViewMode) {
+        MitreGraphViewMode.ATTACK -> "${filteredAttackTtps.size} ATT&CK TTPs"
+        MitreGraphViewMode.DEFEND -> "${filteredD3fendItems.size} D3FEND Rules"
+        MitreGraphViewMode.UNIFIED -> "${filteredAttackTtps.size} ATT&CK • ${filteredD3fendItems.size} D3FEND"
+        MitreGraphViewMode.D3_CANVAS -> "${allTtps.size} ATT&CK + ${allD3fendItems.size} D3FEND Flow"
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -147,11 +165,19 @@ fun MitreInteractiveGraphComposable(
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = theme.accentPrimary.copy(alpha = 0.15f)
+                            color = when (selectedViewMode) {
+                                MitreGraphViewMode.ATTACK -> SeverityCritical.copy(alpha = 0.15f)
+                                MitreGraphViewMode.DEFEND -> CyberEmerald.copy(alpha = 0.15f)
+                                else -> CyberCyan.copy(alpha = 0.15f)
+                            }
                         ) {
                             Text(
-                                text = "${filteredTtps.size} TTPs",
-                                color = theme.accentPrimary,
+                                text = currentBadgeText,
+                                color = when (selectedViewMode) {
+                                    MitreGraphViewMode.ATTACK -> SeverityCritical
+                                    MitreGraphViewMode.DEFEND -> CyberEmerald
+                                    else -> CyberCyan
+                                },
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -261,29 +287,56 @@ fun MitreInteractiveGraphComposable(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    FilterChip(
-                        selected = selectedTacticFilter == null,
-                        onClick = { selectedTacticFilter = null },
-                        label = { Text("ALL 14 TACTICS", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = theme.accentPrimary.copy(alpha = 0.2f),
-                            selectedLabelColor = theme.accentPrimary
-                        ),
-                        modifier = Modifier.height(28.dp)
-                    )
-
-                    MitreTactic.entries.forEach { tactic ->
-                        val selected = selectedTacticFilter == tactic
+                    if (selectedViewMode == MitreGraphViewMode.DEFEND) {
                         FilterChip(
-                            selected = selected,
-                            onClick = { selectedTacticFilter = if (selected) null else tactic },
-                            label = { Text(tactic.displayName, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) },
+                            selected = selectedDefendTacticFilter == null,
+                            onClick = { selectedDefendTacticFilter = null },
+                            label = { Text("ALL 6 D3FEND TACTICS", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = tactic.color.copy(alpha = 0.25f),
-                                selectedLabelColor = tactic.color
+                                selectedContainerColor = CyberEmerald.copy(alpha = 0.2f),
+                                selectedLabelColor = CyberEmerald
                             ),
                             modifier = Modifier.height(28.dp)
                         )
+
+                        MitreDefendTactic.entries.forEach { tactic ->
+                            val selected = selectedDefendTacticFilter == tactic
+                            FilterChip(
+                                selected = selected,
+                                onClick = { selectedDefendTacticFilter = if (selected) null else tactic },
+                                label = { Text(tactic.displayName, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = tactic.color.copy(alpha = 0.25f),
+                                    selectedLabelColor = tactic.color
+                                ),
+                                modifier = Modifier.height(28.dp)
+                            )
+                        }
+                    } else {
+                        FilterChip(
+                            selected = selectedAttackTacticFilter == null,
+                            onClick = { selectedAttackTacticFilter = null },
+                            label = { Text("ALL 14 ATT&CK TACTICS", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = theme.accentPrimary.copy(alpha = 0.2f),
+                                selectedLabelColor = theme.accentPrimary
+                            ),
+                            modifier = Modifier.height(28.dp)
+                        )
+
+                        MitreTactic.entries.forEach { tactic ->
+                            val selected = selectedAttackTacticFilter == tactic
+                            FilterChip(
+                                selected = selected,
+                                onClick = { selectedAttackTacticFilter = if (selected) null else tactic },
+                                label = { Text(tactic.displayName, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = tactic.color.copy(alpha = 0.25f),
+                                    selectedLabelColor = tactic.color
+                                ),
+                                modifier = Modifier.height(28.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -292,19 +345,38 @@ fun MitreInteractiveGraphComposable(
         // --- Main Visual Graph / D3 Canvas Area ---
         if (selectedViewMode == MitreGraphViewMode.D3_CANVAS) {
             com.example.ui.screens.MitreFlowChartWebView(
-                initialFocusMode = when (initialMode) {
-                    "DEFEND" -> "DEFEND"
-                    "UNIFIED" -> "ALL"
+                initialFocusMode = when (selectedViewMode) {
+                    MitreGraphViewMode.DEFEND -> "DEFEND"
+                    MitreGraphViewMode.UNIFIED -> "ALL"
                     else -> "ATTACK"
                 },
                 onTechniqueSelected = { techId ->
-                    val found = allTtps.firstOrNull { it.techniqueId == techId }
-                    if (found != null) {
-                        selectedTtpForInspection = found
+                    val foundAtt = allTtps.firstOrNull { it.techniqueId == techId }
+                    if (foundAtt != null) {
+                        selectedTtpForInspection = foundAtt
+                    } else {
+                        val foundDef = allD3fendItems.firstOrNull { it.d3fendId == techId }
+                        if (foundDef != null) {
+                            selectedD3fendForInspection = foundDef
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
             )
+        } else if (selectedViewMode == MitreGraphViewMode.DEFEND) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(filteredD3fendItems, key = { it.d3fendId }) { d3Item ->
+                    D3fendCountermeasureCard(
+                        item = d3Item,
+                        onClick = { selectedD3fendForInspection = d3Item }
+                    )
+                }
+            }
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -312,7 +384,7 @@ fun MitreInteractiveGraphComposable(
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(filteredTtps, key = { it.techniqueId }) { ttp ->
+                items(filteredAttackTtps, key = { it.techniqueId }) { ttp ->
                     val currentStatus = progressMap[ttp.techniqueId] ?: "UNSTARTED"
                     MitreGraphTtpCard(
                         ttp = ttp,
@@ -326,7 +398,7 @@ fun MitreInteractiveGraphComposable(
         }
     }
 
-    // --- Modal Inspection Bottom Sheet ---
+    // --- Modal Inspection Bottom Sheet for ATT&CK Item ---
     if (selectedTtpForInspection != null) {
         val ttp = selectedTtpForInspection!!
         val currentStatus = progressMap[ttp.techniqueId] ?: "UNSTARTED"
@@ -470,7 +542,7 @@ fun MitreInteractiveGraphComposable(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Terminal, contentDescription = null, tint = SeverityCritical, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("⚔️ Red Team Offensive TTP Command", color = SeverityCritical, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("⚔️ Red Team Offensive Payload", color = SeverityCritical, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
 
                             IconButton(
@@ -556,11 +628,331 @@ fun MitreInteractiveGraphComposable(
                     }
                 }
 
+                // Cyber Kill Chain Info
+                ttp.cyberKillChain?.let { killChain ->
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Surface(
+                        color = Color(0xFF1E1B4B),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF6366F1).copy(alpha = 0.25f),
+                                border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF818CF8))
+                            ) {
+                                Text(
+                                    text = "⚡ CYBER KILL CHAIN • ${killChain.stage.uppercase()}",
+                                    color = Color(0xFFA5B4FC),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(killChain.description, color = theme.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("Operational Scenario Example:", color = Color(0xFFC7D2FE), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = killChain.scenarioExample,
+                                color = Color(0xFFE0E7FF),
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp,
+                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp).background(Color(0xFF0F172A), RoundedCornerShape(6.dp)).padding(8.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Sub-Techniques
+                if (ttp.subTechniquesList.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("🧩 Sub-Techniques & Variants (${ttp.subTechniquesList.size}):", color = theme.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ttp.subTechniquesList.forEach { sub ->
+                            Surface(
+                                color = CyberNavyDark,
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.8.dp, CyberCyan.copy(alpha = 0.35f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("${sub.id}: ${sub.name}", color = CyberCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Text(sub.description, color = theme.textSecondary, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // NIST Controls
+                if (ttp.nistControls.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("🏛️ NIST Cybersecurity Framework / SP 800-53 Controls:", color = theme.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ttp.nistControls.forEach { nist ->
+                            Surface(
+                                color = Color(0xFF0F172A),
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.4f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFF0284C7).copy(alpha = 0.25f),
+                                            border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF38BDF8))
+                                        ) {
+                                            Text("NIST ${nist.controlId}", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        }
+                                        Text(nist.controlName, color = theme.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text("${nist.familyOrFunction} • ${nist.description}", color = theme.textSecondary, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp))
+                                    Text("Impl: ${nist.exampleImplementation}", color = CyberEmerald, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+        }
+    }
+
+    // --- Modal Inspection Bottom Sheet for D3FEND Item ---
+    if (selectedD3fendForInspection != null) {
+        val d3Item = selectedD3fendForInspection!!
+
+        ModalBottomSheet(
+            onDismissRequest = { selectedD3fendForInspection = null },
+            sheetState = sheetState,
+            containerColor = theme.surface,
+            scrimColor = Color.Black.copy(alpha = 0.6f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = d3Item.tactic.color.copy(alpha = 0.2f),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, d3Item.tactic.color)
+                            ) {
+                                Text(
+                                    text = "${d3Item.tactic.tacticId} • ${d3Item.tactic.displayName}",
+                                    color = d3Item.tactic.color,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "🛡️ ${d3Item.d3fendId}: ${d3Item.name}",
+                            color = CyberEmerald,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 22.sp
+                        )
+                    }
+                    IconButton(onClick = { selectedD3fendForInspection = null }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = theme.textMuted)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = d3Item.description,
+                    color = theme.textSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Surface(
+                    color = CyberNavyDark,
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🛡️ D3FEND Enforcement / Detection Rule", color = CyberEmerald, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+                            IconButton(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("D3FEND Rule", d3Item.ruleOrFix))
+                                    Toast.makeText(context, "Copied D3FEND Rule!", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy Rule", tint = CyberEmerald, modifier = Modifier.size(16.dp))
+                            }
+                        }
+
+                        Surface(
+                            color = Color(0xFF070B14),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, theme.border),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Text(
+                                text = d3Item.ruleOrFix.trimIndent(),
+                                color = CyberEmerald,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text("⚔️ Countered ATT&CK Techniques:", color = theme.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    d3Item.counteredAttackIds.forEach { attId ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = SeverityCritical.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, SeverityCritical.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = attId,
+                                color = SeverityCritical,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Cyber Kill Chain Defensive Stage
+                d3Item.cyberKillChain?.let { killChain ->
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Surface(
+                        color = Color(0xFF1E1B4B),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF6366F1).copy(alpha = 0.25f),
+                                border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF818CF8))
+                            ) {
+                                Text(
+                                    text = "⚡ CYBER KILL CHAIN DEFENSE • ${killChain.stage.uppercase()}",
+                                    color = Color(0xFFA5B4FC),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(killChain.description, color = theme.textSecondary, fontSize = 11.sp, lineHeight = 15.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text("Defense Operational Example:", color = Color(0xFFC7D2FE), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = killChain.scenarioExample,
+                                color = Color(0xFFE0E7FF),
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp,
+                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp).background(Color(0xFF0F172A), RoundedCornerShape(6.dp)).padding(8.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Sub-Techniques
+                if (d3Item.subTechniquesList.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("🧩 Defensive Sub-Methods (${d3Item.subTechniquesList.size}):", color = theme.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        d3Item.subTechniquesList.forEach { sub ->
+                            Surface(
+                                color = CyberNavyDark,
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.8.dp, CyberEmerald.copy(alpha = 0.35f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("${sub.id}: ${sub.name}", color = CyberEmerald, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                    Text(sub.description, color = theme.textSecondary, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // NIST Controls
+                if (d3Item.nistControls.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("🏛️ NIST SP 800-53 / Cybersecurity Framework Controls:", color = theme.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        d3Item.nistControls.forEach { nist ->
+                            Surface(
+                                color = Color(0xFF0F172A),
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.4f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Color(0xFF0284C7).copy(alpha = 0.25f),
+                                            border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF38BDF8))
+                                        ) {
+                                            Text("NIST ${nist.controlId}", color = Color(0xFF38BDF8), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        }
+                                        Text(nist.controlName, color = theme.textPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Text("${nist.familyOrFunction} • ${nist.description}", color = theme.textSecondary, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp))
+                                    Text("Impl: ${nist.exampleImplementation}", color = CyberEmerald, fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 4.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
 }
+
 
 @Composable
 private fun MitreGraphTtpCard(
@@ -625,7 +1017,6 @@ private fun MitreGraphTtpCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Status Badge
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = when (status) {
@@ -731,6 +1122,110 @@ private fun MitreGraphTtpCard(
                         ),
                         modifier = Modifier.height(26.dp)
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun D3fendCountermeasureCard(
+    item: MitreD3fendItem,
+    onClick: () -> Unit
+) {
+    val theme = CyberTheme.colors
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag("mitre_d3fend_card_${item.d3fendId}"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = theme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = item.tactic.color.copy(alpha = 0.2f),
+                        border = androidx.compose.foundation.BorderStroke(0.8.dp, item.tactic.color)
+                    ) {
+                        Text(
+                            text = "${item.tactic.tacticId} • ${item.tactic.displayName}",
+                            color = item.tactic.color,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = item.d3fendId,
+                        color = CyberEmerald,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "🛡️ ${item.name}",
+                color = theme.textPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = item.description,
+                color = theme.textSecondary,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                maxLines = 2
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "⚔️ Counteracts:",
+                    color = SeverityCritical,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    item.counteredAttackIds.forEach { attId ->
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = SeverityCritical.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(0.6.dp, SeverityCritical.copy(alpha = 0.4f))
+                        ) {
+                            Text(
+                                text = attId,
+                                color = SeverityCritical,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

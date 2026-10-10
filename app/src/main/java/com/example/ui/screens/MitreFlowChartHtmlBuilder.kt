@@ -51,6 +51,37 @@ object MitreFlowChartHtmlBuilder {
                 ttpObj.put("tags", JSONArray(ttp.tags))
                 ttpObj.put("type", "attack_technique")
                 ttpObj.put("color", String.format("#%06X", (0xFFFFFF and tactic.color.toArgb())))
+
+                val subTechArray = JSONArray()
+                ttp.subTechniquesList.forEach { sub ->
+                    val subObj = JSONObject()
+                    subObj.put("id", sub.id)
+                    subObj.put("name", sub.name)
+                    subObj.put("description", sub.description)
+                    subTechArray.put(subObj)
+                }
+                ttpObj.put("subTechniquesList", subTechArray)
+
+                val nistArray = JSONArray()
+                ttp.nistControls.forEach { nist ->
+                    val nistObj = JSONObject()
+                    nistObj.put("controlId", nist.controlId)
+                    nistObj.put("controlName", nist.controlName)
+                    nistObj.put("familyOrFunction", nist.familyOrFunction)
+                    nistObj.put("description", nist.description)
+                    nistObj.put("exampleImplementation", nist.exampleImplementation)
+                    nistArray.put(nistObj)
+                }
+                ttpObj.put("nistControls", nistArray)
+
+                ttp.cyberKillChain?.let { kc ->
+                    val kcObj = JSONObject()
+                    kcObj.put("stage", kc.stage)
+                    kcObj.put("description", kc.description)
+                    kcObj.put("scenarioExample", kc.scenarioExample)
+                    ttpObj.put("cyberKillChain", kcObj)
+                }
+
                 ttpsArray.put(ttpObj)
             }
 
@@ -82,6 +113,37 @@ object MitreFlowChartHtmlBuilder {
                 d3Obj.put("tags", JSONArray(d3.tags))
                 d3Obj.put("type", "defend_technique")
                 d3Obj.put("color", String.format("#%06X", (0xFFFFFF and d3Tactic.color.toArgb())))
+
+                val subTechArray = JSONArray()
+                d3.subTechniquesList.forEach { sub ->
+                    val subObj = JSONObject()
+                    subObj.put("id", sub.id)
+                    subObj.put("name", sub.name)
+                    subObj.put("description", sub.description)
+                    subTechArray.put(subObj)
+                }
+                d3Obj.put("subTechniquesList", subTechArray)
+
+                val nistArray = JSONArray()
+                d3.nistControls.forEach { nist ->
+                    val nistObj = JSONObject()
+                    nistObj.put("controlId", nist.controlId)
+                    nistObj.put("controlName", nist.controlName)
+                    nistObj.put("familyOrFunction", nist.familyOrFunction)
+                    nistObj.put("description", nist.description)
+                    nistObj.put("exampleImplementation", nist.exampleImplementation)
+                    nistArray.put(nistObj)
+                }
+                d3Obj.put("nistControls", nistArray)
+
+                d3.cyberKillChain?.let { kc ->
+                    val kcObj = JSONObject()
+                    kcObj.put("stage", kc.stage)
+                    kcObj.put("description", kc.description)
+                    kcObj.put("scenarioExample", kc.scenarioExample)
+                    d3Obj.put("cyberKillChain", kcObj)
+                }
+
                 d3Array.put(d3Obj)
             }
 
@@ -442,6 +504,8 @@ object MitreFlowChartHtmlBuilder {
       <div class="countermeasure-title">🛡️ D3FEND Countermeasure Neutralizer</div>
       <div style="font-size:11px; color:#E2E8F0;" id="modalCounterText">Countermeasure description</div>
     </div>
+
+    <div id="modalExtraContent" style="margin-top:10px;"></div>
   </div>
 
   <script>
@@ -773,6 +837,42 @@ object MitreFlowChartHtmlBuilder {
       });
     }
 
+    function renderExtraSections(tech) {
+      let html = "";
+      if (tech.cyberKillChain) {
+        html += `<div style="background:#1E1B4B; border:1px solid #818CF8; border-radius:8px; padding:10px; margin-top:10px;">
+          <div style="font-size:10px; font-weight:bold; color:#A5B4FC; text-transform:uppercase;">⚡ CYBER KILL CHAIN • ${S}{tech.cyberKillChain.stage}</div>
+          <div style="font-size:11px; color:#CBD5E1; margin-top:4px;">${S}{tech.cyberKillChain.description}</div>
+          <div style="font-size:10px; font-weight:bold; color:#C7D2FE; margin-top:6px;">Scenario Example:</div>
+          <div style="font-size:11px; color:#E0E7FF; background:#0F172A; padding:6px; border-radius:4px; margin-top:2px;">${S}{tech.cyberKillChain.scenarioExample}</div>
+        </div>`;
+      }
+      if (tech.subTechniquesList && tech.subTechniquesList.length > 0) {
+        html += `<div style="margin-top:10px;">
+          <div style="font-size:11px; font-weight:bold; color:#F8FAFC; margin-bottom:4px;">🧩 Sub-Techniques / Methods (${S}{tech.subTechniquesList.length}):</div>`;
+        tech.subTechniquesList.forEach(s => {
+          html += `<div style="background:#0F172A; border:1px solid rgba(6,182,212,0.3); border-radius:6px; padding:8px; margin-bottom:4px;">
+            <div style="font-size:11px; font-weight:bold; color:#06B6D4;">${S}{s.id}: ${S}{s.name}</div>
+            <div style="font-size:10px; color:#94A3B8; margin-top:2px;">${S}{s.description}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      if (tech.nistControls && tech.nistControls.length > 0) {
+        html += `<div style="margin-top:10px;">
+          <div style="font-size:11px; font-weight:bold; color:#F8FAFC; margin-bottom:4px;">🏛️ NIST Controls (${S}{tech.nistControls.length}):</div>`;
+        tech.nistControls.forEach(n => {
+          html += `<div style="background:#0F172A; border:1px solid rgba(56,189,248,0.4); border-radius:6px; padding:8px; margin-bottom:4px;">
+            <div style="font-size:10px; font-weight:bold; color:#38BDF8;">NIST ${S}{n.controlId} - ${S}{n.controlName}</div>
+            <div style="font-size:10px; color:#94A3B8; margin-top:2px;">${S}{n.familyOrFunction} • ${S}{n.description}</div>
+            <div style="font-size:10px; color:#10B981; margin-top:2px;">Impl: ${S}{n.exampleImplementation}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      return html;
+    }
+
     function openModalForAttack(tech, tac) {
       document.getElementById("modalIdBadge").innerText = `${'$'}{tac.displayName} • ${'$'}{tech.id}`;
       document.getElementById("modalIdBadge").style.borderColor = tac.color;
@@ -786,6 +886,7 @@ object MitreFlowChartHtmlBuilder {
       document.getElementById("modalCodeText").innerText = tech.attackCode;
 
       document.getElementById("modalCounterText").innerText = `D3FEND ${'$'}{tech.d3fendId} (${'$'}{tech.d3fendName}): ${'$'}{tech.d3fendDesc}`;
+      document.getElementById("modalExtraContent").innerHTML = renderExtraSections(tech);
 
       document.getElementById("detailModal").classList.add("open");
 
@@ -809,6 +910,7 @@ object MitreFlowChartHtmlBuilder {
       document.getElementById("modalCodeText").innerText = tech.ruleOrFix;
 
       document.getElementById("modalCounterText").innerText = `Neutralizes ATT&CK Techniques: ${'$'}{tech.counteredAttackIds.join(", ")}`;
+      document.getElementById("modalExtraContent").innerHTML = renderExtraSections(tech);
 
       document.getElementById("detailModal").classList.add("open");
 

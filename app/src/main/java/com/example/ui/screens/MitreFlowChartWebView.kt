@@ -102,6 +102,15 @@ fun MitreFlowChartWebView(
                         null
                     )
                 }
+            },
+            update = { webView ->
+                webView.loadDataWithBaseURL(
+                    "https://cyber-mitre-app.local/",
+                    htmlContent,
+                    "text/html",
+                    "UTF-8",
+                    null
+                )
             }
         )
     }
