@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.ui.graphics.toArgb
+import com.example.data.mitre.MitreDefendTactic
 import com.example.data.mitre.MitreMatrixRepository
 import com.example.data.mitre.MitreTactic
 import org.json.JSONArray
@@ -13,23 +14,23 @@ object MitreFlowChartHtmlBuilder {
     fun buildDataJson(focusMode: String = "ALL"): String {
         val root = JSONObject()
         val title = when (focusMode) {
-            "ATTACK" -> "MITRE ATT&CK Enterprise Matrix"
-            "DEFEND" -> "MITRE D3FEND Countermeasures Graph"
-            else -> "MITRE ATT&CK & D3FEND"
+            "ATTACK" -> "MITRE ATT&CK Enterprise Matrix (14 Tactics)"
+            "DEFEND" -> "MITRE D3FEND Countermeasures Matrix (6 Tactics)"
+            else -> "MITRE ATT&CK & D3FEND Unified Cross-Link Flow"
         }
         root.put("name", title)
         root.put("type", "root")
         root.put("focusMode", focusMode)
 
-        val tacticsArray = JSONArray()
-
+        // 1. Build ATT&CK Tactics & Techniques Array
+        val attackTacticsArray = JSONArray()
         MitreTactic.entries.forEach { tactic ->
             val tacticObj = JSONObject()
             tacticObj.put("id", tactic.tacticId)
             tacticObj.put("name", tactic.displayName)
             tacticObj.put("color", String.format("#%06X", (0xFFFFFF and tactic.color.toArgb())))
             tacticObj.put("description", tactic.description)
-            tacticObj.put("type", "tactic")
+            tacticObj.put("type", "attack_tactic")
 
             val ttps = MitreMatrixRepository.allTtps.filter { it.tactic == tactic }
             val ttpsArray = JSONArray()
@@ -48,26 +49,61 @@ object MitreFlowChartHtmlBuilder {
                 ttpObj.put("d3fendRule", ttp.d3fendRuleOrFix)
                 ttpObj.put("aptGroups", JSONArray(ttp.knownAptGroups))
                 ttpObj.put("tags", JSONArray(ttp.tags))
-                ttpObj.put("type", "technique")
+                ttpObj.put("type", "attack_technique")
                 ttpObj.put("color", String.format("#%06X", (0xFFFFFF and tactic.color.toArgb())))
                 ttpsArray.put(ttpObj)
             }
 
             tacticObj.put("techniques", ttpsArray)
-            tacticsArray.put(tacticObj)
+            attackTacticsArray.put(tacticObj)
         }
+        root.put("attackTactics", attackTacticsArray)
 
-        root.put("tactics", tacticsArray)
+        // 2. Build D3FEND Tactics & Techniques Array
+        val defendTacticsArray = JSONArray()
+        MitreDefendTactic.entries.forEach { d3Tactic ->
+            val tacticObj = JSONObject()
+            tacticObj.put("id", d3Tactic.tacticId)
+            tacticObj.put("name", d3Tactic.displayName)
+            tacticObj.put("color", String.format("#%06X", (0xFFFFFF and d3Tactic.color.toArgb())))
+            tacticObj.put("description", d3Tactic.description)
+            tacticObj.put("type", "defend_tactic")
+
+            val d3Items = MitreMatrixRepository.allD3fendItems.filter { it.tactic == d3Tactic }
+            val d3Array = JSONArray()
+
+            d3Items.forEach { d3 ->
+                val d3Obj = JSONObject()
+                d3Obj.put("id", d3.d3fendId)
+                d3Obj.put("name", d3.name)
+                d3Obj.put("description", d3.description)
+                d3Obj.put("ruleOrFix", d3.ruleOrFix)
+                d3Obj.put("counteredAttackIds", JSONArray(d3.counteredAttackIds))
+                d3Obj.put("tags", JSONArray(d3.tags))
+                d3Obj.put("type", "defend_technique")
+                d3Obj.put("color", String.format("#%06X", (0xFFFFFF and d3Tactic.color.toArgb())))
+                d3Array.put(d3Obj)
+            }
+
+            tacticObj.put("techniques", d3Array)
+            defendTacticsArray.put(tacticObj)
+        }
+        root.put("defendTactics", defendTacticsArray)
+
         return root.toString()
     }
 
     fun buildHtml(focusMode: String = "ALL"): String {
         val dataJson = buildDataJson(focusMode)
         val pageTitle = when (focusMode) {
-            "ATTACK" -> "MITRE ATT&CK Enterprise Flow Chart"
-            "DEFEND" -> "MITRE D3FEND Countermeasures Flow Chart"
-            else -> "MITRE ATT&CK & D3FEND Interactive Flow Chart"
+            "ATTACK" -> "MITRE ATT&CK Flow Chart"
+            "DEFEND" -> "MITRE D3FEND Flow Chart"
+            else -> "MITRE ATT&CK & D3FEND Cross-Link Flow"
         }
+
+        val btnAttackClass = if (focusMode == "ATTACK") "active" else ""
+        val btnDefendClass = if (focusMode == "DEFEND") "active" else ""
+        val btnAllClass = if (focusMode == "ALL") "active" else ""
 
         return """
 <!DOCTYPE html>
@@ -118,7 +154,7 @@ object MitreFlowChartHtmlBuilder {
       background: transparent;
       color: #94A3B8;
       border: none;
-      padding: 6px 10px;
+      padding: 6px 12px;
       font-size: 11px;
       font-weight: 600;
       border-radius: 6px;
@@ -126,10 +162,13 @@ object MitreFlowChartHtmlBuilder {
       display: flex;
       align-items: center;
       gap: 4px;
+      transition: all 0.2s ease;
     }
     .btn-mode.active {
       background: #06B6D4;
       color: #0A0F1D;
+      font-weight: 700;
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
     }
     .controls {
       display: flex;
@@ -155,45 +194,24 @@ object MitreFlowChartHtmlBuilder {
       padding: 6px 12px;
       display: flex;
       gap: 8px;
+      align-items: center;
       border-bottom: 1px solid #1E293B;
-      overflow-x: auto;
-      white-space: nowrap;
     }
-    .search-box {
+    .search-input {
       background: #1E293B;
       border: 1px solid #334155;
       color: #F8FAFC;
       border-radius: 6px;
-      padding: 4px 8px;
-      font-size: 11px;
-      width: 140px;
+      padding: 6px 10px;
+      font-size: 12px;
+      width: 100%;
       outline: none;
     }
-    .tactic-pill {
-      background: #1E293B;
-      border: 1px solid #334155;
-      color: #94A3B8;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 10px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-    .tactic-pill.active {
+    .search-input:focus {
       border-color: #06B6D4;
-      color: #06B6D4;
-      background: rgba(6, 182, 212, 0.15);
-      font-weight: bold;
+      box-shadow: 0 0 6px rgba(6, 182, 212, 0.3);
     }
-    .pill-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-    /* SVG Canvas */
+    /* Canvas */
     #chart-container {
       flex: 1;
       width: 100%;
@@ -210,184 +228,168 @@ object MitreFlowChartHtmlBuilder {
     svg:active {
       cursor: grabbing;
     }
-    /* Node and Link styling */
-    .link {
+    /* Node Styles */
+    .node-group {
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .node-bg {
+      rx: 8px;
+      ry: 8px;
+      stroke-width: 1.5px;
+      transition: all 0.2s ease;
+    }
+    .node-bg.attack {
+      fill: #1E293B;
+      stroke: #334155;
+    }
+    .node-bg.defend {
+      fill: #0F2942;
+      stroke: #1E40AF;
+    }
+    .node-group:hover .node-bg {
+      stroke: #06B6D4;
+      filter: drop-shadow(0px 0px 8px rgba(6, 182, 212, 0.5));
+    }
+    .node-title {
+      font-size: 11px;
+      font-weight: 700;
+      fill: #F8FAFC;
+    }
+    .node-sub {
+      font-size: 9px;
+      fill: #94A3B8;
+    }
+    .node-badge {
+      font-size: 9px;
+      font-weight: 800;
+      fill: #06B6D4;
+    }
+    /* Flow Links */
+    .link-path {
       fill: none;
       stroke: #334155;
       stroke-width: 1.5px;
-      stroke-opacity: 0.7;
-      transition: stroke 0.3s, stroke-width 0.3s;
+      stroke-opacity: 0.5;
+      transition: all 0.3s ease;
     }
-    .link.highlighted {
+    .link-path.highlight {
       stroke: #06B6D4;
-      stroke-width: 2.5px;
-      stroke-opacity: 1;
-    }
-    .link.defend-link {
-      stroke: #10B981;
-      stroke-dasharray: 4,4;
-    }
-    .node {
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    .node rect {
-      stroke-width: 1.5px;
-      rx: 8;
-      ry: 8;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
-    }
-    .node text {
-      font-family: monospace, sans-serif;
-      pointer-events: none;
-    }
-    .node.selected rect {
       stroke-width: 3px;
-      stroke: #F43F5E !important;
-      filter: drop-shadow(0 0 10px #F43F5E);
+      stroke-opacity: 0.9;
+      filter: drop-shadow(0px 0px 6px #06B6D4);
     }
-    /* Hint Banner */
-    .hint-banner {
-      position: absolute;
-      bottom: 8px;
-      left: 12px;
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid #334155;
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 10px;
-      color: #94A3B8;
-      pointer-events: none;
+    .link-path.defend-highlight {
+      stroke: #10B981;
+      stroke-width: 3px;
+      stroke-opacity: 0.9;
+      filter: drop-shadow(0px 0px 6px #10B981);
     }
-    /* Bottom Drill-Down Inspector */
-    #inspector {
+    /* Detail Modal Overlay */
+    .modal-overlay {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
       background: #0F172A;
       border-top: 2px solid #06B6D4;
-      padding: 14px;
-      box-shadow: 0 -8px 24px rgba(0,0,0,0.6);
-      transform: translateY(105%);
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      z-index: 50;
-      max-height: 70vh;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      padding: 16px;
+      max-height: 75vh;
       overflow-y: auto;
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.8);
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 100;
     }
-    #inspector.open {
+    .modal-overlay.open {
       transform: translateY(0);
     }
-    .insp-header {
+    .modal-header {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 10px;
-    }
-    .insp-badge-row {
-      display: flex;
-      gap: 6px;
       align-items: center;
-      margin-bottom: 4px;
-    }
-    .badge-tech {
-      background: #EF4444;
-      color: #FFF;
-      font-weight: bold;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-family: monospace;
-    }
-    .badge-tactic {
-      background: #1E293B;
-      color: #38BDF8;
-      border: 1px solid #38BDF8;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-    }
-    .badge-d3fend {
-      background: rgba(16, 185, 129, 0.2);
-      color: #10B981;
-      border: 1px solid #10B981;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: bold;
-    }
-    .insp-title {
-      font-size: 15px;
-      font-weight: bold;
-      color: #F8FAFC;
-    }
-    .insp-close {
-      background: #1E293B;
-      color: #94A3B8;
-      border: 1px solid #334155;
-      border-radius: 6px;
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    .insp-desc {
-      font-size: 12px;
-      color: #CBD5E1;
-      line-height: 1.4;
       margin-bottom: 12px;
     }
-    .box-code {
-      background: #020617;
+    .modal-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #F8FAFC;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-badge {
+      background: rgba(6, 182, 212, 0.2);
+      color: #06B6D4;
+      border: 1px solid #06B6D4;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    .modal-close {
+      background: #1E293B;
+      color: #94A3B8;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-desc {
+      font-size: 12px;
+      color: #CBD5E1;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .code-box {
+      background: #060913;
       border: 1px solid #1E293B;
       border-radius: 8px;
       padding: 10px;
-      margin-bottom: 10px;
-      position: relative;
-    }
-    .box-title {
-      font-size: 10px;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .box-title.attack { color: #F87171; }
-    .box-title.defend { color: #34D399; }
-    .code-content {
       font-family: monospace;
       font-size: 11px;
-      color: #E2E8F0;
+      color: #38BDF8;
+      overflow-x: auto;
       white-space: pre-wrap;
       word-break: break-all;
-      user-select: text;
+      position: relative;
+      margin-bottom: 12px;
     }
     .btn-copy {
+      position: absolute;
+      top: 6px;
+      right: 6px;
       background: #1E293B;
       color: #06B6D4;
-      border: 1px solid #06B6D4;
+      border: 1px solid #334155;
       border-radius: 4px;
-      padding: 2px 6px;
-      font-size: 9px;
+      padding: 3px 8px;
+      font-size: 10px;
       font-weight: bold;
       cursor: pointer;
     }
-    .apt-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 6px;
+    .countermeasure-card {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 8px;
     }
-    .apt-tag {
-      background: #1E293B;
-      color: #E2E8F0;
-      border: 1px solid #475569;
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 4px;
+    .countermeasure-title {
+      font-size: 11px;
+      font-weight: bold;
+      color: #10B981;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
   </style>
 </head>
@@ -396,794 +398,443 @@ object MitreFlowChartHtmlBuilder {
   <!-- Top Toolbar -->
   <div class="toolbar">
     <div class="view-modes">
-      <button class="btn-mode active" id="mode-tree" onclick="switchMode('tree')">
-        <span>🌲</span> Hierarchy Tree
-      </button>
-      <button class="btn-mode" id="mode-killchain" onclick="switchMode('killchain')">
-        <span>⚡</span> Kill Chain Pipeline
-      </button>
-      <button class="btn-mode" id="mode-force" onclick="switchMode('force')">
-        <span>🕸️</span> Force Network
-      </button>
+      <button class="btn-mode $btnAttackClass" onclick="switchMode('ATTACK')">⚔️ ATT&CK</button>
+      <button class="btn-mode $btnDefendClass" onclick="switchMode('DEFEND')">🛡️ D3FEND</button>
+      <button class="btn-mode $btnAllClass" onclick="switchMode('ALL')">🔗 Cross-Link</button>
     </div>
-
     <div class="controls">
       <button class="btn-ctrl" onclick="zoomIn()">+</button>
-      <button class="btn-ctrl" onclick="zoomOut()">−</button>
-      <button class="btn-ctrl" onclick="resetZoom()">⟲ Reset</button>
-      <button class="btn-ctrl" onclick="toggleExpandAll()">📂 Toggle All</button>
+      <button class="btn-ctrl" onclick="zoomOut()">-</button>
+      <button class="btn-ctrl" onclick="resetZoom()">🎯 Fit</button>
     </div>
   </div>
 
-  <!-- Search & Tactic Row -->
-  <div class="search-row" id="tactic-filter-row">
-    <input type="text" class="search-box" id="search-input" placeholder="Search T1190, D3FEND..." oninput="handleSearch(this.value)">
-    <div class="tactic-pill active" onclick="filterByTactic(null)">All Tactics</div>
+  <!-- Search Row -->
+  <div class="search-row">
+    <input type="text" id="searchInput" class="search-input" placeholder="Search ATT&CK & D3FEND techniques, rules, tags..." oninput="handleSearch()">
   </div>
 
-  <!-- Main Canvas Container -->
+  <!-- Chart Container -->
   <div id="chart-container">
-    <svg id="canvas"></svg>
-    <div class="hint-banner">
-      💡 Tip: Tap any node to drill down. Pinch to zoom, drag to pan.
+    <svg id="svgCanvas"></svg>
+  </div>
+
+  <!-- Modal Detail Sheet -->
+  <div id="detailModal" class="modal-overlay">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span id="modalIdBadge" class="modal-badge">TA0001</span>
+        <span id="modalTitle">Technique Name</span>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalDescription" class="modal-desc">Description content...</div>
+    
+    <div id="modalCodeSection">
+      <div style="font-size:11px; font-weight:bold; color:#06B6D4; margin-bottom:4px;" id="modalCodeLabel">ATTACK / REMEDIATION CODE</div>
+      <div class="code-box">
+        <button class="btn-copy" onclick="copyModalCode()">Copy Code</button>
+        <code id="modalCodeText">command string</code>
+      </div>
+    </div>
+
+    <div id="modalCountermeasure" class="countermeasure-card">
+      <div class="countermeasure-title">🛡️ D3FEND Countermeasure Neutralizer</div>
+      <div style="font-size:11px; color:#E2E8F0;" id="modalCounterText">Countermeasure description</div>
     </div>
   </div>
 
-  <!-- Bottom Drill-Down Inspector -->
-  <div id="inspector">
-    <div class="insp-header">
-      <div>
-        <div class="insp-badge-row">
-          <span class="badge-tech" id="insp-tech-id">T1190</span>
-          <span class="badge-tactic" id="insp-tactic">Initial Access</span>
-          <span class="badge-d3fend" id="insp-d3fend-id">D3-ITF</span>
-        </div>
-        <div class="insp-title" id="insp-title">Exploit Public-Facing Application</div>
-      </div>
-      <button class="insp-close" onclick="closeInspector()">✕ Close</button>
-    </div>
-
-    <div class="insp-desc" id="insp-desc"></div>
-
-    <div class="box-code">
-      <div class="box-title attack">
-        <span>⚔️ Offensive TTP Simulation Command</span>
-        <button class="btn-copy" onclick="copySnippet('attack')">Copy Attack Command</button>
-      </div>
-      <div class="code-content" id="insp-attack-code"></div>
-    </div>
-
-    <div class="box-code">
-      <div class="box-title defend">
-        <span id="insp-d3fend-header">🛡️ D3FEND Countermeasure & Detection</span>
-        <button class="btn-copy" onclick="copySnippet('defend')">Copy Detection Rule</button>
-      </div>
-      <div class="code-content" id="insp-defend-rule"></div>
-    </div>
-
-    <div style="font-size: 11px; color: #94A3B8; margin-top: 8px;">
-      Known Threat Actors:
-      <div class="apt-tags" id="insp-apt-tags"></div>
-    </div>
-  </div>
-
-  <!-- Main JavaScript with D3.js -->
   <script>
-    const RAW_DATA = $dataJson;
-    let currentMode = 'tree';
-    let selectedTacticId = null;
-    let selectedNode = null;
-    let currentSearch = '';
-    let isAllExpanded = true;
+    const fullData = $dataJson;
+    let currentMode = "$focusMode";
+    let svg, g, zoomBehavior;
+    let currentModalCode = "";
 
-    // Viewport dimensions
-    let width = window.innerWidth;
-    let height = window.innerHeight - 80;
+    function initChart() {
+      const container = document.getElementById("chart-container");
+      const width = container.clientWidth;
+      const height = container.clientHeight;
 
-    // Tactic filter pills
-    const pillRow = document.getElementById("tactic-filter-row");
-    RAW_DATA.tactics.forEach(function(t) {
-      const pill = document.createElement("div");
-      pill.className = "tactic-pill";
-      pill.id = "pill-" + t.id;
-      pill.innerHTML = '<span class="pill-dot" style="background:' + t.color + '"></span>' + t.name;
-      pill.onclick = function() { filterByTactic(t.id); };
-      pillRow.appendChild(pill);
-    });
+      d3.select("#svgCanvas").selectAll("*").remove();
 
-    // Check if D3 is available
-    const hasD3 = (typeof d3 !== 'undefined');
-    const svgEl = document.getElementById("canvas");
-    let svgD3 = null;
-    let gD3 = null;
-    let zoomBehavior = null;
+      svg = d3.select("#svgCanvas")
+        .attr("width", width)
+        .attr("height", height);
 
-    if (hasD3) {
-      svgD3 = d3.select("#canvas");
-      gD3 = svgD3.append("g");
+      g = svg.append("g").attr("id", "mainGroup");
+
       zoomBehavior = d3.zoom()
-        .scaleExtent([0.15, 3.5])
-        .on("zoom", function(e) { gD3.attr("transform", e.transform); });
-      svgD3.call(zoomBehavior);
+        .scaleExtent([0.2, 3])
+        .on("zoom", (event) => g.attr("transform", event.transform));
+
+      svg.call(zoomBehavior);
+
+      renderFlowGraph(currentMode);
     }
 
-    // Build hierarchy
-    function buildHierarchyData() {
-      let tacticsList = RAW_DATA.tactics;
-      if (selectedTacticId) {
-        tacticsList = tacticsList.filter(function(t) { return t.id === selectedTacticId; });
-      }
-
-      return {
-        name: "MITRE ATT&CK & D3FEND",
-        id: "ROOT",
-        type: "root",
-        color: "#06B6D4",
-        children: tacticsList.map(function(t) {
-          let ttps = t.techniques;
-          if (currentSearch) {
-            const q = currentSearch.toLowerCase();
-            ttps = ttps.filter(function(item) {
-              return item.id.toLowerCase().indexOf(q) !== -1 ||
-                item.name.toLowerCase().indexOf(q) !== -1 ||
-                item.d3fendId.toLowerCase().indexOf(q) !== -1 ||
-                item.d3fendName.toLowerCase().indexOf(q) !== -1 ||
-                item.aptGroups.some(function(a) { return a.toLowerCase().indexOf(q) !== -1; });
-            });
-          }
-          return {
-            name: t.name,
-            id: t.id,
-            type: "tactic",
-            color: t.color,
-            description: t.description,
-            children: ttps.map(function(p) {
-              return Object.assign({}, p, {
-                tacticName: t.name,
-                tacticId: t.id,
-                children: [
-                  {
-                    id: p.d3fendId,
-                    name: p.d3fendName,
-                    type: "d3fend",
-                    color: "#10B981",
-                    parentTechnique: p
-                  }
-                ]
-              });
-            })
-          };
-        })
-      };
-    }
-
-    let rootNodeData = null;
-
-    // Render Hierarchy Tree
-    function renderTree() {
-      if (!hasD3) {
-        renderKillChainFallback();
-        return;
-      }
-      gD3.selectAll("*").remove();
-
-      const data = buildHierarchyData();
-      rootNodeData = d3.hierarchy(data);
-      rootNodeData.x0 = height / 2;
-      rootNodeData.y0 = 40;
-
-      if (!isAllExpanded && rootNodeData.children) {
-        rootNodeData.children.forEach(function(c) {
-          if (c.children) {
-            c._children = c.children;
-            c.children = null;
-          }
-        });
-      }
-
-      updateTree(rootNodeData);
-      resetZoom(0.85);
-    }
-
-    function updateTree(source) {
-      const treeLayout = d3.tree().nodeSize([48, 220]);
-      treeLayout(rootNodeData);
-
-      const nodes = rootNodeData.descendants();
-      const links = rootNodeData.links();
-
-      nodes.forEach(function(d) {
-        d.y = d.depth * 230;
-      });
-
-      // Links
-      const link = gD3.selectAll(".link")
-        .data(links, function(d) { return d.target.data.id || d.target.id; });
-
-      const linkEnter = link.enter().append("path")
-        .attr("class", function(d) { return "link" + (d.target.data.type === "d3fend" ? " defend-link" : ""); })
-        .attr("d", function(d) {
-          const o = { x: source.x0 || 0, y: source.y0 || 0 };
-          return diagonal(o, o);
-        });
-
-      link.merge(linkEnter).transition().duration(350)
-        .attr("d", function(d) { return diagonal(d.source, d.target); });
-
-      link.exit().transition().duration(350)
-        .attr("d", function(d) {
-          const o = { x: source.x || 0, y: source.y || 0 };
-          return diagonal(o, o);
-        })
-        .remove();
-
-      // Nodes
-      const node = gD3.selectAll(".node")
-        .data(nodes, function(d) { return d.data.id || d.id; });
-
-      const nodeEnter = node.enter().append("g")
-        .attr("class", function(d) { return "node " + d.data.type; })
-        .attr("transform", function(d) { return "translate(" + (source.y0 || 0) + "," + (source.x0 || 0) + ")"; })
-        .on("click", function(event, d) { handleNodeClick(event, d); });
-
-      nodeEnter.append("rect")
-        .attr("x", 0)
-        .attr("y", -18)
-        .attr("width", function(d) { return getNodeWidth(d.data); })
-        .attr("height", 36)
-        .attr("rx", 6)
-        .attr("fill", function(d) { return getNodeBg(d.data); })
-        .attr("stroke", function(d) { return d.data.color || "#38BDF8"; });
-
-      nodeEnter.append("text")
-        .attr("x", 10)
-        .attr("y", -2)
-        .attr("fill", function(d) { return d.data.type === 'd3fend' ? '#34D399' : (d.data.type === 'technique' ? '#F87171' : d.data.color); })
-        .attr("font-size", "10px")
-        .attr("font-weight", "bold")
-        .text(function(d) { return getNodeBadge(d.data); });
-
-      nodeEnter.append("text")
-        .attr("x", 10)
-        .attr("y", 12)
-        .attr("fill", "#F8FAFC")
-        .attr("font-size", "11px")
-        .attr("font-weight", "500")
-        .text(function(d) { return getNodeLabel(d.data); });
-
-      // Expandable indicators
-      nodeEnter.filter(function(d) { return (d.children || d._children) && d.data.type !== 'root'; })
-        .append("circle")
-        .attr("cx", function(d) { return getNodeWidth(d.data); })
-        .attr("cy", 0)
-        .attr("r", 7)
-        .attr("fill", "#1E293B")
-        .attr("stroke", function(d) { return d.data.color; });
-
-      nodeEnter.filter(function(d) { return (d.children || d._children) && d.data.type !== 'root'; })
-        .append("text")
-        .attr("x", function(d) { return getNodeWidth(d.data); })
-        .attr("y", 3)
-        .attr("text-anchor", "middle")
-        .attr("fill", "#38BDF8")
-        .attr("font-size", "9px")
-        .attr("font-weight", "bold")
-        .text(function(d) { return d._children ? "+" : "−"; });
-
-      const nodeUpdate = node.merge(nodeEnter).transition().duration(350)
-        .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
-
-      nodeUpdate.select("rect")
-        .attr("stroke", function(d) { return (selectedNode && selectedNode.data.id === d.data.id) ? "#F43F5E" : (d.data.color || "#38BDF8"); });
-
-      node.exit().transition().duration(350)
-        .attr("transform", function(d) { return "translate(" + source.y + "," + source.x + ")"; })
-        .remove();
-
-      nodes.forEach(function(d) {
-        d.x0 = d.x;
-        d.y0 = d.y;
-      });
-    }
-
-    function diagonal(s, d) {
-      const sy = s.y + (s.data ? getNodeWidth(s.data) : 0);
-      return "M " + sy + " " + s.x +
-             " C " + ((sy + d.y) / 2) + " " + s.x + "," +
-             ((sy + d.y) / 2) + " " + d.x + "," +
-             d.y + " " + d.x;
-    }
-
-    function getNodeWidth(data) {
-      if (data.type === "root") return 190;
-      if (data.type === "tactic") return 180;
-      if (data.type === "technique") return 190;
-      if (data.type === "d3fend") return 175;
-      return 160;
-    }
-
-    function getNodeBg(data) {
-      if (data.type === "root") return "#0F172A";
-      if (data.type === "tactic") return "#131C31";
-      if (data.type === "technique") return "#1A1A2E";
-      if (data.type === "d3fend") return "#062822";
-      return "#1E293B";
-    }
-
-    function getNodeBadge(data) {
-      if (data.type === "root") return "FRAMEWORK";
-      if (data.type === "tactic") return data.id + " • TACTIC";
-      if (data.type === "technique") return data.id + " [ATT&CK]";
-      if (data.type === "d3fend") return data.id + " [D3FEND]";
-      return "";
-    }
-
-    function getNodeLabel(data) {
-      const name = data.name || "";
-      return name.length > 22 ? name.substring(0, 20) + "..." : name;
-    }
-
-    function handleNodeClick(event, d) {
-      event.stopPropagation();
-      selectedNode = d;
-
-      if (d.data.type === "technique" || d.data.type === "d3fend") {
-        const item = d.data.type === "technique" ? d.data : d.data.parentTechnique;
-        openInspector(item);
-      } else if (d.data.type === "tactic") {
-        if (d.children) {
-          d._children = d.children;
-          d.children = null;
-        } else {
-          d.children = d._children;
-          d._children = null;
-        }
-        updateTree(d);
-      }
-    }
-
-    // Kill Chain Pipeline Layout
-    function renderKillChain() {
-      if (!hasD3) {
-        renderKillChainFallback();
-        return;
-      }
-      gD3.selectAll("*").remove();
-
-      let tactics = RAW_DATA.tactics;
-      if (selectedTacticId) {
-        tactics = tactics.filter(function(t) { return t.id === selectedTacticId; });
-      }
-
-      const colWidth = 240;
-      const startX = 60;
-      const startY = 60;
-
-      tactics.forEach(function(t, colIdx) {
-        const colX = startX + colIdx * (colWidth + 24);
-
-        const headerG = gD3.append("g")
-          .attr("transform", "translate(" + colX + ", " + startY + ")")
-          .style("cursor", "pointer")
-          .on("click", function() { filterByTactic(t.id); });
-
-        headerG.append("rect")
-          .attr("width", colWidth)
-          .attr("height", 46)
-          .attr("rx", 8)
-          .attr("fill", "#0F172A")
-          .attr("stroke", t.color)
-          .attr("stroke-width", 2);
-
-        headerG.append("text")
-          .attr("x", 12)
-          .attr("y", 18)
-          .attr("fill", t.color)
-          .attr("font-size", "10px")
-          .attr("font-weight", "bold")
-          .text(t.id + " • STAGE " + (colIdx + 1));
-
-        headerG.append("text")
-          .attr("x", 12)
-          .attr("y", 34)
-          .attr("fill", "#F8FAFC")
-          .attr("font-size", "13px")
-          .attr("font-weight", "bold")
-          .text(t.name);
-
-        let ttps = t.techniques;
-        if (currentSearch) {
-          const q = currentSearch.toLowerCase();
-          ttps = ttps.filter(function(item) {
-            return item.id.toLowerCase().indexOf(q) !== -1 ||
-              item.name.toLowerCase().indexOf(q) !== -1 ||
-              item.d3fendId.toLowerCase().indexOf(q) !== -1;
-          });
-        }
-
-        ttps.forEach(function(ttp, rowIdx) {
-          const cardY = startY + 60 + rowIdx * 105;
-
-          const cardG = gD3.append("g")
-            .attr("transform", "translate(" + colX + ", " + cardY + ")")
-            .style("cursor", "pointer")
-            .on("click", function() { openInspector(Object.assign({}, ttp, { tacticName: t.name, tacticId: t.id })); });
-
-          cardG.append("rect")
-            .attr("width", colWidth)
-            .attr("height", 92)
-            .attr("rx", 8)
-            .attr("fill", "#1E293B")
-            .attr("stroke", "#334155")
-            .attr("stroke-width", 1.5);
-
-          cardG.append("rect")
-            .attr("x", 10)
-            .attr("y", 10)
-            .attr("width", 60)
-            .attr("height", 18)
-            .attr("rx", 4)
-            .attr("fill", "#EF4444");
-
-          cardG.append("text")
-            .attr("x", 15)
-            .attr("y", 22)
-            .attr("fill", "#FFF")
-            .attr("font-size", "10px")
-            .attr("font-weight", "bold")
-            .text(ttp.id);
-
-          cardG.append("text")
-            .attr("x", 10)
-            .attr("y", 44)
-            .attr("fill", "#F8FAFC")
-            .attr("font-size", "12px")
-            .attr("font-weight", "600")
-            .text(ttp.name.length > 25 ? ttp.name.substring(0, 23) + "..." : ttp.name);
-
-          cardG.append("rect")
-            .attr("x", 10)
-            .attr("y", 56)
-            .attr("width", colWidth - 20)
-            .attr("height", 24)
-            .attr("rx", 4)
-            .attr("fill", "rgba(16, 185, 129, 0.15)")
-            .attr("stroke", "#10B981");
-
-          cardG.append("text")
-            .attr("x", 16)
-            .attr("y", 72)
-            .attr("fill", "#34D399")
-            .attr("font-size", "10px")
-            .attr("font-weight", "500")
-            .text("Defend: " + ttp.d3fendId + " " + (ttp.d3fendName.length > 18 ? ttp.d3fendName.substring(0, 16) + ".." : ttp.d3fendName));
-        });
-
-        if (colIdx < tactics.length - 1) {
-          const arrowX = colX + colWidth + 4;
-          const arrowY = startY + 23;
-          gD3.append("line")
-            .attr("x1", arrowX)
-            .attr("y1", arrowY)
-            .attr("x2", arrowX + 16)
-            .attr("y2", arrowY)
-            .attr("stroke", "#38BDF8")
-            .attr("stroke-width", 2);
-        }
-      });
-
-      resetZoom(0.65);
-    }
-
-    // Force-Directed Graph Layout
-    let forceSim = null;
-    function renderForce() {
-      if (!hasD3) {
-        renderKillChainFallback();
-        return;
-      }
-      gD3.selectAll("*").remove();
-
-      const nodes = [];
-      const links = [];
-
-      nodes.push({ id: "ROOT", name: "MITRE ATT&CK", type: "root", color: "#06B6D4", r: 24 });
-
-      let tactics = RAW_DATA.tactics;
-      if (selectedTacticId) {
-        tactics = tactics.filter(function(t) { return t.id === selectedTacticId; });
-      }
-
-      tactics.forEach(function(t) {
-        nodes.push({ id: t.id, name: t.name, type: "tactic", color: t.color, r: 18 });
-        links.push({ source: "ROOT", target: t.id, stroke: t.color });
-
-        t.techniques.forEach(function(p) {
-          nodes.push({
-            id: p.id,
-            name: p.name,
-            type: "technique",
-            color: "#EF4444",
-            r: 12,
-            data: Object.assign({}, p, { tacticName: t.name, tacticId: t.id })
-          });
-          links.push({ source: t.id, target: p.id, stroke: "#64748B" });
-
-          nodes.push({
-            id: p.id + "-d3fend",
-            name: p.d3fendId,
-            type: "d3fend",
-            color: "#10B981",
-            r: 9,
-            data: Object.assign({}, p, { tacticName: t.name, tacticId: t.id })
-          });
-          links.push({ source: p.id, target: p.id + "-d3fend", stroke: "#10B981", isDefend: true });
-        });
-      });
-
-      forceSim = d3.forceSimulation(nodes)
-        .force("link", d3.forceLink(links).id(function(d) { return d.id; }).distance(65))
-        .force("charge", d3.forceManyBody().strength(-120))
-        .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collision", d3.forceCollide().radius(function(d) { return d.r + 10; }));
-
-      const link = gD3.selectAll(".force-link")
-        .data(links)
-        .enter().append("line")
-        .attr("class", function(d) { return "link" + (d.isDefend ? " defend-link" : ""); })
-        .attr("stroke", function(d) { return d.stroke || "#334155"; })
-        .attr("stroke-width", function(d) { return d.isDefend ? 1.5 : 1.2; });
-
-      const node = gD3.selectAll(".force-node")
-        .data(nodes)
-        .enter().append("g")
-        .attr("class", "node")
-        .call(d3.drag()
-          .on("start", function(event, d) {
-            if (!event.active) forceSim.alphaTarget(0.3).restart();
-            d.fx = d.x; d.fy = d.y;
-          })
-          .on("drag", function(event, d) {
-            d.fx = event.x; d.fy = event.y;
-          })
-          .on("end", function(event, d) {
-            if (!event.active) forceSim.alphaTarget(0);
-            d.fx = null; d.fy = null;
-          }))
-        .on("click", function(event, d) {
-          if (d.data) {
-            openInspector(d.data);
-          } else if (d.type === 'tactic') {
-            filterByTactic(d.id);
-          }
-        });
-
-      node.append("circle")
-        .attr("r", function(d) { return d.r; })
-        .attr("fill", function(d) { return d.color; })
-        .attr("stroke", "#0F172A")
-        .attr("stroke-width", 2);
-
-      node.append("text")
-        .attr("dx", function(d) { return d.r + 4; })
-        .attr("dy", 4)
-        .attr("fill", "#F8FAFC")
-        .attr("font-size", function(d) { return d.type === 'technique' ? "10px" : "11px"; })
-        .attr("font-weight", function(d) { return d.type === 'tactic' ? "bold" : "normal"; })
-        .text(function(d) { return d.id; });
-
-      forceSim.on("tick", function() {
-        link
-          .attr("x1", function(d) { return d.source.x; })
-          .attr("y1", function(d) { return d.source.y; })
-          .attr("x2", function(d) { return d.target.x; })
-          .attr("y2", function(d) { return d.target.y; });
-
-        node
-          .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
-      });
-
-      resetZoom(0.8);
-    }
-
-    // Built-in offline fallback renderer
-    function renderKillChainFallback() {
-      svgEl.innerHTML = "";
-      const containerG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      containerG.setAttribute("transform", "translate(40, 40) scale(0.75)");
-      svgEl.appendChild(containerG);
-
-      let tactics = RAW_DATA.tactics;
-      if (selectedTacticId) {
-        tactics = tactics.filter(function(t) { return t.id === selectedTacticId; });
-      }
-
-      const colWidth = 220;
-      tactics.forEach(function(t, colIdx) {
-        const colX = colIdx * (colWidth + 20);
-        const colG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        colG.setAttribute("transform", "translate(" + colX + ", 0)");
-
-        const headerRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        headerRect.setAttribute("width", colWidth);
-        headerRect.setAttribute("height", "40");
-        headerRect.setAttribute("rx", "6");
-        headerRect.setAttribute("fill", "#0F172A");
-        headerRect.setAttribute("stroke", t.color);
-        headerRect.setAttribute("stroke-width", "2");
-        colG.appendChild(headerRect);
-
-        const headerTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        headerTxt.setAttribute("x", "10");
-        headerTxt.setAttribute("y", "24");
-        headerTxt.setAttribute("fill", "#F8FAFC");
-        headerTxt.setAttribute("font-size", "12");
-        headerTxt.setAttribute("font-weight", "bold");
-        headerTxt.textContent = t.name;
-        colG.appendChild(headerTxt);
-
-        t.techniques.forEach(function(ttp, rIdx) {
-          const cardG = document.createElementNS("http://www.w3.org/2000/svg", "g");
-          cardG.setAttribute("transform", "translate(0, " + (50 + rIdx * 80) + ")");
-          cardG.style.cursor = "pointer";
-          cardG.onclick = function() { openInspector(Object.assign({}, ttp, { tacticName: t.name, tacticId: t.id })); };
-
-          const cardRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-          cardRect.setAttribute("width", colWidth);
-          cardRect.setAttribute("height", "70");
-          cardRect.setAttribute("rx", "6");
-          cardRect.setAttribute("fill", "#1E293B");
-          cardRect.setAttribute("stroke", "#334155");
-          cardG.appendChild(cardRect);
-
-          const ttpIdTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          ttpIdTxt.setAttribute("x", "10");
-          ttpIdTxt.setAttribute("y", "22");
-          ttpIdTxt.setAttribute("fill", "#F87171");
-          ttpIdTxt.setAttribute("font-size", "10");
-          ttpIdTxt.setAttribute("font-weight", "bold");
-          ttpIdTxt.textContent = ttp.id;
-          cardG.appendChild(ttpIdTxt);
-
-          const ttpNameTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          ttpNameTxt.setAttribute("x", "10");
-          ttpNameTxt.setAttribute("y", "40");
-          ttpNameTxt.setAttribute("fill", "#F8FAFC");
-          ttpNameTxt.setAttribute("font-size", "11");
-          ttpNameTxt.textContent = ttp.name.length > 20 ? ttp.name.substring(0, 18) + ".." : ttp.name;
-          cardG.appendChild(ttpNameTxt);
-
-          const d3fendTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          d3fendTxt.setAttribute("x", "10");
-          d3fendTxt.setAttribute("y", "58");
-          d3fendTxt.setAttribute("fill", "#34D399");
-          d3fendTxt.setAttribute("font-size", "10");
-          d3fendTxt.textContent = "Def: " + ttp.d3fendId;
-          cardG.appendChild(d3fendTxt);
-
-          colG.appendChild(cardG);
-        });
-
-        containerG.appendChild(colG);
-      });
-    }
-
-    // Switch View Mode
-    function switchMode(mode) {
-      currentMode = mode;
-      document.querySelectorAll(".btn-mode").forEach(function(b) { b.classList.remove("active"); });
-      document.getElementById("mode-" + mode).classList.add("active");
-
-      if (forceSim) {
-        forceSim.stop();
-      }
-
-      if (mode === 'tree') renderTree();
-      else if (mode === 'killchain') renderKillChain();
-      else if (mode === 'force') renderForce();
-    }
-
-    // Filter by tactic
-    function filterByTactic(tacticId) {
-      selectedTacticId = tacticId;
-      document.querySelectorAll(".tactic-pill").forEach(function(p) { p.classList.remove("active"); });
-      if (tacticId) {
-        const p = document.getElementById("pill-" + tacticId);
-        if (p) p.classList.add("active");
+    function renderFlowGraph(mode) {
+      g.selectAll("*").remove();
+
+      const container = document.getElementById("chart-container");
+      const width = Math.max(container.clientWidth, 1200);
+      const nodeWidth = 190;
+      const nodeHeight = 54;
+
+      if (mode === "ATTACK") {
+        renderAttackMatrix(width, nodeWidth, nodeHeight);
+      } else if (mode === "DEFEND") {
+        renderDefendMatrix(width, nodeWidth, nodeHeight);
       } else {
-        document.querySelector(".tactic-pill").classList.add("active");
-      }
-
-      if (currentMode === 'tree') renderTree();
-      else if (currentMode === 'killchain') renderKillChain();
-      else if (currentMode === 'force') renderForce();
-    }
-
-    // Search query
-    function handleSearch(val) {
-      currentSearch = val;
-      if (currentMode === 'tree') renderTree();
-      else if (currentMode === 'killchain') renderKillChain();
-      else if (currentMode === 'force') renderForce();
-    }
-
-    function zoomIn() {
-      if (hasD3) svgD3.transition().duration(250).call(zoomBehavior.scaleBy, 1.3);
-    }
-    function zoomOut() {
-      if (hasD3) svgD3.transition().duration(250).call(zoomBehavior.scaleBy, 0.7);
-    }
-    function resetZoom(scale) {
-      const s = scale || 1.0;
-      if (hasD3) {
-        svgD3.transition().duration(400).call(
-          zoomBehavior.transform,
-          d3.zoomIdentity.translate(width * 0.1, height * 0.1).scale(s)
-        );
+        renderCrossLinkFlow(width, nodeWidth, nodeHeight);
       }
     }
 
-    function toggleExpandAll() {
-      isAllExpanded = !isAllExpanded;
-      if (currentMode === 'tree') renderTree();
+    function renderAttackMatrix(width, nw, nh) {
+      const tactics = fullData.attackTactics || [];
+      const colSpacing = 210;
+      const startX = 20;
+
+      tactics.forEach((tac, tacIdx) => {
+        const x = startX + (tacIdx * colSpacing);
+        let y = 30;
+
+        // Tactic Header
+        const tacG = g.append("g").attr("transform", `translate(${'$'}{x}, ${'$'}{y})`);
+        tacG.append("rect")
+          .attr("width", nw)
+          .attr("height", 36)
+          .attr("rx", 6)
+          .attr("fill", tac.color)
+          .attr("opacity", 0.25)
+          .attr("stroke", tac.color)
+          .attr("stroke-width", 1.5);
+
+        tacG.append("text")
+          .attr("x", 10)
+          .attr("y", 18)
+          .attr("fill", "#F8FAFC")
+          .attr("font-size", "11px")
+          .attr("font-weight", "800")
+          .text(tac.name);
+
+        tacG.append("text")
+          .attr("x", 10)
+          .attr("y", 29)
+          .attr("fill", tac.color)
+          .attr("font-size", "9px")
+          .attr("font-weight", "bold")
+          .text(tac.id);
+
+        y += 48;
+
+        // Techniques
+        (tac.techniques || []).forEach(tech => {
+          const techG = g.append("g")
+            .attr("class", "node-group")
+            .attr("data-id", tech.id)
+            .attr("data-search", `${'$'}{tech.id} ${'$'}{tech.name} ${'$'}{tech.tags.join(" ")}`.toLowerCase())
+            .attr("transform", `translate(${'$'}{x}, ${'$'}{y})`)
+            .on("click", () => openModalForAttack(tech, tac));
+
+          techG.append("rect")
+            .attr("class", "node-bg attack")
+            .attr("width", nw)
+            .attr("height", nh);
+
+          techG.append("rect")
+            .attr("width", 4)
+            .attr("height", nh)
+            .attr("rx", 2)
+            .attr("fill", tac.color);
+
+          techG.append("text")
+            .attr("class", "node-badge")
+            .attr("x", 12)
+            .attr("y", 16)
+            .text(tech.id);
+
+          const truncatedName = tech.name.length > 24 ? tech.name.substring(0, 22) + "…" : tech.name;
+          techG.append("text")
+            .attr("class", "node-title")
+            .attr("x", 12)
+            .attr("y", 31)
+            .text(truncatedName);
+
+          techG.append("text")
+            .attr("class", "node-sub")
+            .attr("x", 12)
+            .attr("y", 44)
+            .text(`🛡️ ${'$'}{tech.d3fendId}`);
+
+          y += nh + 10;
+        });
+      });
     }
 
-    // Inspector Drawer
-    let currentInspectedItem = null;
+    function renderDefendMatrix(width, nw, nh) {
+      const tactics = fullData.defendTactics || [];
+      const colSpacing = 210;
+      const startX = 20;
 
-    function openInspector(item) {
-      currentInspectedItem = item;
-      document.getElementById("insp-tech-id").innerText = item.id || "";
-      document.getElementById("insp-tactic").innerText = item.tacticName || "Tactic";
-      document.getElementById("insp-d3fend-id").innerText = item.d3fendId || "";
-      document.getElementById("insp-title").innerText = item.name || "";
-      document.getElementById("insp-desc").innerText = item.description || "";
-      document.getElementById("insp-attack-code").innerText = item.attackCode || "";
-      document.getElementById("insp-d3fend-header").innerText = "🛡️ D3FEND: " + (item.d3fendName || "");
-      document.getElementById("insp-defend-rule").innerText = item.d3fendRule || item.d3fendDesc || "";
+      tactics.forEach((tac, tacIdx) => {
+        const x = startX + (tacIdx * colSpacing);
+        let y = 30;
 
-      const tagsContainer = document.getElementById("insp-apt-tags");
-      tagsContainer.innerHTML = "";
-      (item.aptGroups || []).forEach(function(a) {
-        const span = document.createElement("span");
-        span.className = "apt-tag";
-        span.innerText = a;
-        tagsContainer.appendChild(span);
+        // Defend Tactic Header
+        const tacG = g.append("g").attr("transform", `translate(${'$'}{x}, ${'$'}{y})`);
+        tacG.append("rect")
+          .attr("width", nw)
+          .attr("height", 36)
+          .attr("rx", 6)
+          .attr("fill", tac.color)
+          .attr("opacity", 0.25)
+          .attr("stroke", tac.color)
+          .attr("stroke-width", 1.5);
+
+        tacG.append("text")
+          .attr("x", 10)
+          .attr("y", 18)
+          .attr("fill", "#F8FAFC")
+          .attr("font-size", "12px")
+          .attr("font-weight", "800")
+          .text("🛡️ " + tac.name);
+
+        tacG.append("text")
+          .attr("x", 10)
+          .attr("y", 29)
+          .attr("fill", tac.color)
+          .attr("font-size", "9px")
+          .attr("font-weight", "bold")
+          .text(tac.id);
+
+        y += 48;
+
+        // Defend Techniques
+        (tac.techniques || []).forEach(tech => {
+          const techG = g.append("g")
+            .attr("class", "node-group")
+            .attr("data-id", tech.id)
+            .attr("data-search", `${'$'}{tech.id} ${'$'}{tech.name} ${'$'}{tech.tags.join(" ")}`.toLowerCase())
+            .attr("transform", `translate(${'$'}{x}, ${'$'}{y})`)
+            .on("click", () => openModalForDefend(tech, tac));
+
+          techG.append("rect")
+            .attr("class", "node-bg defend")
+            .attr("width", nw)
+            .attr("height", nh);
+
+          techG.append("rect")
+            .attr("width", 4)
+            .attr("height", nh)
+            .attr("rx", 2)
+            .attr("fill", tac.color);
+
+          techG.append("text")
+            .attr("class", "node-badge")
+            .attr("x", 12)
+            .attr("y", 16)
+            .style("fill", "#10B981")
+            .text(tech.id);
+
+          const truncatedName = tech.name.length > 24 ? tech.name.substring(0, 22) + "…" : tech.name;
+          techG.append("text")
+            .attr("class", "node-title")
+            .attr("x", 12)
+            .attr("y", 31)
+            .text(truncatedName);
+
+          const counteredStr = tech.counteredAttackIds.join(", ");
+          techG.append("text")
+            .attr("class", "node-sub")
+            .attr("x", 12)
+            .attr("y", 44)
+            .text(`⚔️ Neutralizes: ${'$'}{counteredStr}`);
+
+          y += nh + 10;
+        });
+      });
+    }
+
+    function renderCrossLinkFlow(width, nw, nh) {
+      const attackTactics = fullData.attackTactics || [];
+      const defendTactics = fullData.defendTactics || [];
+
+      // Left Column: ATT&CK Techniques
+      // Right Column: D3FEND Countermeasures
+      const xLeft = 40;
+      const xRight = 500;
+      let yLeft = 40;
+      let yRight = 40;
+
+      const attackPosMap = {};
+      const defendPosMap = {};
+
+      // Draw ATT&CK Nodes
+      attackTactics.forEach(tac => {
+        (tac.techniques || []).forEach(tech => {
+          const techG = g.append("g")
+            .attr("class", "node-group")
+            .attr("data-id", tech.id)
+            .attr("data-search", `${'$'}{tech.id} ${'$'}{tech.name}`.toLowerCase())
+            .attr("transform", `translate(${'$'}{xLeft}, ${'$'}{yLeft})`)
+            .on("click", () => openModalForAttack(tech, tac));
+
+          techG.append("rect")
+            .attr("class", "node-bg attack")
+            .attr("width", nw)
+            .attr("height", nh);
+
+          techG.append("rect")
+            .attr("width", 4)
+            .attr("height", nh)
+            .attr("rx", 2)
+            .attr("fill", tac.color);
+
+          techG.append("text").attr("class", "node-badge").attr("x", 12).attr("y", 16).text(tech.id);
+          techG.append("text").attr("class", "node-title").attr("x", 12).attr("y", 31)
+            .text(tech.name.length > 22 ? tech.name.substring(0, 20) + "…" : tech.name);
+
+          attackPosMap[tech.id] = { x: xLeft + nw, y: yLeft + (nh / 2), tech: tech, tac: tac };
+          yLeft += nh + 12;
+        });
       });
 
-      document.getElementById("inspector").classList.add("open");
+      // Draw D3FEND Nodes
+      defendTactics.forEach(tac => {
+        (tac.techniques || []).forEach(d3Node => {
+          const d3G = g.append("g")
+            .attr("class", "node-group")
+            .attr("data-id", d3Node.id)
+            .attr("data-search", `${'$'}{d3Node.id} ${'$'}{d3Node.name}`.toLowerCase())
+            .attr("transform", `translate(${'$'}{xRight}, ${'$'}{yRight})`)
+            .on("click", () => openModalForDefend(d3Node, tac));
 
-      if (window.AndroidBridge && window.AndroidBridge.onTechniqueSelected) {
-        window.AndroidBridge.onTechniqueSelected(item.id);
+          d3G.append("rect")
+            .attr("class", "node-bg defend")
+            .attr("width", nw)
+            .attr("height", nh);
+
+          d3G.append("rect")
+            .attr("width", 4)
+            .attr("height", nh)
+            .attr("rx", 2)
+            .attr("fill", "#10B981");
+
+          d3G.append("text").attr("class", "node-badge").attr("x", 12).attr("y", 16).style("fill", "#10B981").text(d3Node.id);
+          d3G.append("text").attr("class", "node-title").attr("x", 12).attr("y", 31)
+            .text(d3Node.name.length > 22 ? d3Node.name.substring(0, 20) + "…" : d3Node.name);
+
+          defendPosMap[d3Node.id] = { x: xRight, y: yRight + (nh / 2), d3: d3Node, tac: tac };
+          yRight += nh + 12;
+        });
+      });
+
+      // Draw Connecting Flow Lines between ATT&CK and D3FEND
+      Object.keys(attackPosMap).forEach(attId => {
+        const att = attackPosMap[attId];
+        const targetD3Id = att.tech.d3fendId;
+        const d3Node = defendPosMap[targetD3Id];
+
+        if (d3Node) {
+          const pathStr = d3.linkHorizontal()({
+            source: [att.x, att.y],
+            target: [d3Node.x, d3Node.y]
+          });
+
+          g.append("path")
+            .attr("class", "link-path")
+            .attr("data-att", attId)
+            .attr("data-defend", targetD3Id)
+            .attr("d", pathStr);
+        }
+      });
+    }
+
+    function switchMode(newMode) {
+      currentMode = newMode;
+      document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      renderFlowGraph(newMode);
+    }
+
+    function zoomIn() { svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.3); }
+    function zoomOut() { svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.7); }
+    function resetZoom() { svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity); }
+
+    function handleSearch() {
+      const q = document.getElementById("searchInput").value.trim().toLowerCase();
+      d3.selectAll(".node-group").each(function() {
+        const searchStr = this.getAttribute("data-search") || "";
+        if (!q || searchStr.includes(q)) {
+          d3.select(this).style("opacity", 1);
+        } else {
+          d3.select(this).style("opacity", 0.15);
+        }
+      });
+    }
+
+    function openModalForAttack(tech, tac) {
+      document.getElementById("modalIdBadge").innerText = `${'$'}{tac.displayName} • ${'$'}{tech.id}`;
+      document.getElementById("modalIdBadge").style.borderColor = tac.color;
+      document.getElementById("modalIdBadge").style.color = tac.color;
+      document.getElementById("modalTitle").innerText = tech.name;
+      document.getElementById("modalDescription").innerText = tech.description;
+
+      document.getElementById("modalCodeLabel").innerText = "ATTACK PAYLOAD & EXPLOIT COMMAND";
+      document.getElementById("modalCodeLabel").style.color = "#38BDF8";
+      currentModalCode = tech.attackCode;
+      document.getElementById("modalCodeText").innerText = tech.attackCode;
+
+      document.getElementById("modalCounterText").innerText = `D3FEND ${'$'}{tech.d3fendId} (${'$'}{tech.d3fendName}): ${'$'}{tech.d3fendDesc}`;
+
+      document.getElementById("detailModal").classList.add("open");
+
+      // Highlight connections
+      if (currentMode === "ALL") {
+        d3.selectAll(".link-path").classed("highlight", false);
+        d3.selectAll(`[data-att="${'$'}{tech.id}"]`).classed("highlight", true);
       }
     }
 
-    function closeInspector() {
-      document.getElementById("inspector").classList.remove("open");
+    function openModalForDefend(tech, tac) {
+      document.getElementById("modalIdBadge").innerText = `${'$'}{tac.displayName} • ${'$'}{tech.id}`;
+      document.getElementById("modalIdBadge").style.borderColor = "#10B981";
+      document.getElementById("modalIdBadge").style.color = "#10B981";
+      document.getElementById("modalTitle").innerText = tech.name;
+      document.getElementById("modalDescription").innerText = tech.description;
+
+      document.getElementById("modalCodeLabel").innerText = "D3FEND ENFORCEMENT & REMEDIATION RULE";
+      document.getElementById("modalCodeLabel").style.color = "#10B981";
+      currentModalCode = tech.ruleOrFix;
+      document.getElementById("modalCodeText").innerText = tech.ruleOrFix;
+
+      document.getElementById("modalCounterText").innerText = `Neutralizes ATT&CK Techniques: ${'$'}{tech.counteredAttackIds.join(", ")}`;
+
+      document.getElementById("detailModal").classList.add("open");
+
+      // Highlight connections
+      if (currentMode === "ALL") {
+        d3.selectAll(".link-path").classed("defend-highlight", false);
+        d3.selectAll(`[data-defend="${'$'}{tech.id}"]`).classed("defend-highlight", true);
+      }
     }
 
-    function copySnippet(type) {
-      if (!currentInspectedItem) return;
-      const text = type === 'attack' ? currentInspectedItem.attackCode : currentInspectedItem.d3fendRule;
-      const label = type === 'attack' ? 'Attack Command' : 'D3FEND Rule';
+    function closeModal() {
+      document.getElementById("detailModal").classList.remove("open");
+      d3.selectAll(".link-path").classed("highlight", false).classed("defend-highlight", false);
+    }
 
+    function copyModalCode() {
       if (window.AndroidBridge && window.AndroidBridge.copyText) {
-        window.AndroidBridge.copyText(text, label);
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-        alert("Copied " + label + " to clipboard!");
+        window.AndroidBridge.copyText(currentModalCode, "Code Snippet");
+      } else {
+        navigator.clipboard.writeText(currentModalCode);
+        alert("Copied to clipboard!");
       }
     }
 
-    window.addEventListener("resize", function() {
-      width = window.innerWidth;
-      height = window.innerHeight - 80;
-    });
-
-    // Run initial view
-    setTimeout(function() {
-      renderTree();
-    }, 120);
+    window.addEventListener("load", initChart);
+    window.addEventListener("resize", initChart);
   </script>
 </body>
 </html>

@@ -25,11 +25,13 @@ class AppUpdateManager(private val context: Context) {
     companion object {
         private const val TAG = "AppUpdateManager"
         private const val PREFS_NAME = "cybershield_update_prefs"
+        private const val KEY_DISMISSED_VERSION_CODE = "dismissed_version_code"
+        private const val KEY_DISMISSED_VERSION_NAME = "dismissed_version_name"
         private const val KEY_GITHUB_REPO = "github_repo_owner_name"
         private const val KEY_CUSTOM_UPDATE_URL = "custom_update_json_url"
         
         // Default target repository if user pushes to GitHub
-        const val DEFAULT_FALLBACK_REPO = "suhas4341/CyberShield"
+        const val DEFAULT_FALLBACK_REPO = "SuhasSubhajji/Final-app"
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -61,6 +63,20 @@ class AppUpdateManager(private val context: Context) {
         val cleanRepo = repo.trim().removePrefix("https://github.com/").removeSuffix("/")
         prefs.edit().putString(KEY_GITHUB_REPO, cleanRepo).apply()
         _configuredRepo.value = cleanRepo
+    }
+
+    private fun compareVersionNames(v1: String, v2: String): Int {
+        val cleanV1 = v1.removePrefix("v").trim()
+        val cleanV2 = v2.removePrefix("v").trim()
+        val parts1 = cleanV1.split(".").mapNotNull { it.toIntOrNull() }
+        val parts2 = cleanV2.split(".").mapNotNull { it.toIntOrNull() }
+        val maxLength = maxOf(parts1.size, parts2.size)
+        for (i in 0 until maxLength) {
+            val p1 = parts1.getOrElse(i) { 0 }
+            val p2 = parts2.getOrElse(i) { 0 }
+            if (p1 != p2) return p1.compareTo(p2)
+        }
+        return 0
     }
 
     /**
@@ -108,15 +124,25 @@ class AppUpdateManager(private val context: Context) {
                 }
             }
 
-            // Check if detected versionCode is newer than current app versionCode
             val currentVersionCode = BuildConfig.VERSION_CODE
-            if (detectedInfo != null && detectedInfo.versionCode > currentVersionCode) {
-                _updateInfo.value = detectedInfo
-                return@withContext detectedInfo
-            } else {
-                _updateInfo.value = null
-                return@withContext null
+            val currentVersionName = BuildConfig.VERSION_NAME
+            val dismissedVersionCode = prefs.getInt(KEY_DISMISSED_VERSION_CODE, 0)
+            val dismissedVersionName = prefs.getString(KEY_DISMISSED_VERSION_NAME, "") ?: ""
+
+            if (detectedInfo != null) {
+                val isNewerCode = detectedInfo.versionCode > currentVersionCode
+                val isNewerName = compareVersionNames(detectedInfo.versionName, currentVersionName) > 0
+                val isDismissed = (detectedInfo.versionCode <= dismissedVersionCode || detectedInfo.versionName == dismissedVersionName) && !isUserInitiated
+
+                // Only trigger update if detected version is genuinely newer than installed build AND not dismissed
+                if ((isNewerCode || isNewerName) && !isDismissed && detectedInfo.versionName != currentVersionName) {
+                    _updateInfo.value = detectedInfo
+                    return@withContext detectedInfo
+                }
             }
+            
+            _updateInfo.value = null
+            return@withContext null
         } catch (e: Exception) {
             Log.e(TAG, "Failed checking for update: ${e.message}", e)
             _updateInfo.value = null
@@ -221,7 +247,13 @@ class AppUpdateManager(private val context: Context) {
         }
     }
 
-    fun dismissUpdate() {
+    fun dismissUpdate(versionCodeToDismiss: Int? = _updateInfo.value?.versionCode, versionName: String? = _updateInfo.value?.versionName) {
+        val code = versionCodeToDismiss ?: _updateInfo.value?.versionCode ?: 0
+        val name = versionName ?: _updateInfo.value?.versionName ?: ""
+        val editor = prefs.edit()
+        if (code > 0) editor.putInt(KEY_DISMISSED_VERSION_CODE, code)
+        if (name.isNotBlank()) editor.putString(KEY_DISMISSED_VERSION_NAME, name)
+        editor.apply()
         _updateInfo.value = null
         _downloadState.value = UpdateDownloadState.Idle
     }

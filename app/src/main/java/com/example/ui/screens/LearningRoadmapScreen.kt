@@ -99,8 +99,6 @@ import com.example.ui.components.ThemeSelectorDialog
 import com.example.ui.components.AttackScenarioCard
 import com.example.ui.components.Sc200ExamSection
 import com.example.ui.components.ActiveDirectorySection
-import com.example.ui.components.ActiveDirectoryAuthSection
-import com.example.ui.components.ActiveDirectoryRedTeamSection
 import com.example.ui.components.Sc500ExamSection
 import com.example.ui.theme.CyberBorder
 import com.example.ui.theme.CyberCyan
@@ -868,13 +866,6 @@ fun LearningRoadmapScreen(
                 if (activeMainSection == 5) {
                     item {
                         ActiveDirectorySection()
-                    }
-                }
-
-                // ==================== SECTION 6: ACTIVE DIRECTORY RED TEAMING ====================
-                if (activeMainSection == 6) {
-                    item {
-                        ActiveDirectoryRedTeamSection()
                     }
                 }
 

@@ -460,7 +460,7 @@ fun GitHubUpdateSettingsDialog(
                 OutlinedTextField(
                     value = repoInput,
                     onValueChange = { repoInput = it },
-                    placeholder = { Text("e.g. suhas4341/CyberShield", color = CyberTextMuted, fontSize = 12.sp) },
+                    placeholder = { Text("e.g. SuhasSubhajji/Final-app", color = CyberTextMuted, fontSize = 12.sp) },
                     singleLine = true,
                     shape = RoundedCornerShape(8.dp),
                     colors = OutlinedTextFieldDefaults.colors(
