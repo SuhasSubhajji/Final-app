@@ -72,8 +72,10 @@ enum class ThreatCategory(val displayName: String) {
 enum class DateRangeFilter(val displayName: String, val durationMillis: Long?) {
     ALL("All Time", null),
     PAST_24_HOURS("Past 24 Hours", 24L * 60 * 60 * 1000),
-    PAST_7_DAYS("Past 7 Days", 7L * 24 * 60 * 60 * 1000),
-    PAST_30_DAYS("Past 30 Days", 30L * 24 * 60 * 60 * 1000)
+    PAST_48_HOURS("Observed 2 Days Ago", 48L * 60 * 60 * 1000),
+    PAST_1_WEEK("Past 1 Week", 7L * 24 * 60 * 60 * 1000),
+    PAST_1_MONTH("Past 1 Month", 30L * 24 * 60 * 60 * 1000),
+    PAST_3_MONTHS("Past 3 Months", 90L * 24 * 60 * 60 * 1000)
 }
 
 data class ThreatItem(

@@ -53,6 +53,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import com.example.data.model.DateRangeFilter
 import com.example.data.model.SecurityAlert
 import com.example.ui.components.CyberThemeToggleButton
 import com.example.ui.components.ThemeSelectorDialog
@@ -206,18 +211,95 @@ fun AlertsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            var selectedDateRange by remember { mutableStateOf(DateRangeFilter.ALL) }
 
-            Text(
-                text = "Alert History (${alerts.size})",
-                color = CyberTextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
+            val filteredAlerts = remember(alerts, selectedDateRange) {
+                if (selectedDateRange == DateRangeFilter.ALL || selectedDateRange.durationMillis == null) {
+                    alerts
+                } else {
+                    val cutoff = System.currentTimeMillis() - selectedDateRange.durationMillis!!
+                    alerts.filter { it.timestampMillis >= cutoff }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Alert History (${filteredAlerts.size})",
+                    color = CyberTextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (selectedDateRange != DateRangeFilter.ALL) {
+                    Surface(
+                        color = CyberCyan.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp),
+                        onClick = { selectedDateRange = DateRangeFilter.ALL }
+                    ) {
+                        Text(
+                            text = "Reset Filter",
+                            color = CyberCyan,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Date Range Filter Chips Bar (Observed 2 Days Ago, 1 Week, 1 Month, etc.)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                DateRangeFilter.entries.forEach { range ->
+                    val isSelected = selectedDateRange == range
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedDateRange = range },
+                        label = {
+                            Text(
+                                text = when (range) {
+                                    DateRangeFilter.ALL -> "All Time"
+                                    DateRangeFilter.PAST_24_HOURS -> "⏱️ Past 24h"
+                                    DateRangeFilter.PAST_48_HOURS -> "📅 Observed 2 Days Ago"
+                                    DateRangeFilter.PAST_1_WEEK -> "🗓️ 1 Week"
+                                    DateRangeFilter.PAST_1_MONTH -> "📆 1 Month"
+                                    DateRangeFilter.PAST_3_MONTHS -> "⏳ 3 Months"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = CyberCyan.copy(alpha = 0.2f),
+                            selectedLabelColor = CyberCyan,
+                            containerColor = theme.surface,
+                            labelColor = CyberTextSecondary
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = CyberBorder,
+                            selectedBorderColor = CyberCyan
+                        ),
+                        modifier = Modifier.testTag("alerts_date_filter_${range.name}")
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            if (alerts.isEmpty()) {
+            if (filteredAlerts.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -233,14 +315,18 @@ fun AlertsScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "No Push Alerts Triggered Yet",
+                            text = if (alerts.isEmpty()) "No Push Alerts Triggered Yet" else "No Alerts in Selected Timeframe",
                             color = CyberTextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Tap 'Trigger Critical CVE Scan' above to simulate a high-priority threat alert with notification tray actions.",
+                            text = if (alerts.isEmpty()) {
+                                "Tap 'Trigger Critical CVE Scan' above to simulate a high-priority threat alert with notification tray actions."
+                            } else {
+                                "No security alert matches '${selectedDateRange.displayName}'. Try selecting 'All Time' or a broader filter."
+                            },
                             color = CyberTextMuted,
                             fontSize = 13.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -254,7 +340,7 @@ fun AlertsScreen(
                         .testTag("alerts_history_list"),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(alerts, key = { it.id }) { alert ->
+                    items(filteredAlerts, key = { it.id }) { alert ->
                         AlertCard(
                             alert = alert,
                             onReviewClick = { onNavigateToThreat(alert.threatItemId) },

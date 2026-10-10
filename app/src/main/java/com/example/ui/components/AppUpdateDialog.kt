@@ -1,5 +1,9 @@
 package com.example.ui.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -18,10 +22,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -202,13 +209,74 @@ fun AppUpdatePromptDialog(
                     }
 
                     is UpdateDownloadState.Error -> {
+                        val context = LocalContext.current
+                        var copiedPkg by remember { mutableStateOf(false) }
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "⚠️ ${downloadState.message}",
-                            color = SeverityCritical,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
+                        Card(
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = CyberNavyDark),
+                            border = BorderStroke(1.dp, SeverityCritical.copy(alpha = 0.6f)),
+                            modifier = Modifier.fillMaxWidth().testTag("package_conflict_diagnostic_card")
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = "Package Conflict Warning",
+                                        tint = SeverityCritical,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Package Signature Conflict",
+                                        color = SeverityCritical,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = downloadState.message,
+                                    color = CyberTextSecondary,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "If you see 'App not installed' or 'Package conflict', the existing installed app was signed with a different key certificate. Uninstall the existing version once to enable seamless automated GitHub updates.",
+                                    color = CyberTextMuted,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("App Package Name", "com.aistudio.cybershield.trsk"))
+                                        copiedPkg = true
+                                        Toast.makeText(context, "Copied package name: com.aistudio.cybershield.trsk", Toast.LENGTH_SHORT).show()
+                                    },
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f)),
+                                    modifier = Modifier.fillMaxWidth().testTag("copy_package_name_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = null,
+                                        tint = CyberCyan,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (copiedPkg) "Copied Package Name!" else "Copy Package Name (com.aistudio.cybershield.trsk)",
+                                        color = CyberCyan,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     is UpdateDownloadState.Idle -> {

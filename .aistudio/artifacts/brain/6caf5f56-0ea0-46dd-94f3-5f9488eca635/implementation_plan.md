@@ -1,119 +1,30 @@
-# Google Search Grounding with Gemini 3.5 Flash
+# Implementation Plan: Package Conflict Resolution & Keystore Alignment
 
-Enables real-time Google Search Grounding across CyberShield using `gemini-3.5-flash`. Cyber threat intelligence requires up-to-the-minute awareness of zero-day exploits, newly released CISA KEV advisories, vendor patches, and active in-the-wild campaigns. This feature equips the Gemini AI engine with Google Search tools, grounding responses in live web sources and rendering source links/citations.
-
-## User Review & Critical Decisions
-
-> [!IMPORTANT]
-> - **Model & Tool**: Using `gemini-3.5-flash` with the Google Search tool (`tools = [{"googleSearch": {}}]`) for live web grounding as requested.
-> - **Search Grounding Toggle & Transparency**: In both the **Gemini AI Assistant** and **Threat Detail Analysis / Custom Q&A**, users will have a prominent, interactive "Google Search Grounding" toggle (enabled by default) and visual badges indicating web-grounded insights with clickable search queries and sources.
-> - **Graceful Quota & Offline Handling**: If the API key is not configured or offline, high-fidelity cached DevSecOps heuristics and security feeds continue to operate seamlessly.
+The goal of this task is to resolve Android package conflict errors (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`) when updating the app via GitHub CI/CD releases. This is achieved by embedding a matching deterministic debug keystore in the GitHub Actions build workflow and providing an interactive diagnostic and troubleshooting guide in the app.
 
 ---
 
-### 1. Overview & Core Concept
+## Proposed Changes
 
-- **What It Does**:
-  - Connects Gemini AI queries to live Google Search via the `tools: [{"googleSearch": {}}]` parameter in the REST API request.
-  - Returns responses backed by up-to-date threat intel, active CVE exploits, and fresh vendor advisories.
-  - Extracts and displays **Grounding Metadata** (search queries, web sources, citations, and reference links) in the UI.
-- **Where It Is Applied**:
-  1. **Gemini Chatbot (`GeminiChatbotScreen.kt`)**: Dedicated "Google Search Grounding" toggle pill in the input bar and top bar. Displays grounded web source badges and citation links directly under AI messages.
-  2. **Threat Intelligence Detail (`ThreatDetailScreen.kt`)**: Real-time CVE and zero-day threat analysis with live web search grounding to check if a vulnerability is being actively exploited right now or if a hotfix was released today.
-  3. **Live Web Query Quick Prompts**: Ready-to-tap search queries like *"Check active zero-days in CISA KEV today"*, *"Latest OpenSSH / XZ backdoor updates"*, and *"Recent Ransomware campaign indicators"*.
+### 1. GitHub CI/CD Workflow (`/.github/workflows/build.yml`)
+- Update `/.github/workflows/build.yml` to decode the committed Base64 debug keystore (`debug.keystore.base64`) directly in CI, instead of generating a random ephemeral keystore with `keytool -genkeypair`.
+- Ensure APKs built on GitHub Actions share the exact same cryptographic signature certificate (`SHA256: 86:89:DA:B2:...`) as the app build environment.
 
----
-
-### 2. User Experience & Visual Design
-
-- **Visual Style**: Cyber-themed (CyberCyan `#06B6D4`, Emerald `#10B981`, Navy surfaces `#0D1527`), matching CyberShield's high-tech SOC aesthetic.
-- **Search Grounding Indicator Pill**:
-  - A glowing Google Search chip: `🌐 Google Search Grounded` with a toggle switch.
-  - Active state: Subtle cyan glow, badge indicating *"Live Web Intelligence Active"*.
-- **Grounding Sources & Citations Component**:
-  - Collapsible/expandable card below grounded responses showing:
-    - 🔍 **Web Search Queries Used** (e.g. `cve-2024-3094 active exploitation status`)
-    - 🔗 **Verified Sources & Web Citations** with favicon/source title and direct clickable URLs that launch the system browser safely.
-- **Touch Targets & Edge-to-Edge**: Full compliance with M3 48.dp interactive touch targets and safe window insets.
+### 2. In-App Package Conflict & Signature Diagnostic UI (`AppUpdateDialog.kt` & `AppUpdateManager.kt`)
+- Update `AppUpdateDialog.kt` to add a dedicated **Signature Mismatch & Package Conflict Diagnostic Card** when installation fails or package conflicts occur.
+- Provide clear step-by-step guidance:
+  1. Explanation of signature certificate mismatches (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`).
+  2. Quick "Copy Package Name" button (`com.aistudio.cybershield.trsk`) for `adb uninstall` or system settings search.
+  3. Guidance on how updating works once installed from a GitHub release with the unified keystore.
+  4. Direct action buttons to retry or review GitHub release settings.
 
 ---
 
-### 3. Technical Architecture & Data Strategy
+## Verification Plan
 
-```
-┌────────────────────────────────────────────────────────┐
-│               UI / View Layer                         │
-│  - GeminiChatbotScreen (Search Grounding Toggle & Badges)│
-│  - ThreatDetailScreen (Live Grounded Analysis Card)   │
-│  - GroundingSourcesCard (Citations & Web Queries)     │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│               ThreatFeedViewModel                     │
-│  - isSearchGroundingEnabled: StateFlow<Boolean>       │
-│  - sendChatMessage(..., enableSearchGrounding = true) │
-│  - requestGroundedAiSummary(threat)                   │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│               GeminiService (REST)                    │
-│  - Model: "gemini-3.5-flash"                           │
-│  - Body: contents + tools: [{"googleSearch": {}}]     │
-│  - Response: candidate.content + groundingMetadata    │
-│    (webSearchQueries, groundingChunks, sources)       │
-└────────────────────────────────────────────────────────┘
-```
+### Automated Compilation & Validation
+- Run `compile_applet` to ensure Kotlin code builds with zero errors.
+- Verify `/.github/workflows/build.yml` YAML syntax and step logic.
 
-#### API Request Schema with Google Search Tool:
-```json
-{
-  "contents": [ ... ],
-  "tools": [
-    {
-      "googleSearch": {}
-    }
-  ],
-  "generationConfig": {
-    "temperature": 0.4
-  }
-}
-```
-
-#### API Response Parsing:
-Extract `candidates[0].groundingMetadata` which provides:
-- `webSearchQueries`: list of search queries executed.
-- `groundingChunks`: list of sources with `web: { uri, title }`.
-- `groundingSupports`: grounding segments linking text to chunks.
-
----
-
-### 4. Implementation Steps
-
-1. **Update API Data Models (`GeminiService.kt`)**:
-   - Add `GeminiTool` model:
-     ```kotlin
-     @JsonClass(generateAdapter = true)
-     data class GeminiGoogleSearchTool(
-         @Json(name = "googleSearch") val googleSearch: Map<String, String> = emptyMap()
-     )
-     ```
-   - Add `groundingMetadata` models (`GeminiGroundingMetadata`, `GeminiGroundingChunk`, `GeminiWebChunk`, etc.).
-   - Include `tools: List<GeminiGoogleSearchTool>? = null` in `GeminiGenerateRequest`.
-2. **Update `ChatMessage` & `ChatbotReply` Models**:
-   - Add `groundingMetadata` (queries and web sources list) to `ChatMessage` and `GeminiAnalysisResult`.
-3. **Enhance `GeminiService.kt`**:
-   - Support `enableSearchGrounding: Boolean` in `sendChatMessage`, `analyzeThreat`, and `askCustomQuestion`.
-   - Force `gemini-3.5-flash` whenever search grounding is active for optimal search tool invocation.
-   - Parse `groundingMetadata` and attach sources to the returned message.
-4. **Update `ThreatFeedViewModel.kt`**:
-   - Add `val isSearchGroundingEnabled = MutableStateFlow(true)`.
-   - Pass search grounding flag to `geminiService`.
-5. **Update UI Components (`GeminiChatbotScreen.kt` & `ThreatDetailScreen.kt`)**:
-   - Add Grounding Toggle in `GeminiChatbotScreen` top/input bar.
-   - Add `GroundingSourcesSection` displaying web search queries and citation chips that open source URLs safely.
-   - Add a "Live Grounded Search" button in `ThreatDetailScreen` to search the web for the latest zero-day intel.
-6. **Verification**:
-   - Verify compilation with `compile_applet`.
-   - Confirm safety handling for URL clicks and no regressions.
+### User Guidance Verification
+- Test `AppUpdateDialog.kt` UI components, ensuring all buttons have accessibility descriptions and `testTag` identifiers.

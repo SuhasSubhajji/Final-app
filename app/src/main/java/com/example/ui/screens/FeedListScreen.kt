@@ -319,10 +319,7 @@ fun FeedListScreen(
                 onToggleRlSort = { viewModel.toggleRlSort() },
                 onToggleCritical = { viewModel.toggleSeverityFilter(ThreatSeverity.CRITICAL) },
                 onToggleDevSecOps = { viewModel.toggleCategoryFilter(ThreatCategory.DEVSECOPS) },
-                onTogglePast24h = {
-                    val target = if (filterState.dateRange == DateRangeFilter.PAST_24_HOURS) DateRangeFilter.ALL else DateRangeFilter.PAST_24_HOURS
-                    viewModel.setDateRangeFilter(target)
-                },
+                onSelectDateRange = { range -> viewModel.setDateRangeFilter(range) },
                 onToggleBookmarks = { viewModel.toggleOnlyBookmarks() },
                 onOpenHistory = { showHistorySheet = true },
                 onClearAll = { viewModel.clearAllFilters() }
@@ -468,7 +465,7 @@ private fun QuickFilterPillsRow(
     onToggleRlSort: () -> Unit,
     onToggleCritical: () -> Unit,
     onToggleDevSecOps: () -> Unit,
-    onTogglePast24h: () -> Unit,
+    onSelectDateRange: (DateRangeFilter) -> Unit,
     onToggleBookmarks: () -> Unit,
     onOpenHistory: () -> Unit,
     onClearAll: () -> Unit,
@@ -563,9 +560,49 @@ private fun QuickFilterPillsRow(
         val is24hActive = filterState.dateRange == DateRangeFilter.PAST_24_HOURS
         FilterChip(
             selected = is24hActive,
-            onClick = onTogglePast24h,
+            onClick = {
+                val target = if (is24hActive) DateRangeFilter.ALL else DateRangeFilter.PAST_24_HOURS
+                onSelectDateRange(target)
+            },
             label = { Text("⏱️ Past 24h", fontSize = 12.sp) },
             modifier = Modifier.testTag("quick_filter_24h")
+        )
+
+        val is48hActive = filterState.dateRange == DateRangeFilter.PAST_48_HOURS
+        FilterChip(
+            selected = is48hActive,
+            onClick = {
+                val target = if (is48hActive) DateRangeFilter.ALL else DateRangeFilter.PAST_48_HOURS
+                onSelectDateRange(target)
+            },
+            label = { Text("📅 Observed 2 Days Ago", fontSize = 12.sp) },
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = CyberCyan.copy(alpha = 0.2f),
+                selectedLabelColor = CyberCyan
+            ),
+            modifier = Modifier.testTag("quick_filter_2days")
+        )
+
+        val is1WeekActive = filterState.dateRange == DateRangeFilter.PAST_1_WEEK
+        FilterChip(
+            selected = is1WeekActive,
+            onClick = {
+                val target = if (is1WeekActive) DateRangeFilter.ALL else DateRangeFilter.PAST_1_WEEK
+                onSelectDateRange(target)
+            },
+            label = { Text("🗓️ 1 Week", fontSize = 12.sp) },
+            modifier = Modifier.testTag("quick_filter_1week")
+        )
+
+        val is1MonthActive = filterState.dateRange == DateRangeFilter.PAST_1_MONTH
+        FilterChip(
+            selected = is1MonthActive,
+            onClick = {
+                val target = if (is1MonthActive) DateRangeFilter.ALL else DateRangeFilter.PAST_1_MONTH
+                onSelectDateRange(target)
+            },
+            label = { Text("📆 1 Month", fontSize = 12.sp) },
+            modifier = Modifier.testTag("quick_filter_1month")
         )
 
         FilterChip(
