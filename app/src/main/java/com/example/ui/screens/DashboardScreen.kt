@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.ThumbDown
@@ -322,6 +323,47 @@ fun DashboardScreen(
                 }
             }
 
+            // SECTION 1: Key Command Center Metrics
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    MetricCard(
+                        title = "Total Threats",
+                        count = stats.totalCount.toString(),
+                        accentColor = CyberCyan,
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricCard(
+                        title = "Critical Zero-Days",
+                        count = stats.criticalCount.toString(),
+                        accentColor = SeverityCritical,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    MetricCard(
+                        title = "DevSecOps Alerts",
+                        count = stats.devSecOpsCount.toString(),
+                        accentColor = CyberEmerald,
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricCard(
+                        title = "Active Push Alerts",
+                        count = stats.unreadAlertsCount.toString(),
+                        accentColor = SeverityHigh,
+                        onClick = onNavigateToAlerts,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
             // Custom Tactical Tab Selector
             item {
                 Row(
@@ -377,47 +419,6 @@ fun DashboardScreen(
                         cacheStatus = offlineCacheStatus,
                         onSyncClick = { viewModel.refreshFeeds() }
                     )
-                }
-
-                // SECTION 1: Key Metrics Row
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        MetricCard(
-                            title = "Total Threats",
-                            count = stats.totalCount.toString(),
-                            accentColor = CyberCyan,
-                            modifier = Modifier.weight(1f)
-                        )
-                        MetricCard(
-                            title = "Critical Zero-Days",
-                            count = stats.criticalCount.toString(),
-                            accentColor = SeverityCritical,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        MetricCard(
-                            title = "DevSecOps Alerts",
-                            count = stats.devSecOpsCount.toString(),
-                            accentColor = CyberEmerald,
-                            modifier = Modifier.weight(1f)
-                        )
-                        MetricCard(
-                            title = "Active Push Alerts",
-                            count = stats.unreadAlertsCount.toString(),
-                            accentColor = SeverityHigh,
-                            onClick = onNavigateToAlerts,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
                 }
 
                 // SECTION 2: Topic of the Day Card
@@ -556,28 +557,74 @@ fun DashboardScreen(
 
                 val itemsToDisplay = if (cveSearchQuery.isNotBlank()) searchedCveThreats else searchedCveThreats.take(8)
 
-                items(itemsToDisplay, key = { it.id }) { item ->
-                    val rlScore = viewModel.getThreatRelevanceScore(item)
-                    DashboardThreatCard(
-                        threat = item,
-                        rlScore = rlScore,
-                        onClick = {
-                            viewModel.recordThreatClick(item)
-                            onThreatClick(item.id)
-                        },
-                        onBookmarkToggle = {
-                            viewModel.recordThreatBookmark(item)
-                            viewModel.toggleBookmark(item)
-                        },
-                        onSummarizeClick = {
-                            viewModel.recordThreatClick(item)
-                            onThreatClick(item.id)
-                            viewModel.requestAiSummary(item)
-                        },
-                        onFeedback = { isPositive ->
-                            viewModel.recordThreatFeedback(item, isPositive)
+                if (itemsToDisplay.isEmpty()) {
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = CyberTheme.colors.surface,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CyberTheme.colors.border),
+                            modifier = Modifier.fillMaxWidth().testTag("cve_search_empty_state")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = CyberTheme.colors.accentPrimary,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No CVE Advisories Found",
+                                    color = CyberTheme.colors.textPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "No active threats match \"$cveSearchQuery\". Try searching by year (\"CVE-2025\"), keyword (\"RCE\"), or reset query.",
+                                    color = CyberTheme.colors.textSecondary,
+                                    fontSize = 12.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                OutlinedButton(
+                                    onClick = { viewModel.setCveSearchQuery("") },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = CyberTheme.colors.accentPrimary),
+                                    modifier = Modifier.testTag("cve_search_clear_button")
+                                ) {
+                                    Text("Clear Search Query", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
                         }
-                    )
+                    }
+                } else {
+                    items(itemsToDisplay, key = { it.id }) { item ->
+                        val rlScore = viewModel.getThreatRelevanceScore(item)
+                        DashboardThreatCard(
+                            threat = item,
+                            rlScore = rlScore,
+                            onClick = {
+                                viewModel.recordThreatClick(item)
+                                onThreatClick(item.id)
+                            },
+                            onBookmarkToggle = {
+                                viewModel.recordThreatBookmark(item)
+                                viewModel.toggleBookmark(item)
+                            },
+                            onSummarizeClick = {
+                                viewModel.recordThreatClick(item)
+                                onThreatClick(item.id)
+                                viewModel.requestAiSummary(item)
+                            },
+                            onFeedback = { isPositive ->
+                                viewModel.recordThreatFeedback(item, isPositive)
+                            }
+                        )
+                    }
                 }
             } else {
                 // SECTION: Adaptive SOC Reinforcement Learning Agent
@@ -739,10 +786,11 @@ private fun MetricCard(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val theme = CyberTheme.colors
     Surface(
-        color = CyberNavySurface,
+        color = theme.surface,
         shape = RoundedCornerShape(14.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder),
+        border = androidx.compose.foundation.BorderStroke(1.dp, theme.border),
         onClick = { onClick?.invoke() },
         enabled = onClick != null,
         modifier = modifier.height(84.dp)
@@ -760,7 +808,7 @@ private fun MetricCard(
             ) {
                 Text(
                     text = title,
-                    color = CyberTextSecondary,
+                    color = theme.textSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )

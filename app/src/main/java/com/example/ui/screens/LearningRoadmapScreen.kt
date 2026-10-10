@@ -884,7 +884,7 @@ fun LearningRoadmapScreen(
                             colors = CardDefaults.cardColors(containerColor = theme.surface),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF43F5E).copy(alpha = 0.6f))
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(14.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -903,13 +903,13 @@ fun LearningRoadmapScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
                                             Text(
-                                                text = "MITRE ATT&CK Enterprise Flow Chart",
+                                                text = "⚔️ MITRE ATT&CK Matrix & Graph",
                                                 color = Color(0xFFF43F5E),
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                             Text(
-                                                text = "14 Enterprise Tactics • APT Adversary Graph",
+                                                text = "Interactive TTP Nodes & Adversary Tactics",
                                                 color = theme.textSecondary,
                                                 fontSize = 11.sp
                                             )
@@ -922,17 +922,28 @@ fun LearningRoadmapScreen(
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF43F5E), contentColor = Color.White),
                                         modifier = Modifier.testTag("launch_mitre_attack_flow_modal_button")
                                     ) {
-                                        Text("Open ATT&CK Chart", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Fullscreen", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Visualize the relationships across all 14 enterprise tactics—from Reconnaissance to Impact—in an interactive flow chart with APT group drill-down, zoom, pan, and real-time technique filtering.",
-                                    color = theme.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Embedded Interactive Graph
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, theme.border),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(480.dp)
+                                ) {
+                                    com.example.ui.components.MitreInteractiveGraphComposable(
+                                        initialMode = "ATTACK",
+                                        progressMap = ttpProgressMap,
+                                        onUpdateProgress = { techId, status -> viewModel.updateTtpProgress(techId, status) },
+                                        onClose = null,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                         }
                     }
@@ -980,7 +991,7 @@ fun LearningRoadmapScreen(
                             colors = CardDefaults.cardColors(containerColor = theme.surface),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF06B6D4).copy(alpha = 0.6f))
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(14.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -999,7 +1010,7 @@ fun LearningRoadmapScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
                                             Text(
-                                                text = "MITRE D3FEND Countermeasures Graph",
+                                                text = "🛡️ MITRE D3FEND Defend Graph",
                                                 color = Color(0xFF06B6D4),
                                                 fontSize = 15.sp,
                                                 fontWeight = FontWeight.Bold
@@ -1018,17 +1029,28 @@ fun LearningRoadmapScreen(
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF06B6D4), contentColor = Color.Black),
                                         modifier = Modifier.testTag("launch_mitre_defend_flow_modal_button")
                                     ) {
-                                        Text("Open D3FEND Graph", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("Fullscreen", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Navigate defensive countermeasure relationships mapped to enterprise telemetry, Sigma detection rules, and proactive architectural hardening.",
-                                    color = theme.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Embedded Interactive Defend Graph
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, theme.border),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(480.dp)
+                                ) {
+                                    com.example.ui.components.MitreInteractiveGraphComposable(
+                                        initialMode = "DEFEND",
+                                        progressMap = ttpProgressMap,
+                                        onUpdateProgress = { techId, status -> viewModel.updateTtpProgress(techId, status) },
+                                        onClose = null,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                         }
                     }

@@ -147,7 +147,7 @@ fun AlertsScreen(
                     .fillMaxWidth()
                     .testTag("run_threat_scan_card"),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
+                colors = CardDefaults.cardColors(containerColor = theme.surface),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -161,7 +161,7 @@ fun AlertsScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Actionable Push Alerts Engine",
-                            color = CyberTextPrimary,
+                            color = theme.textPrimary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )

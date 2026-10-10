@@ -91,7 +91,7 @@ fun MitreInteractiveGraphComposable(
     initialMode: String = "ATTACK",
     progressMap: Map<String, String> = emptyMap(),
     onUpdateProgress: (String, String) -> Unit = { _, _ -> },
-    onClose: () -> Unit,
+    onClose: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -159,15 +159,17 @@ fun MitreInteractiveGraphComposable(
                         }
                     }
 
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier.testTag("close_mitre_graph_dialog_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close Graph",
-                            tint = theme.textSecondary
-                        )
+                    if (onClose != null) {
+                        IconButton(
+                            onClick = onClose,
+                            modifier = Modifier.testTag("close_mitre_graph_dialog_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close Graph",
+                                tint = theme.textSecondary
+                            )
+                        }
                     }
                 }
 

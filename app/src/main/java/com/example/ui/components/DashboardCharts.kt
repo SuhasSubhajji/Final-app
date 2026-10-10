@@ -54,6 +54,7 @@ import com.example.data.model.ThreatSeverity
 import com.example.data.model.VulnerabilityTypeStat
 import com.example.data.model.AttackScenario
 import com.example.ui.theme.CyberBorder
+import com.example.ui.theme.CyberTheme
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
 import com.example.ui.theme.CyberNavyDark
@@ -74,6 +75,7 @@ fun AlertTrendChart(
     points30Days: List<AlertTrendPoint>,
     modifier: Modifier = Modifier
 ) {
+    val theme = CyberTheme.colors
     var selectedRange by remember { mutableIntStateOf(7) }
     val points = if (selectedRange == 7) points7Days else points30Days
     var selectedIndex by remember { mutableIntStateOf(-1) }
@@ -83,8 +85,8 @@ fun AlertTrendChart(
             .fillMaxWidth()
             .testTag("alert_trend_chart_card"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder)
+        colors = CardDefaults.cardColors(containerColor = theme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, theme.border)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header & Range Toggle
@@ -96,7 +98,7 @@ fun AlertTrendChart(
                 Column {
                     Text(
                         text = "Alert Volume Trends",
-                        color = CyberTextPrimary,
+                        color = theme.textPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -107,7 +109,7 @@ fun AlertTrendChart(
                         } else {
                             "Historical CVE & threat frequency"
                         },
-                        color = if (selectedIndex >= 0) CyberCyan else CyberTextMuted,
+                        color = if (selectedIndex >= 0) CyberCyan else theme.textMuted,
                         fontSize = 12.sp,
                         fontWeight = if (selectedIndex >= 0) FontWeight.Bold else FontWeight.Normal
                     )
@@ -333,13 +335,14 @@ fun TopVulnerabilitiesChart(
     vulns: List<VulnerabilityTypeStat>,
     modifier: Modifier = Modifier
 ) {
+    val theme = CyberTheme.colors
     Card(
         modifier = modifier
             .fillMaxWidth()
             .testTag("top_vulnerabilities_card"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder)
+        colors = CardDefaults.cardColors(containerColor = theme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, theme.border)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -349,13 +352,13 @@ fun TopVulnerabilitiesChart(
             ) {
                 Text(
                     text = "Top 5 Vulnerability Classes",
-                    color = CyberTextPrimary,
+                    color = theme.textPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "Most frequent vectors",
-                    color = CyberTextMuted,
+                    color = theme.textMuted,
                     fontSize = 11.sp
                 )
             }
@@ -377,7 +380,7 @@ fun TopVulnerabilitiesChart(
                     ) {
                         Text(
                             text = item.typeName,
-                            color = CyberTextPrimary,
+                            color = theme.textPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -397,7 +400,7 @@ fun TopVulnerabilitiesChart(
                             .fillMaxWidth()
                             .height(8.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(CyberNavySurfaceVariant)
+                            .background(theme.surfaceVariant)
                     ) {
                         Box(
                             modifier = Modifier
@@ -418,24 +421,25 @@ fun SourceBreakdownChart(
     sources: List<SourceBreakdownStat>,
     modifier: Modifier = Modifier
 ) {
+    val theme = CyberTheme.colors
     Card(
         modifier = modifier
             .fillMaxWidth()
             .testTag("source_breakdown_card"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder)
+        colors = CardDefaults.cardColors(containerColor = theme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, theme.border)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = "Intelligence Breakdown by Source",
-                color = CyberTextPrimary,
+                color = theme.textPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = "Distribution across government, enterprise, and DevSecOps feeds",
-                color = CyberTextMuted,
+                color = theme.textMuted,
                 fontSize = 12.sp
             )
 
@@ -447,7 +451,7 @@ fun SourceBreakdownChart(
                     .fillMaxWidth()
                     .height(12.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(CyberNavySurfaceVariant)
+                    .background(theme.surfaceVariant)
             ) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     val colors = listOf(

@@ -20,6 +20,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
@@ -147,7 +148,7 @@ fun CyberShieldApp(
                     containerColor = CyberTheme.colors.surface,
                     contentColor = CyberTheme.colors.textPrimary,
                     tonalElevation = 8.dp,
-                    windowInsets = WindowInsets(0.dp)
+                    windowInsets = NavigationBarDefaults.windowInsets
                 ) {
                     // 1. Dashboard Tab
                     NavigationBarItem(
