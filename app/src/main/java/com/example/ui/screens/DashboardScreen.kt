@@ -43,11 +43,16 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.SystemUpdate
 import com.example.data.rl.SecurityDomain
+import com.example.ui.components.AppUpdateBanner
+import com.example.ui.components.GitHubUpdateSettingsDialog
 import com.example.ui.components.SocReinforcementLearningCard
 import com.example.ui.components.ThemeSelectorDialog
 import com.example.ui.theme.CyberTheme
 import com.example.ui.theme.CyberThemeMode
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -157,6 +162,11 @@ fun DashboardScreen(
     var showHistorySheet by remember { mutableStateOf(false) }
     val historySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val appUpdateInfo by viewModel.appUpdateInfo.collectAsState()
+    val configuredRepo by viewModel.configuredRepo.collectAsState()
+    val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
+    var showUpdateSettingsDialog by remember { mutableStateOf(false) }
+
     if (showHistorySheet) {
         com.example.ui.components.ThreatHistorySheet(
             viewModel = viewModel,
@@ -171,6 +181,18 @@ fun DashboardScreen(
             currentMode = currentThemeMode,
             onSelectMode = { viewModel.setThemeMode(it) },
             onDismiss = { showThemeDialog = false }
+        )
+    }
+
+    if (showUpdateSettingsDialog) {
+        GitHubUpdateSettingsDialog(
+            currentRepo = configuredRepo,
+            currentVersionName = com.example.BuildConfig.VERSION_NAME,
+            currentVersionCode = com.example.BuildConfig.VERSION_CODE,
+            isChecking = isCheckingUpdate,
+            onCheckNow = { viewModel.checkForAppUpdates(isUserInitiated = true) },
+            onSaveRepo = { viewModel.setGitHubRepository(it) },
+            onDismiss = { showUpdateSettingsDialog = false }
         )
     }
 
@@ -240,6 +262,28 @@ fun DashboardScreen(
                             contentDescription = "Theme Display Mode: ${currentThemeMode.displayName}",
                             tint = CyberTheme.colors.accentPrimary
                         )
+                    }
+
+                    IconButton(
+                        onClick = { showUpdateSettingsDialog = true },
+                        modifier = Modifier.testTag("dashboard_update_settings_button")
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (appUpdateInfo != null) {
+                                    Badge(
+                                        containerColor = SeverityCritical,
+                                        modifier = Modifier.size(8.dp)
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdate,
+                                contentDescription = "GitHub CI/CD Updates",
+                                tint = if (appUpdateInfo != null) CyberCyan else CyberTheme.colors.textSecondary
+                            )
+                        }
                     }
 
                     IconButton(
@@ -319,6 +363,17 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                         color = CyberCyan,
                         trackColor = CyberNavySurfaceVariant
+                    )
+                }
+            }
+
+            // In-app update alert banner if a new release is available
+            appUpdateInfo?.let { update ->
+                item {
+                    AppUpdateBanner(
+                        updateInfo = update,
+                        onUpdateClick = { viewModel.downloadAndInstallUpdate(update) },
+                        onDismiss = { viewModel.dismissAppUpdate() }
                     )
                 }
             }

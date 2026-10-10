@@ -60,6 +60,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.example.data.update.AppUpdateInfo
+import com.example.data.update.AppUpdateManager
+import com.example.data.update.UpdateDownloadState
+
 sealed interface AiAnalysisUiState {
     data object Idle : AiAnalysisUiState
     data object Loading : AiAnalysisUiState
@@ -73,6 +77,41 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     private val breachRepository = BreachRepository(AppDatabase.getInstance(application))
     private val glossaryRepository = GlossaryRepository(AppDatabase.getInstance(application))
     private val dynamicRoadmapManager = DynamicRoadmapManager(AppDatabase.getInstance(application))
+
+    // --- In-App Updates & GitHub CI/CD Auto-Updater ---
+    val updateManager = AppUpdateManager(application)
+    val appUpdateInfo: StateFlow<AppUpdateInfo?> = updateManager.updateInfo
+    val isCheckingUpdate: StateFlow<Boolean> = updateManager.isCheckingUpdate
+    val updateDownloadState: StateFlow<UpdateDownloadState> = updateManager.downloadState
+    val configuredRepo: StateFlow<String> = updateManager.configuredRepo
+
+    init {
+        // Automatically check for GitHub release updates on startup
+        viewModelScope.launch {
+            updateManager.checkForUpdates(isUserInitiated = false)
+        }
+    }
+
+    fun checkForAppUpdates(isUserInitiated: Boolean = true) {
+        viewModelScope.launch {
+            updateManager.checkForUpdates(isUserInitiated)
+        }
+    }
+
+    fun downloadAndInstallUpdate(update: AppUpdateInfo) {
+        viewModelScope.launch {
+            updateManager.downloadAndInstallUpdate(update)
+        }
+    }
+
+    fun dismissAppUpdate() {
+        updateManager.dismissUpdate()
+    }
+
+    fun setGitHubRepository(repo: String) {
+        updateManager.setConfiguredRepo(repo)
+        checkForAppUpdates(isUserInitiated = true)
+    }
 
     val filterState = MutableStateFlow(FeedFilterState())
 

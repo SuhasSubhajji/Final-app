@@ -1,9 +1,12 @@
-name: Build APK
+name: Build & Release APK
 
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -43,8 +46,56 @@ jobs:
             gradle assembleDebug --stacktrace
           fi
 
-      - name: Upload APK
+      - name: Locate and prepare APK
+        id: prepare_apk
+        run: |
+          APK_PATH=$(find . -name "*.apk" -path "*/apk/debug/*" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK found!"
+            exit 1
+          fi
+          echo "Found APK at $APK_PATH"
+          cp "$APK_PATH" ./CyberShield-latest.apk
+          VERSION_CODE="${{ github.run_number }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          VERSION_NAME="1.0.${VERSION_CODE}"
+          TAG_NAME="v${VERSION_NAME}"
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+
+          # Create app-version.json for fast update checking
+          cat <<EOF > app-version.json
+          {
+            "versionCode": ${VERSION_CODE},
+            "versionName": "${VERSION_NAME}",
+            "releaseNotes": "Automated build for commit ${SHORT_SHA}: ${{ github.event.head_commit.message }}",
+            "downloadUrl": "https://github.com/${{ github.repository }}/releases/download/${TAG_NAME}/CyberShield-latest.apk",
+            "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: "**/build/outputs/apk/debug/*.apk"
+          name: CyberShield-${{ steps.prepare_apk.outputs.version_name }}
+          path: ./CyberShield-latest.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          tag_name: ${{ steps.prepare_apk.outputs.tag_name }}
+          name: "CyberShield ${{ steps.prepare_apk.outputs.version_name }}"
+          body: |
+            ### 🚀 CyberShield Update (${{ steps.prepare_apk.outputs.version_name }})
+            - **Commit**: `${{ github.sha }}`
+            - **Build**: Run #${{ github.run_number }}
+            - **Message**: ${{ github.event.head_commit.message }}
+            
+            This release is automatically picked up by the installed CyberShield app for seamless in-app updating!
+          files: |
+            ./CyberShield-latest.apk
+            ./app-version.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

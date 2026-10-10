@@ -53,6 +53,7 @@ import com.example.ui.screens.FeedListScreen
 import com.example.ui.screens.GeminiChatbotScreen
 import com.example.ui.screens.LearningRoadmapScreen
 import com.example.ui.screens.ThreatDetailScreen
+import com.example.ui.components.AppUpdatePromptDialog
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
 import com.example.ui.theme.CyberNavyDark
@@ -122,6 +123,22 @@ fun CyberShieldApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val stats by viewModel.stats.collectAsState()
+    val appUpdateInfo by viewModel.appUpdateInfo.collectAsState()
+    val updateDownloadState by viewModel.updateDownloadState.collectAsState()
+
+    // When a newer APK is detected from GitHub, prompt the user immediately
+    appUpdateInfo?.let { update ->
+        AppUpdatePromptDialog(
+            updateInfo = update,
+            downloadState = updateDownloadState,
+            onConfirmUpdate = {
+                viewModel.downloadAndInstallUpdate(update)
+            },
+            onDismiss = {
+                viewModel.dismissAppUpdate()
+            }
+        )
+    }
 
     // Handle deep link / notification click navigation
     LaunchedEffect(initialThreatId) {
