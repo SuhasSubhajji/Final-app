@@ -1,0 +1,19 @@
+{
+  "appName": "CyberShield",
+  "applicationId": "com.aistudio.cybershield.v2",
+  "versionName": "1.0.2",
+  "versionCode": 3,
+  "buildTimestamp": "2026-10-10T22:01:50Z",
+  "features": [
+    "Multi-window threat feed date range filters (24 hours, 2 days ago, 1 week, 1 month, 3+ months)",
+    "CVSS risk vector parsing and Gemini AI threat summarization",
+    "Interactive MITRE ATT&CK Matrix matrix viewer",
+    "Reinforcement Learning SOC alert prioritizing engine",
+    "Room database offline threat log caching",
+    "Package conflict signature mismatch diagnostics and troubleshooting guide"
+  ],
+  "keystoreAlignment": {
+    "embeddedMatchingKeystore": true,
+    "githubActionsAutoSigning": true
+  }
+}
