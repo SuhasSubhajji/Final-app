@@ -39,6 +39,7 @@ import com.example.data.remote.GeminiAnalysisResult
 import com.example.data.repository.CveIntelligenceRepository
 import com.example.data.repository.ThreatRepository
 import com.example.data.repository.BreachRepository
+import com.example.data.update.UpdateCheckResult
 import com.example.notification.SecurityAlertManager
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
@@ -87,6 +88,8 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     val updateDownloadState: StateFlow<UpdateDownloadState> = updateManager.downloadState
     val configuredRepo: StateFlow<String> = updateManager.configuredRepo
 
+    val updateCheckResult = MutableStateFlow<UpdateCheckResult?>(null)
+
     init {
         // Automatically check for GitHub release updates on startup
         viewModelScope.launch {
@@ -96,8 +99,16 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
 
     fun checkForAppUpdates(isUserInitiated: Boolean = true) {
         viewModelScope.launch {
-            updateManager.checkForUpdates(isUserInitiated)
+            updateCheckResult.value = null
+            val result = updateManager.checkForUpdates(isUserInitiated)
+            if (isUserInitiated) {
+                updateCheckResult.value = result
+            }
         }
+    }
+
+    fun clearUpdateCheckResult() {
+        updateCheckResult.value = null
     }
 
     fun downloadAndInstallUpdate(update: AppUpdateInfo) {

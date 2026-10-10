@@ -81,8 +81,10 @@ class AppUpdateManager(private val context: Context) {
 
     /**
      * Checks for new APK updates from GitHub release artifacts or custom JSON endpoint.
+     * Strictly verifies current versionCode and versionName. Only prompts for update
+     * if a genuinely newer build or version is available.
      */
-    suspend fun checkForUpdates(isUserInitiated: Boolean = false): AppUpdateInfo? = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdates(isUserInitiated: Boolean = false): UpdateCheckResult = withContext(Dispatchers.IO) {
         _isCheckingUpdate.value = true
         try {
             val repo = _configuredRepo.value.ifBlank { DEFAULT_FALLBACK_REPO }
@@ -132,21 +134,23 @@ class AppUpdateManager(private val context: Context) {
             if (detectedInfo != null) {
                 val isNewerCode = detectedInfo.versionCode > currentVersionCode
                 val isNewerName = compareVersionNames(detectedInfo.versionName, currentVersionName) > 0
+                val isNewer = isNewerCode || isNewerName
+
                 val isDismissed = (detectedInfo.versionCode <= dismissedVersionCode || detectedInfo.versionName == dismissedVersionName) && !isUserInitiated
 
-                // Only trigger update if detected version is genuinely newer than installed build AND not dismissed
-                if ((isNewerCode || isNewerName) && !isDismissed && detectedInfo.versionName != currentVersionName) {
+                // Strictly trigger update ONLY if detected version/build is genuinely newer than installed build AND not dismissed
+                if (isNewer && !isDismissed) {
                     _updateInfo.value = detectedInfo
-                    return@withContext detectedInfo
+                    return@withContext UpdateCheckResult.UpdateAvailable(detectedInfo)
                 }
             }
             
             _updateInfo.value = null
-            return@withContext null
+            return@withContext UpdateCheckResult.UpToDate(currentVersionName, currentVersionCode)
         } catch (e: Exception) {
             Log.e(TAG, "Failed checking for update: ${e.message}", e)
             _updateInfo.value = null
-            return@withContext null
+            return@withContext UpdateCheckResult.Error(e.message ?: "Failed to check update server")
         } finally {
             _isCheckingUpdate.value = false
         }

@@ -166,6 +166,7 @@ fun DashboardScreen(
     val appUpdateInfo by viewModel.appUpdateInfo.collectAsState()
     val configuredRepo by viewModel.configuredRepo.collectAsState()
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
+    val updateCheckResult by viewModel.updateCheckResult.collectAsState()
     var showUpdateSettingsDialog by remember { mutableStateOf(false) }
 
     if (showHistorySheet) {
@@ -191,9 +192,13 @@ fun DashboardScreen(
             currentVersionName = com.example.BuildConfig.VERSION_NAME,
             currentVersionCode = com.example.BuildConfig.VERSION_CODE,
             isChecking = isCheckingUpdate,
+            checkResult = updateCheckResult,
             onCheckNow = { viewModel.checkForAppUpdates(isUserInitiated = true) },
             onSaveRepo = { viewModel.setGitHubRepository(it) },
-            onDismiss = { showUpdateSettingsDialog = false }
+            onDismiss = {
+                viewModel.clearUpdateCheckResult()
+                showUpdateSettingsDialog = false
+            }
         )
     }
 

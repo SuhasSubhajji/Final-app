@@ -18,3 +18,10 @@ sealed class UpdateDownloadState {
     data class ReadyToInstall(val apkFile: java.io.File) : UpdateDownloadState()
     data class Error(val message: String) : UpdateDownloadState()
 }
+
+sealed class UpdateCheckResult {
+    data class UpdateAvailable(val updateInfo: AppUpdateInfo) : UpdateCheckResult()
+    data class UpToDate(val versionName: String, val versionCode: Int) : UpdateCheckResult()
+    data class Error(val message: String) : UpdateCheckResult()
+}
+

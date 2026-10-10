@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.update.AppUpdateInfo
+import com.example.data.update.UpdateCheckResult
 import com.example.data.update.UpdateDownloadState
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
@@ -422,6 +423,7 @@ fun GitHubUpdateSettingsDialog(
     currentVersionName: String,
     currentVersionCode: Int,
     isChecking: Boolean,
+    checkResult: UpdateCheckResult? = null,
     onCheckNow: () -> Unit,
     onSaveRepo: (String) -> Unit,
     onDismiss: () -> Unit
@@ -480,6 +482,68 @@ fun GitHubUpdateSettingsDialog(
                     fontSize = 11.sp,
                     lineHeight = 15.sp
                 )
+
+                if (checkResult != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    when (checkResult) {
+                        is UpdateCheckResult.UpToDate -> {
+                            Card(
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = CyberNavyDark),
+                                border = BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth().testTag("up_to_date_status_card")
+                            ) {
+                                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = CyberEmerald, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "App is up to date! Current version v${checkResult.versionName} (Build ${checkResult.versionCode}) is the latest.",
+                                        color = CyberEmerald,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                        is UpdateCheckResult.UpdateAvailable -> {
+                            Card(
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = CyberNavyDark),
+                                border = BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth().testTag("update_available_status_card")
+                            ) {
+                                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.NewReleases, contentDescription = null, tint = CyberCyan, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "New version available: v${checkResult.updateInfo.versionName} (Build ${checkResult.updateInfo.versionCode})!",
+                                        color = CyberCyan,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        is UpdateCheckResult.Error -> {
+                            Card(
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = CyberNavyDark),
+                                border = BorderStroke(1.dp, SeverityCritical.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = SeverityCritical, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Update check failed: ${checkResult.message}",
+                                        color = SeverityCritical,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedButton(
