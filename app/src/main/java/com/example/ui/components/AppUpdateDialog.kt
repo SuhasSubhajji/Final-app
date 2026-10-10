@@ -252,10 +252,11 @@ fun AppUpdatePromptDialog(
                                 Spacer(modifier = Modifier.height(10.dp))
                                 OutlinedButton(
                                     onClick = {
+                                        val pkgName = context.packageName
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        clipboard.setPrimaryClip(ClipData.newPlainText("App Package Name", "com.aistudio.cybershield.trsk"))
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("App Package Name", pkgName))
                                         copiedPkg = true
-                                        Toast.makeText(context, "Copied package name: com.aistudio.cybershield.trsk", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Copied package name: $pkgName", Toast.LENGTH_SHORT).show()
                                     },
                                     shape = RoundedCornerShape(6.dp),
                                     border = BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f)),
@@ -269,7 +270,7 @@ fun AppUpdatePromptDialog(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (copiedPkg) "Copied Package Name!" else "Copy Package Name (com.aistudio.cybershield.trsk)",
+                                        text = if (copiedPkg) "Copied Package Name!" else "Copy Package Name (${context.packageName})",
                                         color = CyberCyan,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
