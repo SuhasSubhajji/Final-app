@@ -277,6 +277,359 @@ object RealWorldBreachesData {
             threatActor = "Midnight Blizzard / Nobelium (APT29 / Russian SVR)",
             defenseMitigation = "Eliminate legacy test tenants unattached to enterprise identity policies. Mandate MFA on every tenant. Continuously audit OAuth application permissions for AppRoleAssignments like Mail.ReadWrite.",
             cveReferences = "MITRE T1110.003, T1098.001"
+        ),
+        AttackScenario(
+            id = "breach-kaseya",
+            organization = "Kaseya VSA (Managed Service Providers)",
+            year = 2021,
+            industry = "IT Services / Managed Service Providers (MSP)",
+            recordsAffected = "60 MSPs & ~1,500 Downstream Small Businesses Encrypted",
+            attackVector = "Supply Chain Zero-Day (Auth Bypass + SQL Injection)",
+            scenarioDetails = """
+                • Zero-Day Chain: REvil ransomware operators exploited a chain of zero-day vulnerabilities in Kaseya VSA remote management software (CVE-2021-30116, etc.), allowing authentication bypass and arbitrary command execution.
+                • Automated Payload Push: Attackers used the VSA's legitimate agent-update functionality to push a malicious DLL (agent.exe) to thousands of downstream customer endpoints.
+                • Execution: The malicious agent side-loaded REvil ransomware, encrypting files on all managed servers and workstations simultaneously.
+            """.trimIndent(),
+            threatActor = "REvil (Sodinokibi) Ransomware Gang",
+            defenseMitigation = "Enforce IP allow-listing for remote management consoles. Maintain air-gapped backups. Use endpoint detection (EDR) to block unauthorized agent-pushed binaries.",
+            cveReferences = "CVE-2021-30116"
+        ),
+        AttackScenario(
+            id = "breach-snowflake-targeting",
+            organization = "Snowflake Cloud Customers (Ticketmaster, Santander, AT&T)",
+            year = 2024,
+            industry = "Cloud Data Warehousing / SaaS",
+            recordsAffected = "Over 165 Organizations Impacted; Billions of Customer Records Stolen",
+            attackVector = "Credential Stuffing on Accounts without MFA",
+            scenarioDetails = """
+                • Credential Harvest: Threat actors obtained valid credentials for Snowflake customer accounts from infostealer malware logs (Lumni, Vidar, Redline) found on the Dark Web.
+                • Targeted Entry: Many of these accounts (contractors and developers) were not protected by Multi-Factor Authentication (MFA).
+                • Systematic Exfiltration: Using a custom tool named 'Frostbite', attackers logged into Snowflake tenants, listed all database tables, and exfiltrated terabytes of sensitive data from S3 buckets.
+            """.trimIndent(),
+            threatActor = "UNC5537 / Financial Motivated Group",
+            defenseMitigation = "Mandate MFA for ALL cloud administrative and data access accounts without exception. Regularly rotate service account credentials. Monitor for large 'COPY INTO' or 'SELECT ALL' operations from unusual IPs.",
+            cveReferences = "MITRE T1589, T1078.004"
+        ),
+        AttackScenario(
+            id = "breach-solarwinds-servu",
+            organization = "Managed File Transfer - Serv-U FTP",
+            year = 2021,
+            industry = "Government and Defense",
+            recordsAffected = "Unknown; Potential Sensitive Document Access",
+            attackVector = "Pre-Auth RCE in FTP Server (CVE-2021-35211)",
+            scenarioDetails = """
+                • Vulnerability: SolarWinds Serv-U Managed File Transfer suffered from an unauthenticated remote code execution vulnerability in its implementation of SSH.
+                • Exploitation: State-sponsored actors sent crafted packets to the Serv-U management port to trigger memory corruption and execute code as SYSTEM.
+                • Impact: Attackers gained full control of the file transfer server, allowing them to read, modify, and delete all files passing through the gateway.
+            """.trimIndent(),
+            threatActor = "DEV-0322 (Chinese State-Sponsored)",
+            defenseMitigation = "Disable SSH management access on public-facing file transfer servers. Implement host-based IDS to detect unusual memory allocations. Patch Serv-U to 15.2.3 HF2.",
+            cveReferences = "CVE-2021-35211"
+        ),
+        AttackScenario(
+            id = "breach-f5-bigip",
+            organization = "Global Enterprise Gateways (F5)",
+            year = 2022,
+            industry = "Critical Infrastructure / Global Enterprises",
+            recordsAffected = "Widespread Internal Network Compromise Attempts",
+            attackVector = "iControl REST API Authentication Bypass (CVE-2022-1388)",
+            scenarioDetails = """
+                • API Flaw: A flaw in the F5 BIG-IP iControl REST interface allowed unauthenticated attackers to send requests with a specific header that bypassed authentication filters.
+                • Code Execution: Attackers issued commands via the REST API to execute arbitrary shell commands on the BIG-IP appliance, effectively gaining a root shell on the network perimeter.
+                • Lateral Spread: From the BIG-IP device, actors scanned internal networks for further vulnerabilities and credential harvesting.
+            """.trimIndent(),
+            threatActor = "Multiple State & Criminal Actors",
+            defenseMitigation = "Never expose BIG-IP management interfaces to the internet. Restrict iControl REST access to internal trusted subnets. Implement strict API gateway validation.",
+            cveReferences = "CVE-2022-1388"
+        ),
+        AttackScenario(
+            id = "breach-discord-infostealer",
+            organization = "Discord Content Delivery Network (CDN) Abuse",
+            year = 2023,
+            industry = "Social Media / Software Development",
+            recordsAffected = "Millions of Gamer and Developer Credentials Stolen",
+            attackVector = "Social Engineering + CDN Hosted Infostealer",
+            scenarioDetails = """
+                • Initial Hook: Attackers sent direct messages to users claiming to be looking for game testers or offering free nitro.
+                • Malicious Payload: Users were directed to download a small executable hosted on Discord's own CDN (legitimizing the URL).
+                • Theft: The executable was a modified version of 'Redline' or 'Lumni' infostealer, which targeted browser cookies, Discord tokens, and cryptocurrency wallets.
+            """.trimIndent(),
+            threatActor = "Assorted Cybercriminal Groups",
+            defenseMitigation = "Educate users on the risks of executing untrusted files from CDN links. Implement endpoint application control to block unsigned binaries in user temp directories. Monitor for unauthorized session cookie usage.",
+            cveReferences = "MITRE T1566.002, T1539"
+        ),
+        AttackScenario(
+            id = "breach-rocky-linux-supply",
+            organization = "Rocky Linux / CI Environment Targeting",
+            year = 2023,
+            industry = "Open Source Ecosystem / Tech",
+            recordsAffected = "Attempted Tampering of Linux Distro ISOs",
+            attackVector = "CI/CD Credential Theft via Poisoned Build Script",
+            scenarioDetails = """
+                • Reconnaissance: Attackers identified a public CI/CD configuration that leaked environment variable keys in debug logs.
+                • Injection: They submitted a seemingly benign documentation patch that included a hidden call to exfiltrate build-time secrets to a remote webhook.
+                • Goal: Gaining access to the signing keys used to cryptographically verify official OS ISO images.
+            """.trimIndent(),
+            threatActor = "Unknown Advanced Actor",
+            defenseMitigation = "Sanitize all CI/CD logs to prevent secret leakage. Use ephemeral, short-lived build tokens. Require manual approval for any PR that modifies build scripts or environment access.",
+            cveReferences = "MITRE T1195.002"
+        ),
+        AttackScenario(
+            id = "breach-palo-alto-panos",
+            organization = "Palo Alto Networks (PAN-OS)",
+            year = 2024,
+            industry = "Global Network Security Infrastructure",
+            recordsAffected = "High-Security Defense & Financial Networks Compromised",
+            attackVector = "Command Injection in GlobalProtect Gateway (CVE-2024-3400)",
+            scenarioDetails = """
+                • Zero-Day: Attackers exploited a critical command injection vulnerability in the GlobalProtect feature of PAN-OS when certain configurations were enabled.
+                • Persistence: Actors deployed custom backdoors named 'UP-STREAM' and 'SIDESHOW' to maintain access even after reboots.
+                • Exfiltration: Highly targeted exfiltration of internal configuration files and SSL certificates from the firewalls themselves.
+            """.trimIndent(),
+            threatActor = "UTA0120 (State-Sponsored Cyber Espionage)",
+            defenseMitigation = "Disable device telemetry if not required. Apply PAN-OS hotfixes immediately. Implement egress filtering on management planes to block C2 callback attempts.",
+            cveReferences = "CVE-2024-3400"
+        ),
+        AttackScenario(
+            id = "breach-reddit-phish",
+            organization = "Reddit Inc.",
+            year = 2023,
+            industry = "Social Media / Web Technology",
+            recordsAffected = "Internal Documents, Code, and Limited Employee Data",
+            attackVector = "Targeted Phishing with MFA Bypass",
+            scenarioDetails = """
+                • The Hook: Employees received highly plausible emails directing them to a clone of the internal employee portal.
+                • The Bypass: The phishing site used an Adversary-in-the-Middle (AiTM) proxy to capture both credentials and the second-factor OTP in real-time.
+                • Internal Access: Attackers gained access to internal Slack channels and the GitHub environment.
+            """.trimIndent(),
+            threatActor = "Unknown Cybercriminals",
+            defenseMitigation = "Transition from OTP/Push MFA to FIDO2-based hardware keys (WebAuthn) which are resistant to proxy-based phishing. Implement strict IP-based access controls for internal tools.",
+            cveReferences = "MITRE T1557.001"
+        ),
+        AttackScenario(
+            id = "breach-toyota-insider",
+            organization = "Toyota Financial Services",
+            year = 2023,
+            industry = "Automotive / Finance",
+            recordsAffected = "Customer Financial Data across Europe and Africa",
+            attackVector = "Medusa Ransomware via Citrix Vulnerability",
+            scenarioDetails = """
+                • Entry Point: Exploitation of 'Citrix Bleed' (CVE-2023-4966) which allowed attackers to bypass MFA by stealing active session tokens from memory.
+                • Rapid Movement: Once inside the Citrix environment, attackers used NetScan to find internal servers and Medusa ransomware to encrypt them.
+                • Extortion: Threatened to release sensitive customer data unless a multi-million dollar ransom was paid.
+            """.trimIndent(),
+            threatActor = "Medusa Ransomware Group",
+            defenseMitigation = "Patch Citrix NetScaler ADC and Gateway immediately. Invalidate all active sessions after patching to neutralize stolen tokens. Monitor for unusual internal network scanning activity.",
+            cveReferences = "CVE-2023-4966"
+        ),
+        AttackScenario(
+            id = "scenario-account-takeover-hr",
+            organization = "Global HR Solutions Corp",
+            year = 2024,
+            industry = "Human Resources / Payroll",
+            recordsAffected = "Payroll Data for 50,000 Employees",
+            attackVector = "Account Takeover via Session Token Theft",
+            scenarioDetails = """
+                • Token Theft: Attacker compromised a payroll administrator's personal laptop which had a saved session for the corporate HR portal.
+                • Hijack: By copying the session cookie, the attacker bypassed the login screen and MFA.
+                • Fraud: The attacker modified bank account routing numbers for 200 high-salary employees just before the monthly payroll run.
+            """.trimIndent(),
+            threatActor = "Financial Fraud Syndicate",
+            defenseMitigation = "Enforce session binding to source IP address. Implement 'Step-up Authentication' for sensitive actions like changing bank details. Use managed devices for all administrative portal access.",
+            cveReferences = "MITRE T1539, T1078"
+        ),
+        AttackScenario(
+            id = "scenario-domain-takeover-adcs",
+            organization = "Regional Banking Group",
+            year = 2023,
+            industry = "Banking / Finance",
+            recordsAffected = "Full Domain Control; All Customer Transaction Records Accessible",
+            attackVector = "Domain Takeover via AD CS Misconfiguration (ESC1)",
+            scenarioDetails = """
+                • Recon: Attacker gained a low-privilege user account via phishing.
+                • Escalation: Used Certify to find a misconfigured Active Directory Certificate Services template that allowed users to request certificates with arbitrary Subject Alternative Names (SAN).
+                • Takeover: Requested a certificate for the 'Domain Admin' user, used it to authenticate via PKINIT, and gained full control of the Domain Controller.
+            """.trimIndent(),
+            threatActor = "Sophisticated eCrime Group",
+            defenseMitigation = "Audit AD CS templates for 'CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT'. Restrict certificate issuance to authorized users only. Monitor Security Event ID 4886 for unusual SAN requests.",
+            cveReferences = "MITRE T1649"
+        ),
+        AttackScenario(
+            id = "scenario-pc-takeover-rdp",
+            organization = "Engineering Firm X",
+            year = 2024,
+            industry = "Manufacturing / Engineering",
+            recordsAffected = "Proprietary Blueprints for New Turbine Engine Stolen",
+            attackVector = "PC Takeover via RDP Brute Force",
+            scenarioDetails = """
+                • Exposure: A workstation used for 3D rendering was accidentally exposed to the internet via RDP on port 3389.
+                • Brute Force: Attackers used a list of common passwords and compromised the 'Local Admin' account.
+                • Exfiltration: Once logged in, the attackers disabled Windows Defender and used 'rclone' to upload 500GB of project files to a private server.
+            """.trimIndent(),
+            threatActor = "Industrial Espionage Actor",
+            defenseMitigation = "Never expose RDP directly to the internet; use a VPN or RD Gateway. Enforce account lockout policies for failed login attempts. Monitor for the installation of unauthorized data transfer tools.",
+            cveReferences = "MITRE T1110.001, T1021.001"
+        ),
+        AttackScenario(
+            id = "scenario-ransomware-vmware",
+            organization = "Municipal Government of City Y",
+            year = 2023,
+            industry = "Government Services",
+            recordsAffected = "All City Services (Water, Waste, Police Records) Offline",
+            attackVector = "VMware ESXi Ransomware (Akira)",
+            scenarioDetails = """
+                • Infiltration: Attackers exploited a known vulnerability in a VPN gateway.
+                • Target: Instead of individual PCs, the attackers targeted the VMWare ESXi hypervisors.
+                • Impact: By encrypting the underlying VMDK files, they simultaneously took down 300 virtual servers, paralyzing the entire city infrastructure.
+            """.trimIndent(),
+            threatActor = "Akira Ransomware Gang",
+            defenseMitigation = "Isolate hypervisor management networks. Regularly patch ESXi hosts. Use immutable storage for VM backups.",
+            cveReferences = "MITRE T1486, T1567"
+        ),
+        AttackScenario(
+            id = "breach-lastpass-2022",
+            organization = "LastPass Password Manager",
+            year = 2022,
+            industry = "Consumer & Enterprise Password Vaults",
+            recordsAffected = "Millions of Encrypted Customer Password Vaults & Company Backups",
+            attackVector = "Compromised Home Media Server (Plex CVE-2022-40684) of DevOps Lead",
+            scenarioDetails = """
+                • Phase 1 Intrusion: Attackers breached a LastPass developer environment using compromised credentials, exfiltrating internal source code and technical documentation.
+                • Targeted Home Compromise: Attackers used technical blueprints to identify one of four DevOps engineers with access to the master AWS production cloud storage keys. They exploited an unpatched remote code execution vulnerability (CVE-2022-40684) in the engineer's personal home Plex media server.
+                • Keylogger & Session Hijack: Placed keylogger malware on the engineer's personal home computer, capturing the engineer's master password entered when authenticating with LastPass and bypassing MFA.
+                • S3 Vault Theft: Using the engineer's active AWS IAM credentials, attackers accessed production S3 buckets, downloading encrypted password vaults, customer server addresses, and vault metadata.
+            """.trimIndent(),
+            threatActor = "Threat Actor Group (Sophisticated eCrime Syndicate)",
+            defenseMitigation = "Require managed Zero Trust devices for administrative cloud access. Restrict production AWS keys to ephemeral sessions authenticated via hardware security tokens tied to company-issued laptops.",
+            cveReferences = "CVE-2022-40684, MITRE T1056.001"
+        ),
+        AttackScenario(
+            id = "breach-circleci-2023",
+            organization = "CircleCI (DevSecOps Supply Chain)",
+            year = 2023,
+            industry = "Software Development / CI/CD",
+            recordsAffected = "Thousands of Customer Secret Environment Variables Exposed",
+            attackVector = "Malware on DevOps Engineer Laptop",
+            scenarioDetails = """
+                • Malware Infection: A CircleCI engineer's laptop was infected with a sophisticated infostealer that bypassed antivirus detection.
+                • Session Theft: The malware stole active session cookies, allowing the attacker to impersonate the engineer and gain access to internal systems without needing a password or MFA.
+                • Secret Extraction: Attackers accessed production databases and exfiltrated customer-provided secrets (API keys, AWS tokens) stored in the platform's environment variables.
+            """.trimIndent(),
+            threatActor = "Unknown Advanced Threat Actor",
+            defenseMitigation = "Enforce hardware-based device attestation. Use ephemeral build tokens that expire in minutes. Implement 'Secrets Scanning' at the platform level to detect and rotate exposed customer keys.",
+            cveReferences = "MITRE T1539, T1552.001"
+        ),
+        AttackScenario(
+            id = "breach-twilio-phish",
+            organization = "Twilio & Cloudflare Phishing",
+            year = 2022,
+            industry = "Communications / Cloud Services",
+            recordsAffected = "Data for 125 Twilio Customers; Attempted Cloudflare Breach",
+            attackVector = "SMS Phishing (Smishing) + Okta Clone",
+            scenarioDetails = """
+                • SMS Hook: Employees received SMS messages claiming their password had expired, directing them to a highly convincing clone of the company's Okta login page.
+                • Credential Theft: The fake site captured credentials and MFA codes in real-time, relaying them to the legitimate Okta site.
+                • Downstream Impact: Attackers gained access to Twilio's internal systems, allowing them to search for customer accounts and exfiltrate limited data.
+            """.trimIndent(),
+            threatActor = "Scattered Spider (UNC3944)",
+            defenseMitigation = "Deploy FIDO2 security keys to all employees. Use SMS-filtering on corporate mobile devices. Implement 'Impossible Travel' detection in identity provider logs.",
+            cveReferences = "MITRE T1566.002"
+        ),
+        AttackScenario(
+            id = "breach-mfa-fatigue-uber",
+            organization = "Uber (Full Infrastructure Takeover)",
+            year = 2022,
+            industry = "Transportation / Tech",
+            recordsAffected = "Full Access to Slack, AWS, GCP, and HackerOne",
+            attackVector = "MFA Fatigue (Push Bombing) + Social Engineering",
+            scenarioDetails = """
+                • The Fatigue: Attacker repeatedly sent MFA push notifications to an employee's phone for over an hour.
+                • The Pretext: Attacker contacted the employee on WhatsApp, pretending to be Uber IT, and told them the notifications would stop if they approved one.
+                • Master Access: Once inside, the attacker found a network share containing PowerShell scripts with hardcoded administrative credentials for the company's PAM (Privileged Access Management) system.
+            """.trimIndent(),
+            threatActor = "Lapsus$ (Teens / Extortion Syndicate)",
+            defenseMitigation = "Disable 'blind' MFA push approvals; require 'Number Matching'. Scan internal repositories and shares for hardcoded secrets. Use vault-based secret management with just-in-time access.",
+            cveReferences = "MITRE T1621, T1552.001"
+        ),
+        AttackScenario(
+            id = "breach-fortinet-vpn",
+            organization = "Global VPN Infrastructure (Fortinet)",
+            year = 2023,
+            industry = "Global Enterprises / Government",
+            recordsAffected = "Widespread Unauthorized Access to Enterprise Intranets",
+            attackVector = "Heap Buffer Overflow in FortiOS SSL-VPN (CVE-2023-27997)",
+            scenarioDetails = """
+                • Vulnerability: A critical heap-based buffer overflow in the SSL-VPN component of FortiOS allowed unauthenticated remote code execution.
+                • Mass Scanning: Within days of discovery, state-sponsored actors began mass-scanning the internet for vulnerable devices.
+                • Impact: Gaining a foothold on the VPN appliance allowed actors to bypass the firewall and pivot directly into internal corporate networks.
+            """.trimIndent(),
+            threatActor = "Multiple State-Linked Groups",
+            defenseMitigation = "Patch FortiOS to latest version immediately. Disable SSL-VPN if not required, or restrict access to specific geo-regions and IP ranges. Monitor for abnormal outbound traffic from the VPN appliance.",
+            cveReferences = "CVE-2023-27997"
+        ),
+        AttackScenario(
+            id = "breach-mgm-2023",
+            organization = "MGM Resorts International",
+            year = 2023,
+            industry = "Hospitality / Gaming",
+            recordsAffected = "$100 Million Loss; Data of Millions of Guests Exposed",
+            attackVector = "Social Engineering / Vishing of IT Helpdesk",
+            scenarioDetails = """
+                • Vishing: Attackers called the IT helpdesk impersonating an employee and requested an MFA reset.
+                • Okta Takeover: With the reset MFA, they gained access to the corporate Okta tenant and elevated privileges.
+                • Hypervisor Ransomware: They deployed ransomware directly to the ESXi hypervisors, taking down hotel systems, slot machines, and room keys.
+            """.trimIndent(),
+            threatActor = "Scattered Spider (UNC3944)",
+            defenseMitigation = "Implement strict out-of-band verification for MFA resets. Enforce hardware security keys (FIDO2). Segment hypervisor management networks from corporate AD.",
+            cveReferences = "MITRE T1566.004, T1486"
+        ),
+        AttackScenario(
+            id = "breach-colonial-2021",
+            organization = "Colonial Pipeline",
+            year = 2021,
+            industry = "Energy / Critical Infrastructure",
+            recordsAffected = "Fuel Supply for US East Coast Halted; $4.4M Ransom Paid",
+            attackVector = "Compromised Legacy VPN Credential",
+            scenarioDetails = """
+                • Initial Access: Attackers obtained a password for a legacy VPN account from a previous data leak. The account did not have MFA.
+                • Data Theft: Before encrypting systems, they exfiltrated 100GB of sensitive data.
+                • Operational Impact: The ransomware affected the billing systems, forcing the company to shut down the pipeline to prevent fuel theft.
+            """.trimIndent(),
+            threatActor = "DarkSide (eCrime Syndicate)",
+            defenseMitigation = "Decommission legacy access points. Mandate MFA on all remote access. Implement air-gapped backups for industrial control systems (ICS).",
+            cveReferences = "MITRE T1078.002"
+        ),
+        AttackScenario(
+            id = "breach-change-healthcare-2024",
+            organization = "Change Healthcare",
+            year = 2024,
+            industry = "Healthcare / Finance",
+            recordsAffected = "1/3 of US Population Health Data; $22M Ransom",
+            attackVector = "Stolen Credentials on Citrix Portal (No MFA)",
+            scenarioDetails = """
+                • Infiltration: ALPHV affiliates used stolen credentials to access a Citrix portal that lacked MFA protection.
+                • Data Exfiltration: They spent 9 days on the network, exfiltrating 6TB of medical and insurance data.
+                • System Wipe: Deployed ransomware that crippled prescription and billing services across the US.
+            """.trimIndent(),
+            threatActor = "ALPHV / BlackCat",
+            defenseMitigation = "Universal MFA enforcement. Continuous Attack Surface Management (ASM). EDR on all virtual desktop infrastructure (VDI).",
+            cveReferences = "MITRE T1078, T1048"
+        ),
+        AttackScenario(
+            id = "breach-moveit-2023",
+            organization = "MOVEit Transfer Users",
+            year = 2023,
+            industry = "Global Enterprise (2,700+ Orgs)",
+            recordsAffected = "95 Million Individuals; Terabytes of Corporate Data",
+            attackVector = "Zero-Day SQL Injection (CVE-2023-34362)",
+            scenarioDetails = """
+                • Zero-Day: Cl0p ransomware operators exploited a pre-auth SQL injection in the MOVEit web application.
+                • Automated Extraction: They dropped custom webshells ('human2.aspx') that automatically exfiltrated files from Azure blob storage.
+                • Pure Extortion: No encryption was used; the group relied entirely on threatening to leak stolen data.
+            """.trimIndent(),
+            threatActor = "Cl0p Ransomware Gang",
+            defenseMitigation = "Sanitize all file transfer gateway inputs. Use WAF with virtual patching for known SQLi patterns. Move sensitive files to internal storage after transfer.",
+            cveReferences = "CVE-2023-34362"
         )
     )
 }

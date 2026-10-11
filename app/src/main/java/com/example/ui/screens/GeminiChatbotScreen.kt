@@ -1161,6 +1161,9 @@ fun ChatbotThinkingIndicator(model: GeminiModel) {
         label = "alpha"
     )
 
+    val quotaEvent by com.example.data.remote.GeminiModelDispatcher.lastQuotaExceededEvent.collectAsState()
+    val showRetryMessage = quotaEvent != null && (System.currentTimeMillis() - (quotaEvent?.timestamp ?: 0) < 10000)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1197,13 +1200,22 @@ fun ChatbotThinkingIndicator(model: GeminiModel) {
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "${model.displayName} is reasoning...",
-                    color = theme.accentPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.alpha(alpha)
-                )
+                Column {
+                    Text(
+                        text = if (showRetryMessage) "Quota limit hit. Retrying with ${model.displayName}..." else "${model.displayName} is reasoning...",
+                        color = if (showRetryMessage) SeverityCritical else theme.accentPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.alpha(alpha)
+                    )
+                    if (showRetryMessage) {
+                        Text(
+                            text = "Applying exponential backoff to bypass rate limit",
+                            color = theme.textMuted,
+                            fontSize = 9.sp
+                        )
+                    }
+                }
             }
         }
     }

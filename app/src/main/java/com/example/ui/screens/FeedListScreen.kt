@@ -285,60 +285,68 @@ fun FeedListScreen(
                 )
             }
 
-            // Stats summary bar
-            StatsBar(
-                stats = stats,
-                onCriticalClick = {
-                    viewModel.toggleSeverityFilter(ThreatSeverity.CRITICAL)
-                },
-                onDevSecOpsClick = {
-                    viewModel.toggleCategoryFilter(ThreatCategory.DEVSECOPS)
-                },
-                onAlertsClick = onNavigateToAlerts
-            )
-
-            // Room Database Offline Caching & Sync Banner
-            com.example.ui.components.OfflineCacheBanner(
-                cacheStatus = offlineCacheStatus,
-                onSyncClick = { viewModel.refreshFeeds() },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-
-            // Search bar
-            CyberSearchBar(
-                query = filterState.searchQuery,
-                onQueryChange = { viewModel.updateSearchQuery(it) },
-                onFilterClick = { showFilterSheet = true },
-                activeFilterCount = filterState.activeFilterCount
-            )
-
-            // Horizontal quick filter pills
-            QuickFilterPillsRow(
-                filterState = filterState,
-                isRlSortActive = isRlSortEnabled,
-                onToggleRlSort = { viewModel.toggleRlSort() },
-                onToggleCritical = { viewModel.toggleSeverityFilter(ThreatSeverity.CRITICAL) },
-                onToggleDevSecOps = { viewModel.toggleCategoryFilter(ThreatCategory.DEVSECOPS) },
-                onSelectDateRange = { range -> viewModel.setDateRangeFilter(range) },
-                onToggleBookmarks = { viewModel.toggleOnlyBookmarks() },
-                onOpenHistory = { showHistorySheet = true },
-                onClearAll = { viewModel.clearAllFilters() }
-            )
-
             // Threat List
-            if (threats.isEmpty()) {
-                EmptyThreatState(
-                    hasFilters = filterState.hasActiveFilters,
-                    onResetFilters = { viewModel.clearAllFilters() }
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("threat_feed_list"),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("threat_feed_list"),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Column {
+                        // Stats summary bar (now scrolls)
+                        StatsBar(
+                            stats = stats,
+                            onCriticalClick = {
+                                viewModel.toggleSeverityFilter(ThreatSeverity.CRITICAL)
+                            },
+                            onDevSecOpsClick = {
+                                viewModel.toggleCategoryFilter(ThreatCategory.DEVSECOPS)
+                            },
+                            onAlertsClick = onNavigateToAlerts
+                        )
+
+                        // Room Database Offline Caching & Sync Banner (now scrolls)
+                        com.example.ui.components.OfflineCacheBanner(
+                            cacheStatus = offlineCacheStatus,
+                            onSyncClick = { viewModel.refreshFeeds() },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+
+                        // Search bar (now scrolls)
+                        CyberSearchBar(
+                            query = filterState.searchQuery,
+                            onQueryChange = { viewModel.updateSearchQuery(it) },
+                            onFilterClick = { showFilterSheet = true },
+                            activeFilterCount = filterState.activeFilterCount
+                        )
+
+                        // Horizontal quick filter pills (now scrolls)
+                        QuickFilterPillsRow(
+                            filterState = filterState,
+                            isRlSortActive = isRlSortEnabled,
+                            onToggleRlSort = { viewModel.toggleRlSort() },
+                            onToggleCritical = { viewModel.toggleSeverityFilter(ThreatSeverity.CRITICAL) },
+                            onToggleDevSecOps = { viewModel.toggleCategoryFilter(ThreatCategory.DEVSECOPS) },
+                            onSelectDateRange = { range -> viewModel.setDateRangeFilter(range) },
+                            onToggleBookmarks = { viewModel.toggleOnlyBookmarks() },
+                            onOpenHistory = { showHistorySheet = true },
+                            onClearAll = { viewModel.clearAllFilters() }
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
+
+                if (threats.isEmpty()) {
+                    item {
+                        EmptyThreatState(
+                            hasFilters = filterState.hasActiveFilters,
+                            onResetFilters = { viewModel.clearAllFilters() }
+                        )
+                    }
+                } else {
                     items(
                         items = threats,
                         key = { it.id }

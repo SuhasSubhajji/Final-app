@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import retrofit2.HttpException
 import java.io.IOException
+import kotlinx.coroutines.delay
+import kotlin.math.pow
 
 /**
  * Resilient dispatcher that manages Gemini model execution.
@@ -25,7 +27,9 @@ object GeminiModelDispatcher {
         GeminiModel.GEMINI_3_5_FLASH,
         GeminiModel.GEMINI_3_1_FLASH_LITE,
         GeminiModel.GEMINI_FLASH_LATEST,
-        GeminiModel.GEMINI_3_1_PRO
+        GeminiModel.GEMINI_3_1_PRO,
+        GeminiModel.GEMINI_1_5_FLASH,
+        GeminiModel.GEMINI_1_5_PRO
     )
 
     private val _activeModel = MutableStateFlow(GeminiModel.defaultModel())
@@ -51,9 +55,14 @@ object GeminiModelDispatcher {
     fun isQuotaExceededException(e: Throwable): Boolean {
         if (e is HttpException) {
             val code = e.code()
-            if (code == 429 || code == 503) return true
-            val errorBody = e.response()?.errorBody()?.string().orEmpty().lowercase()
-            if (errorBody.contains("quota") || errorBody.contains("resource_exhausted") || errorBody.contains("rate limit")) {
+            if (code == 429 || code == 503 || code == 403) return true // 403 can sometimes be quota in some SDKs
+            val errorBody = try { e.response()?.errorBody()?.string().orEmpty().lowercase() } catch (ex: Exception) { "" }
+            if (errorBody.contains("quota") || 
+                errorBody.contains("resource_exhausted") || 
+                errorBody.contains("rate limit") || 
+                errorBody.contains("too_many_requests") ||
+                errorBody.contains("overloaded")
+            ) {
                 return true
             }
         }
@@ -62,7 +71,8 @@ object GeminiModelDispatcher {
                 msg.contains("quota") ||
                 msg.contains("resource_exhausted") ||
                 msg.contains("rate limit") ||
-                msg.contains("rate_limit_exceeded")
+                msg.contains("rate_limit_exceeded") ||
+                msg.contains("too many requests")
     }
 
     /**
@@ -92,37 +102,50 @@ object GeminiModelDispatcher {
 
         for (i in candidates.indices) {
             val candidate = candidates[i]
-            try {
-                Log.d(TAG, "Invoking Gemini with model: ${candidate.modelId}")
-                val result = call(candidate)
+            var retries = 0
+            val maxRetries = 3
+            
+            while (retries <= maxRetries) {
+                try {
+                    Log.d(TAG, "Invoking Gemini with model: ${candidate.modelId} (Attempt ${retries + 1})")
+                    val result = call(candidate)
 
-                // If we successfully executed on a model different from initial due to fallback,
-                // update active model and post event
-                if (candidate != initial) {
-                    val event = QuotaSwitchEvent(
-                        originalModel = initial,
-                        switchedModel = candidate,
-                        message = "Quota limit reached on ${initial.displayName}. Automatically switched to ${candidate.displayName}."
+                    // If we successfully executed on a model different from initial due to fallback,
+                    // update active model and post event
+                    if (candidate != initial) {
+                        val event = QuotaSwitchEvent(
+                            originalModel = initial,
+                            switchedModel = candidate,
+                            message = "Quota limit reached on ${initial.displayName}. Automatically switched to ${candidate.displayName}."
+                        )
+                        _lastQuotaExceededEvent.value = event
+                        _activeModel.value = candidate
+                        Log.w(TAG, "Auto-switched model from ${initial.displayName} to ${candidate.displayName} due to quota exhaustion.")
+                    }
+
+                    return QuotaExecutionResult.Success(
+                        data = result,
+                        modelUsed = candidate,
+                        wasSwitchedDueToQuota = (candidate != initial)
                     )
-                    _lastQuotaExceededEvent.value = event
-                    _activeModel.value = candidate
-                    Log.w(TAG, "Auto-switched model from ${initial.displayName} to ${candidate.displayName} due to quota exhaustion.")
-                }
-
-                return QuotaExecutionResult.Success(
-                    data = result,
-                    modelUsed = candidate,
-                    wasSwitchedDueToQuota = (candidate != initial)
-                )
-            } catch (e: Throwable) {
-                lastException = e
-                if (isQuotaExceededException(e)) {
-                    Log.w(TAG, "Model ${candidate.modelId} exceeded quota (HTTP 429/Resource Exhausted). Attempting next model...")
-                    continue
-                } else {
-                    // Non-quota error (e.g. invalid request format, offline network)
-                    Log.e(TAG, "Model ${candidate.modelId} failed with non-quota error: ${e.message}")
-                    return QuotaExecutionResult.Error(e, candidate)
+                } catch (e: Throwable) {
+                    lastException = e
+                    if (isQuotaExceededException(e)) {
+                        if (retries < maxRetries) {
+                            val backoffDelay = (2.0.pow(retries.toDouble()) * 1500).toLong() // Increased baseline backoff
+                            Log.w(TAG, "Model ${candidate.modelId} exceeded quota. Retrying in ${backoffDelay}ms... (Retry ${retries + 1}/$maxRetries)")
+                            delay(backoffDelay)
+                            retries++
+                            continue
+                        } else {
+                            Log.w(TAG, "Model ${candidate.modelId} exhausted retries for quota error. Attempting next model...")
+                            break // Move to next candidate model
+                        }
+                    } else {
+                        // Non-quota error (e.g. invalid request format, offline network)
+                        Log.e(TAG, "Model ${candidate.modelId} failed with non-quota error: ${e.message}")
+                        return QuotaExecutionResult.Error(e, candidate)
+                    }
                 }
             }
         }

@@ -1044,6 +1044,7 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
                 _summarizingThreatIds.update { it + threat.id }
                 try {
                     repository.generateAndSaveCveSummary(threat)
+                    kotlinx.coroutines.delay(500) // Avoid hammering the API
                 } catch (e: Exception) {
                     // Continue with next
                 } finally {

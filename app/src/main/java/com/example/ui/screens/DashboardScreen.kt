@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.ThumbDown
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.example.data.rl.SecurityDomain
 import com.example.ui.components.AppUpdateBanner
 import com.example.ui.components.GitHubUpdateSettingsDialog
@@ -202,6 +203,8 @@ fun DashboardScreen(
         )
     }
 
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = CyberTheme.colors.bg,
@@ -213,41 +216,32 @@ fun DashboardScreen(
                             shape = RoundedCornerShape(8.dp),
                             color = CyberCyan.copy(alpha = 0.15f),
                             border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f)),
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Dashboard,
                                     contentDescription = null,
                                     tint = CyberCyan,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Security Command Center",
+                                text = "CyberShield SOC",
                                 color = CyberTheme.colors.textPrimary,
-                                fontSize = 17.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(CyberEmerald)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "LOCAL INTELLIGENCE ACTIVE",
-                                    color = CyberEmerald,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.4.sp
-                                )
-                            }
+                            Text(
+                                text = "INTELLIGENCE ACTIVE",
+                                color = CyberEmerald,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
                         }
                     }
                 },
@@ -265,8 +259,9 @@ fun DashboardScreen(
                         }
                         Icon(
                             imageVector = themeIcon,
-                            contentDescription = "Theme Display Mode: ${currentThemeMode.displayName}",
-                            tint = CyberTheme.colors.accentPrimary
+                            contentDescription = "Theme Display Mode",
+                            tint = CyberTheme.colors.accentPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -286,8 +281,9 @@ fun DashboardScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.SystemUpdate,
-                                contentDescription = "GitHub CI/CD Updates",
-                                tint = if (appUpdateInfo != null) CyberCyan else CyberTheme.colors.textSecondary
+                                contentDescription = "Updates",
+                                tint = if (appUpdateInfo != null) CyberCyan else CyberTheme.colors.textSecondary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -298,22 +294,10 @@ fun DashboardScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Book,
-                            contentDescription = "Cyber Glossary",
-                            tint = CyberCyan
+                            contentDescription = "Glossary",
+                            tint = CyberCyan,
+                            modifier = Modifier.size(20.dp)
                         )
-                    }
-
-                    if (onNavigateToChatbot != null) {
-                        IconButton(
-                            onClick = onNavigateToChatbot,
-                            modifier = Modifier.testTag("dashboard_gemini_chatbot_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = "Gemini AI Chatbot",
-                                tint = CyberTheme.colors.accentPrimary
-                            )
-                        }
                     }
 
                     IconButton(
@@ -323,10 +307,12 @@ fun DashboardScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
-                            tint = CyberTheme.colors.textSecondary
+                            tint = CyberTheme.colors.textSecondary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 },
+                scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CyberTheme.colors.bg)
             )
         },
@@ -358,9 +344,10 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .testTag("dashboard_scroll_content"),
+                .testTag("dashboard_scroll_content")
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Linear progress on refresh
             if (isRefreshing) {
@@ -384,42 +371,28 @@ fun DashboardScreen(
                 }
             }
 
-            // SECTION 1: Key Command Center Metrics
+            // SECTION 1: Key Command Center Metrics (More Compact)
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     MetricCard(
-                        title = "Total Threats",
+                        title = "Threats",
                         count = stats.totalCount.toString(),
                         accentColor = CyberCyan,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
-                        title = "Critical Zero-Days",
+                        title = "Critical",
                         count = stats.criticalCount.toString(),
                         accentColor = SeverityCritical,
                         modifier = Modifier.weight(1f)
                     )
-                }
-            }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
                     MetricCard(
-                        title = "DevSecOps Alerts",
+                        title = "DevSecOps",
                         count = stats.devSecOpsCount.toString(),
                         accentColor = CyberEmerald,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MetricCard(
-                        title = "Unread Intel",
-                        count = stats.unreadAlertsCount.toString(),
-                        accentColor = SeverityHigh,
-                        onClick = onNavigateToAlerts,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -427,11 +400,12 @@ fun DashboardScreen(
 
             item {
                 MetricCard(
-                    title = "Investigation & Remediation Library",
-                    count = "20 Curated Guides",
+                    title = "Security Alerts Library (Investigation & Remediation)",
+                    count = "150+ Curated Scenarios",
                     accentColor = CyberCyan,
                     onClick = onNavigateToAlerts,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    compact = true
                 )
             }
 
@@ -861,6 +835,7 @@ private fun MetricCard(
     count: String,
     accentColor: Color,
     onClick: (() -> Unit)? = null,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val theme = CyberTheme.colors
@@ -870,11 +845,11 @@ private fun MetricCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, theme.border),
         onClick = { onClick?.invoke() },
         enabled = onClick != null,
-        modifier = modifier.height(70.dp)
+        modifier = modifier.height(if (compact) 54.dp else 70.dp)
     ) {
         Column(
             modifier = Modifier
-                .padding(10.dp)
+                .padding(if (compact) 8.dp else 10.dp)
                 .fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -886,8 +861,11 @@ private fun MetricCard(
                 Text(
                     text = title,
                     color = theme.textSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = if (compact) 10.sp else 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
                 Box(
                     modifier = Modifier
@@ -899,7 +877,7 @@ private fun MetricCard(
             Text(
                 text = count,
                 color = accentColor,
-                fontSize = 18.sp,
+                fontSize = if (compact) 16.sp else 18.sp,
                 fontWeight = FontWeight.Bold
             )
         }

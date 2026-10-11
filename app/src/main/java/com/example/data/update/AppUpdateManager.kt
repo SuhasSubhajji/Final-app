@@ -39,6 +39,18 @@ class AppUpdateManager(private val context: Context) {
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+            
+            // Add GitHub Token if available and not a placeholder
+            val token = BuildConfig.GITHUB_TOKEN
+            if (token.isNotBlank() && token != "MY_GITHUB_TOKEN" && original.url.host.contains("github")) {
+                requestBuilder.header("Authorization", "token $token")
+            }
+            
+            chain.proceed(requestBuilder.build())
+        }
         .build()
 
     private val moshi = Moshi.Builder()

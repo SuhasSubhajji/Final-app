@@ -43,20 +43,59 @@ class FeedFetcherService {
             val request = Request.Builder()
                 .url(source.feedUrl)
                 .header("User-Agent", "CyberShield-Threat-Aggregator/1.0 (Android)")
-                .header("Accept", "application/rss+xml, application/atom+xml, text/xml;q=0.9, application/json, */*;q=0.8")
+                .header("Accept", "application/json, application/rss+xml, application/atom+xml, text/xml;q=0.9, */*;q=0.8")
                 .build()
 
             val response = httpClient.newCall(request).execute()
             if (response.isSuccessful) {
-                response.body?.byteStream()?.use { stream ->
-                    when (source) {
-                        FeedSource.CISA_KEV -> CisaKevParser.parse(stream)
-                        else -> RssFeedParser.parse(stream, source)
-                    }
-                } ?: emptyList()
+                if (source == FeedSource.CISA_KEV) {
+                    val bodyJson = response.body?.string().orEmpty()
+                    parseKevJson(bodyJson)
+                } else {
+                    response.body?.byteStream()?.use { stream ->
+                        RssFeedParser.parse(stream, source)
+                    } ?: emptyList()
+                }
             } else {
                 emptyList()
             }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun parseKevJson(json: String): List<ThreatItem> {
+        return try {
+            val obj = org.json.JSONObject(json)
+            val vulnerabilities = obj.getJSONArray("vulnerabilities")
+            val items = mutableListOf<ThreatItem>()
+            val now = System.currentTimeMillis()
+
+            for (i in 0 until vulnerabilities.length().coerceAtMost(50)) { // Limit to top 50 for performance
+                val v = vulnerabilities.getJSONObject(i)
+                val cve = v.getString("cveID")
+                val vendor = v.getString("vendorProject")
+                val product = v.getString("product")
+                val description = v.getString("shortDescription")
+                val dateAdded = v.optString("dateAdded", "")
+                
+                items.add(
+                    ThreatItem(
+                        id = "kev-$cve",
+                        title = "CISA KEV: $cve in $vendor $product",
+                        description = description,
+                        source = FeedSource.CISA_KEV,
+                        link = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+                        pubDateMillis = now - (i * 3600000L), // Approximate recent
+                        severity = ThreatSeverity.HIGH, // KEVs are by definition high priority
+                        category = ThreatCategory.ZERO_DAY,
+                        cveIds = listOf(cve),
+                        tags = listOf("CISA", "KEV", "Active Exploitation"),
+                        cisaKev = true
+                    )
+                )
+            }
+            items
         } catch (e: Exception) {
             emptyList()
         }
