@@ -55,6 +55,7 @@ import com.example.ui.screens.GeminiChatbotScreen
 import com.example.ui.screens.IntelScreen
 import com.example.ui.screens.LearnScreen
 import com.example.ui.screens.LibraryScreen
+import com.example.ui.screens.SecurityAlertsLibraryScreen
 import com.example.ui.screens.ThreatDetailScreen
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
@@ -106,6 +107,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     data object Attack : Screen("attack", "ATT&CK", Icons.Default.Shield)
     data object Learn : Screen("learn", "Learn", Icons.Default.School)
     data object Library : Screen("library", "Library", Icons.Default.FolderSpecial)
+    data object AlertsLibrary : Screen("alerts_library", "Alerts Library", Icons.Default.Security)
     data object Chatbot : Screen("chatbot", "Gemini AI", Icons.Default.Security)
     data object Detail : Screen("detail/{threatId}", "Threat Detail", Icons.Default.Security) {
         fun createRoute(threatId: String) = "detail/${java.net.URLEncoder.encode(threatId, "UTF-8")}"
@@ -258,6 +260,9 @@ fun CyberShieldApp(
                     onNavigateToAlerts = {
                         navController.navigate(Screen.Alerts.route)
                     },
+                    onNavigateToAlertsLibrary = {
+                        navController.navigate(Screen.AlertsLibrary.route)
+                    },
                     onNavigateToChatbot = {
                         navController.navigate(Screen.Chatbot.route)
                     }
@@ -290,6 +295,9 @@ fun CyberShieldApp(
                     viewModel = viewModel,
                     onNavigateToChatbot = {
                         navController.navigate(Screen.Chatbot.route)
+                    },
+                    onNavigateToAlertsLibrary = {
+                        navController.navigate(Screen.AlertsLibrary.route)
                     }
                 )
             }
@@ -304,6 +312,14 @@ fun CyberShieldApp(
                     onNavigateToChatbot = {
                         navController.navigate(Screen.Chatbot.route)
                     }
+                )
+            }
+
+            // 6. Security Alerts Library (Investigation Guide)
+            composable(Screen.AlertsLibrary.route) {
+                SecurityAlertsLibraryScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
                 )
             }
 

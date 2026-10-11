@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -50,7 +51,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,6 +77,7 @@ fun IntelScreen(
     viewModel: ThreatFeedViewModel,
     onThreatClick: (String) -> Unit,
     onNavigateToAlerts: () -> Unit,
+    onNavigateToAlertsLibrary: () -> Unit,
     onNavigateToChatbot: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -199,93 +203,95 @@ fun IntelScreen(
                 )
             }
 
-            OfflineCacheBanner(
-                cacheStatus = com.example.data.model.OfflineCacheStatus(
-                    totalCachedThreats = stats.totalCount,
-                    isOfflineMode = isOfflineMode,
-                    lastSyncMessage = lastSyncTime
-                ),
-                onSyncClick = { viewModel.refreshFeeds() }
-            )
-
-            CyberSearchBar(
-                query = filterState.searchQuery,
-                onQueryChange = { viewModel.updateSearchQuery(it) },
-                onFilterClick = { showFilterSheet = true },
-                activeFilterCount = filterState.activeFilterCount,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("intel_search_bar")
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilterChip(
-                    selected = filterState.onlyBookmarks,
-                    onClick = { viewModel.toggleOnlyBookmarks() },
-                    label = {
-                        Text(
-                            text = if (filterState.onlyBookmarks) "Bookmarks" else "Bookmarks",
-                            fontSize = 12.sp
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Bookmark,
-                            contentDescription = "Saved Bookmarks",
-                            modifier = Modifier.size(16.dp)
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = CyberCyan.copy(alpha = 0.2f),
-                        selectedLabelColor = CyberCyan,
-                        selectedLeadingIconColor = CyberCyan
-                    ),
-                    modifier = Modifier.testTag("chip_intel_bookmarks")
-                )
-
-                DateRangeFilter.entries.forEach { dateRange ->
-                    FilterChip(
-                        selected = filterState.dateRange == dateRange,
-                        onClick = { viewModel.setDateRangeFilter(dateRange) },
-                        label = { Text(dateRange.displayName, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CyberEmerald.copy(alpha = 0.2f),
-                            selectedLabelColor = CyberEmerald
-                        )
-                    )
-                }
-
-                if (filterState.hasActiveFilters) {
-                    FilterChip(
-                        selected = false,
-                        onClick = { viewModel.clearAllFilters() },
-                        label = { Text("Clear All", fontSize = 12.sp, color = SeverityCritical) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear Filters",
-                                tint = SeverityCritical,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    )
-                }
-            }
-
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("intel_feed_list"),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
+                item {
+                    OfflineCacheBanner(
+                        cacheStatus = com.example.data.model.OfflineCacheStatus(
+                            totalCachedThreats = stats.totalCount,
+                            isOfflineMode = isOfflineMode,
+                            lastSyncMessage = lastSyncTime
+                        ),
+                        onSyncClick = { viewModel.refreshFeeds() }
+                    )
+
+                    CyberSearchBar(
+                        query = filterState.searchQuery,
+                        onQueryChange = { viewModel.updateSearchQuery(it) },
+                        onFilterClick = { showFilterSheet = true },
+                        activeFilterCount = filterState.activeFilterCount,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .testTag("intel_search_bar")
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = filterState.onlyBookmarks,
+                            onClick = { viewModel.toggleOnlyBookmarks() },
+                            label = {
+                                Text(
+                                    text = if (filterState.onlyBookmarks) "Bookmarks" else "Bookmarks",
+                                    fontSize = 12.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Bookmark,
+                                    contentDescription = "Saved Bookmarks",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = CyberCyan.copy(alpha = 0.2f),
+                                selectedLabelColor = CyberCyan,
+                                selectedLeadingIconColor = CyberCyan
+                            ),
+                            modifier = Modifier.testTag("chip_intel_bookmarks")
+                        )
+
+                        DateRangeFilter.entries.forEach { dateRange ->
+                            FilterChip(
+                                selected = filterState.dateRange == dateRange,
+                                onClick = { viewModel.setDateRangeFilter(dateRange) },
+                                label = { Text(dateRange.displayName, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = CyberEmerald.copy(alpha = 0.2f),
+                                    selectedLabelColor = CyberEmerald
+                                )
+                            )
+                        }
+
+                        if (filterState.hasActiveFilters) {
+                            FilterChip(
+                                selected = false,
+                                onClick = { viewModel.clearAllFilters() },
+                                label = { Text("Clear All", fontSize = 12.sp, color = SeverityCritical) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = "Clear Filters",
+                                        tint = SeverityCritical,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+
                 item {
                     Column(
                         modifier = Modifier
@@ -299,6 +305,29 @@ fun IntelScreen(
                             unreadAlerts = stats.unreadAlertsCount,
                             onAlertsClick = onNavigateToAlerts
                         )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Investigation & Remediation Guide Shortcut
+                        Surface(
+                            onClick = onNavigateToAlertsLibrary,
+                            color = CyberTheme.colors.surface,
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Security, contentDescription = null, tint = CyberCyan, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text("Alert Investigation & Remediation Guide", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = CyberTheme.colors.textPrimary)
+                                    Text("150+ Expert SOC Scenarios & Playbooks", fontSize = 10.sp, color = CyberTheme.colors.textSecondary)
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 

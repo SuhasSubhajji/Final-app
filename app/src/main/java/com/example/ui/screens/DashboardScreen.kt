@@ -416,13 +416,23 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
-                        title = "Active Push Alerts",
+                        title = "Unread Intel",
                         count = stats.unreadAlertsCount.toString(),
                         accentColor = SeverityHigh,
                         onClick = onNavigateToAlerts,
                         modifier = Modifier.weight(1f)
                     )
                 }
+            }
+
+            item {
+                MetricCard(
+                    title = "Investigation & Remediation Library",
+                    count = "20 Curated Guides",
+                    accentColor = CyberCyan,
+                    onClick = onNavigateToAlerts,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             // Custom Tactical Tab Selector
@@ -860,11 +870,11 @@ private fun MetricCard(
         border = androidx.compose.foundation.BorderStroke(1.dp, theme.border),
         onClick = { onClick?.invoke() },
         enabled = onClick != null,
-        modifier = modifier.height(84.dp)
+        modifier = modifier.height(70.dp)
     ) {
         Column(
             modifier = Modifier
-                .padding(14.dp)
+                .padding(10.dp)
                 .fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -876,12 +886,12 @@ private fun MetricCard(
                 Text(
                     text = title,
                     color = theme.textSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
+                        .size(6.dp)
                         .clip(CircleShape)
                         .background(accentColor)
                 )
@@ -889,7 +899,7 @@ private fun MetricCard(
             Text(
                 text = count,
                 color = accentColor,
-                fontSize = 24.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
         }

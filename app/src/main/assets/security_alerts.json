@@ -1,0 +1,3567 @@
+[
+  {
+    "id": "ALRT-001",
+    "title": "Suspicious PowerShell EncodedCommand Execution",
+    "severity": "High",
+    "source": "Windows Event Logs (Sysmon)",
+    "description": "An encoded PowerShell command was executed. Attackers often use -EncodedCommand to hide malicious activity from command-line logging and evasion of simple string-based detections.",
+    "detectionLogic": "EventID: 1 AND Image: '*\\powershell.exe' AND CommandLine: '* -Enc *' OR CommandLine: '* -EncodedCommand *'",
+    "investigationSteps": [
+      "Retrieve the full command line from the event log.",
+      "Decode the Base64 string using a tool like CyberChef or a simple script.",
+      "Identify the purpose of the script (e.g., downloading a payload, stealing credentials, lateral movement).",
+      "Check the parent process to see if it was a user-initiated action or a scheduled task/service."
+    ],
+    "remediationSteps": [
+      "Isolate the affected host if the decoded command is confirmed malicious.",
+      "Revoke the credentials used by the account that executed the command.",
+      "Terminate the malicious process and remove any persistence mechanisms found (e.g., scheduled tasks, registry keys).",
+      "Update detection rules to block similar patterns if they are not legitimate."
+    ],
+    "mitreTactic": "Execution",
+    "mitreTechniqueId": "T1059.001",
+    "logsNeeded": ["Sysmon Event ID 1 (Process Creation)", "PowerShell Script Block Logging (Event ID 4104)"]
+  },
+  {
+    "id": "ALRT-002",
+    "title": "Brute Force Attempt Against Azure AD",
+    "severity": "Medium",
+    "source": "Azure AD Sign-in Logs",
+    "description": "Multiple failed login attempts detected for a single user account from different IP addresses within a short timeframe, suggesting a password spraying or brute force attack.",
+    "detectionLogic": "AppDisplayName: 'Azure Portal' AND ResultType: '50126' (Invalid username or password) AND Count > 10 in 5 minutes",
+    "investigationSteps": [
+      "Review the sign-in logs to identify the source IP addresses and their geolocation.",
+      "Check if any login attempts were successful from those IPs.",
+      "Assess whether the targeted user is a high-privilege account (e.g., Global Admin).",
+      "Verify if the user is traveling or has legitimate reasons for these attempts."
+    ],
+    "remediationSteps": [
+      "Enforce Multi-Factor Authentication (MFA) for the targeted account immediately.",
+      "Temporarily lock the account if a successful login is detected during the attack window.",
+      "Block the malicious IP addresses at the conditional access level.",
+      "Require a password reset for the affected user."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1110",
+    "logsNeeded": ["Azure AD Sign-in Logs", "Audit Logs"]
+  },
+  {
+    "id": "ALRT-003",
+    "title": "Anomalous DNS Query to Known C2 Domain",
+    "severity": "Critical",
+    "source": "DNS Logs / Zeek",
+    "description": "An internal host made a DNS query for a domain associated with a known Command and Control (C2) infrastructure (e.g., Cobalt Strike, Sliver).",
+    "detectionLogic": "Query: 'evil-c2-server.com' OR matched against a known threat intelligence feed",
+    "investigationSteps": [
+      "Identify the source internal IP address that made the query.",
+      "Correlate the DNS query with network traffic (e.g., HTTP/HTTPS, TCP) to that IP.",
+      "Perform an endpoint scan on the source host for malicious processes or files.",
+      "Check for other hosts in the network making similar queries."
+    ],
+    "remediationSteps": [
+      "Isolate the infected host from the network immediately.",
+      "Block the C2 domain and its associated IP addresses at the perimeter firewall/DNS level.",
+      "Clean the infection from the host (reimage if necessary).",
+      "Analyze the payload to understand the extent of the compromise."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1071.001",
+    "logsNeeded": ["DNS Query Logs", "Network Flow Logs (NetFlow/IPFIX)", "IDS/IPS Alerts"]
+  },
+  {
+    "id": "ALRT-004",
+    "title": "Lateral Movement via PsExec",
+    "severity": "High",
+    "source": "Windows System Events",
+    "description": "The PsExec service was installed and started on a remote host, which is often used by attackers for lateral movement and remote command execution.",
+    "detectionLogic": "EventID: 7045 AND ServiceName: 'PSEXESVC'",
+    "investigationSteps": [
+      "Identify the source host and user account that initiated the PsExec connection.",
+      "Check the command executed via PsExec (often visible in Sysmon or EDR logs).",
+      "Verify if this is a legitimate administrative action or part of an unauthorized campaign.",
+      "Look for other lateral movement tools being used from the same source."
+    ],
+    "remediationSteps": [
+      "Disable the PsExec service if not required for legitimate admin tasks.",
+      "Revoke the credentials of the user account involved.",
+      "Scan both the source and destination hosts for additional indicators of compromise.",
+      "Implement restrictive firewall rules to limit RPC/SMB traffic between workstations."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1021.002",
+    "logsNeeded": ["System Event Logs (Event ID 7045)", "Security Event Logs (Event ID 4624/4648)"]
+  },
+  {
+    "id": "ALRT-005",
+    "title": "AWS S3 Bucket Permissions Change to Public",
+    "severity": "High",
+    "source": "AWS CloudTrail",
+    "description": "An S3 bucket's access control list (ACL) or policy was modified to allow public read access, potentially exposing sensitive data.",
+    "detectionLogic": "EventName: 'PutBucketAcl' OR 'PutBucketPolicy' AND contains 'AllUsers' OR 'AuthenticatedUsers'",
+    "investigationSteps": [
+      "Identify the IAM user or role that made the change.",
+      "Check the contents of the bucket to determine the sensitivity of the data exposed.",
+      "Review the justification for making the bucket public.",
+      "Check if any data was downloaded while the bucket was public."
+    ],
+    "remediationSteps": [
+      "Revert the bucket permissions to private immediately.",
+      "Enable 'Block Public Access' at the account or bucket level.",
+      "Investigate the IAM entity for signs of compromise (e.g., unusual login times, API calls).",
+      "Notify data owners if sensitive information was exposed."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567",
+    "logsNeeded": ["AWS CloudTrail Logs", "S3 Access Logs"]
+  },
+  {
+    "id": "ALRT-006",
+    "title": "Persistence via New Scheduled Task",
+    "severity": "Medium",
+    "source": "Windows Task Scheduler",
+    "description": "A new scheduled task was created, which might be used by attackers to maintain persistence on a system after a reboot.",
+    "detectionLogic": "EventID: 4698 (A scheduled task was created)",
+    "investigationSteps": [
+      "Examine the task name, executable path, and arguments.",
+      "Identify the user account that created the task.",
+      "Analyze the schedule (e.g., daily at 3 AM, at logon).",
+      "Determine if the task's action is malicious (e.g., running a script, beaconing out)."
+    ],
+    "remediationSteps": [
+      "Delete the suspicious scheduled task.",
+      "Investigate how the task was created (e.g., via a compromised account, vulnerability).",
+      "Scan the system for other persistence mechanisms (e.g., startup folders, registry keys).",
+      "Strengthen Task Scheduler permissions to prevent unauthorized task creation."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1053.005",
+    "logsNeeded": ["Security Event Logs (Event ID 4698)", "TaskScheduler/Operational Logs"]
+  },
+  {
+    "id": "ALRT-007",
+    "title": "Detection of Mimikatz Execution",
+    "severity": "Critical",
+    "source": "Endpoint Security (AV/EDR)",
+    "description": "Signature or behavioral detection of Mimikatz, a popular tool for harvesting credentials (e.g., LSASS dumping, Golden Ticket creation).",
+    "detectionLogic": "ProcessName: 'mimikatz.exe' OR CommandArguments: '*sekurlsa::logonpasswords*' OR EDR Behavioral Detection for LSASS access",
+    "investigationSteps": [
+      "Confirm if the detection was a true positive and if it was blocked.",
+      "Identify the user who attempted to run the tool and the host machine.",
+      "Check for successful credential dumps or ticket creation prior to the detection.",
+      "Look for other signs of offensive activity on the host (e.g., lateral movement, reconnaissance)."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately if the execution was successful or if the threat is persistent.",
+      "Force a password reset for all potentially compromised accounts.",
+      "Investigate the source of the Mimikatz binary (e.g., downloaded from web, copied via SMB).",
+      "Enable LSA Protection (RunAsPPL) to prevent LSASS memory dumping."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1003.001",
+    "logsNeeded": ["AV/EDR Alerts", "Sysmon Event ID 10 (ProcessAccess to LSASS)"]
+  },
+  {
+    "id": "ALRT-008",
+    "title": "Suspicious Login from a New Geolocation",
+    "severity": "Medium",
+    "source": "IAM / Application Logs",
+    "description": "A user logged into a system or application from a country they have never visited before, and which is not consistent with their known work location.",
+    "detectionLogic": "LoginEvent AND Location NOT IN UserKnownLocations",
+    "investigationSteps": [
+      "Check the user's travel history and confirm if they are currently in that location.",
+      "Review the IP address for known VPNs or proxy services.",
+      "Look for other anomalous activities from the same account (e.g., unusual file access, configuration changes).",
+      "Compare the login time with the user's typical working hours."
+    ],
+    "remediationSteps": [
+      "Contact the user to verify the login attempt.",
+      "Temporarily disable the account or enforce MFA if the login is suspicious.",
+      "Revoke active sessions for the account.",
+      "Update conditional access policies to block logins from high-risk countries."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078",
+    "logsNeeded": ["Application Login Logs", "VPN/Identity Provider Logs"]
+  },
+  {
+    "id": "ALRT-009",
+    "title": "Large Data Transfer to Cloud Storage",
+    "severity": "High",
+    "source": "Firewall / Proxy Logs",
+    "description": "An unusually large volume of data was transferred from an internal host to a public cloud storage provider (e.g., Dropbox, Google Drive, Mega.nz).",
+    "detectionLogic": "Destination: '*.dropbox.com' OR '*.mega.nz' AND ByteCount > 1GB in 1 hour",
+    "investigationSteps": [
+      "Identify the internal host and the user account responsible for the transfer.",
+      "Determine what files were being moved if possible (e.g., from endpoint logs, file server audits).",
+      "Verify if the transfer was for a legitimate business purpose.",
+      "Check if any sensitive or proprietary information was included in the transfer."
+    ],
+    "remediationSteps": [
+      "Block access to the cloud storage site if it is not approved for company use.",
+      "Isolate the host if unauthorized data exfiltration is suspected.",
+      "Conduct a forensic analysis of the host to determine the extent of the data loss.",
+      "Implement Data Loss Prevention (DLP) solutions to monitor and block sensitive data transfers."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567.002",
+    "logsNeeded": ["Proxy/Firewall Logs", "Endpoint File Access Logs"]
+  },
+  {
+    "id": "ALRT-010",
+    "title": "Unauthorized User Added to Domain Admins Group",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs",
+    "description": "A user account was added to a highly privileged group, such as 'Domain Admins' or 'Enterprise Admins', without proper authorization.",
+    "detectionLogic": "EventID: 4728 AND TargetGroupName: 'Domain Admins'",
+    "investigationSteps": [
+      "Identify the user account that made the modification and the user who was added.",
+      "Check the change management system for a corresponding approved request.",
+      "Verify if this action is part of a legitimate administrative task.",
+      "Investigate both the modifying and the modified account for signs of compromise."
+    ],
+    "remediationSteps": [
+      "Remove the unauthorized user from the privileged group immediately.",
+      "Disable both the modifying and the modified accounts until the investigation is complete.",
+      "Audit all recent changes made by these accounts.",
+      "Enforce the principle of least privilege and require MFA for all administrative actions."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1098",
+    "logsNeeded": ["Active Directory Security Logs (Event ID 4728/4732)"]
+  },
+  {
+    "id": "ALRT-011",
+    "title": "Suspicious Creation of Hidden File in /tmp (Linux)",
+    "severity": "Medium",
+    "source": "Linux Auditd / Syslog",
+    "description": "A hidden file (starting with a dot) was created in the /tmp directory, which is a common location for attackers to hide tools or temporary scripts on Linux systems.",
+    "detectionLogic": "Syscall: 'open' OR 'creat' AND Path: '/tmp/.*'",
+    "investigationSteps": [
+      "Examine the contents of the hidden file and determine its purpose.",
+      "Identify the process and user account that created the file.",
+      "Check for other suspicious activities on the host (e.g., network connections, process spawns).",
+      "Look for similar files on other Linux servers in the network."
+    ],
+    "remediationSteps": [
+      "Delete the suspicious hidden file.",
+      "Terminate the process that created the file and investigate its source.",
+      "Scan the system for other indicators of compromise.",
+      "Configure /tmp with 'noexec' mount option if possible to prevent script execution."
+    ],
+    "mitreTactic": "Defense Evasion",
+    "mitreTechniqueId": "T1564.001",
+    "logsNeeded": ["Auditd Logs", "Syslog"]
+  },
+  {
+    "id": "ALRT-012",
+    "title": "Abnormal Volume of API Calls in AWS",
+    "severity": "High",
+    "source": "AWS CloudTrail",
+    "description": "An IAM entity is making an unusually high number of API calls, which could indicate reconnaissance or automated exfiltration activity.",
+    "detectionLogic": "EventSource: 'ec2.amazonaws.com' OR 's3.amazonaws.com' AND Count > 500 in 10 minutes for a single UserIdentity",
+    "investigationSteps": [
+      "Identify the IAM user or role and the specific API actions being performed.",
+      "Determine if this is part of a legitimate automated script or service.",
+      "Check for other anomalous behavior from the same identity (e.g., access from new locations).",
+      "Review the impact of the API calls (e.g., resources created, data accessed)."
+    ],
+    "remediationSteps": [
+      "Temporarily revoke the permissions of the IAM entity.",
+      "Investigate the source of the API calls (e.g., an EC2 instance, a developer's workstation).",
+      "Rotate the access keys for the affected identity.",
+      "Implement service quotas and rate limiting to prevent future occurrences."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1082",
+    "logsNeeded": ["AWS CloudTrail Logs"]
+  },
+  {
+    "id": "ALRT-013",
+    "title": "Creation of New GPO for Script Execution",
+    "severity": "High",
+    "source": "Active Directory / GPO Logs",
+    "description": "A new Group Policy Object (GPO) was created that includes a startup or login script, which could be used to deploy malware across the domain.",
+    "detectionLogic": "EventID: 5136 AND ObjectClass: 'groupPolicyContainer' AND AttributeName: 'gPCMachineExtensionNames' contains script extension",
+    "investigationSteps": [
+      "Identify the administrator account that created the GPO.",
+      "Review the contents and purpose of the script included in the GPO.",
+      "Determine which OUs (Organizational Units) the GPO is linked to.",
+      "Verify if this change followed the established change management process."
+    ],
+    "remediationSteps": [
+      "Unlink and delete the suspicious GPO immediately.",
+      "Investigate the administrator account for compromise.",
+      "Scan the systems that were affected by the GPO for signs of malicious activity.",
+      "Restrict GPO creation and modification rights to a small, monitored group of admins."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1484.001",
+    "logsNeeded": ["Active Directory Security Logs (Event ID 5136)", "GPO Audit Logs"]
+  },
+  {
+    "id": "ALRT-014",
+    "title": "Detecting SSH Brute Force from Internal Host",
+    "severity": "Medium",
+    "source": "Linux Auth Logs / Network IDS",
+    "description": "An internal Linux host is attempting to log into multiple other internal hosts via SSH using many different usernames or passwords.",
+    "detectionLogic": "Message: 'Failed password for' AND Count > 5 from the same SourceIP to multiple DestinationIPs",
+    "investigationSteps": [
+      "Identify the source internal IP address and the targeted hosts.",
+      "Check if any login attempts were successful.",
+      "Analyze the process list on the source host for automated brute-forcing tools (e.g., Hydra, Ncrack).",
+      "Determine if the source host itself has been compromised."
+    ],
+    "remediationSteps": [
+      "Isolate the source host from the network.",
+      "Reset the password and investigate the account used on the source host.",
+      "Update firewall rules to restrict SSH access to authorized management IPs only.",
+      "Implement Fail2Ban or similar tools to automatically block brute-force attempts."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1110.001",
+    "logsNeeded": ["/var/log/auth.log (Debian/Ubuntu)", "/var/log/secure (RHEL/CentOS)", "IDS Alerts"]
+  },
+  {
+    "id": "ALRT-015",
+    "title": "Persistence via DLL Search Order Hijacking",
+    "severity": "High",
+    "source": "Endpoint Security / Sysmon",
+    "description": "A malicious DLL was placed in a directory where a legitimate application will load it instead of the intended system DLL.",
+    "detectionLogic": "EventID: 7 AND Image: '*\\Program Files\\*' AND ImageLoaded: '*\\Temp\\*.dll' OR '*\\AppData\\*.dll'",
+    "investigationSteps": [
+      "Identify the application that loaded the suspicious DLL.",
+      "Examine the malicious DLL file and its associated metadata.",
+      "Determine how the DLL was placed in that location (e.g., via a dropper, manual copy).",
+      "Check for other signs of compromise on the system (e.g., C2 connections)."
+    ],
+    "remediationSteps": [
+      "Isolate the affected host.",
+      "Remove the malicious DLL and any associated files.",
+      "Investigate how the attacker gained initial access to the system.",
+      "Use 'Safe DLL Search Mode' and specify absolute paths for DLL loading in internal applications."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1574.001",
+    "logsNeeded": ["Sysmon Event ID 7 (Image Loaded)", "AV/EDR Logs"]
+  },
+  {
+    "id": "ALRT-016",
+    "title": "Large Amount of Emails Sent to External Recipient",
+    "severity": "Medium",
+    "source": "Email Gateway / O365 Logs",
+    "description": "An internal user account sent an unusually high number of emails to an external email address, potentially indicating data exfiltration or a compromised account used for spam.",
+    "detectionLogic": "SenderAddress: 'user@company.com' AND RecipientAddress: '*@gmail.com' AND Count > 100 in 1 hour",
+    "investigationSteps": [
+      "Identify the user account and the external recipient email address.",
+      "Review the contents of the emails and any attachments.",
+      "Check for other signs of account compromise (e.g., login from new location).",
+      "Verify if this is a legitimate business activity (e.g., a marketing campaign)."
+    ],
+    "remediationSteps": [
+      "Temporarily suspend the user's email account or enforce MFA.",
+      "Recall the sent emails if possible.",
+      "Block the external recipient email address if it is suspicious.",
+      "Implement outbound email filtering and data loss prevention (DLP) rules."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567",
+    "logsNeeded": ["Email Gateway Logs", "O365 Mailflow Logs"]
+  },
+  {
+    "id": "ALRT-017",
+    "title": "Creation of New AWS IAM User with AdministratorAccess",
+    "severity": "Critical",
+    "source": "AWS CloudTrail",
+    "description": "A new IAM user was created and immediately assigned the 'AdministratorAccess' managed policy, which grants full access to the AWS account.",
+    "detectionLogic": "EventName: 'CreateUser' followed by 'AttachUserPolicy' WITH PolicyArn: 'arn:aws:iam::aws:policy/AdministratorAccess'",
+    "investigationSteps": [
+      "Identify the IAM entity that created the new user and assigned the policy.",
+      "Verify if this action followed proper approval and IAM guidelines.",
+      "Investigate the source IP and location from which the API calls were made.",
+      "Determine the purpose of the new administrator account."
+    ],
+    "remediationSteps": [
+      "Delete the new IAM user and its associated access keys immediately.",
+      "Revoke the permissions of the IAM entity that created the user.",
+      "Audit all activities performed by the new administrator account.",
+      "Enforce least privilege and use Permission Boundaries to limit the scope of IAM users."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1098",
+    "logsNeeded": ["AWS CloudTrail Logs"]
+  },
+  {
+    "id": "ALRT-018",
+    "title": "Suspicious Use of 'whoami' or 'hostname' in Web Server (Linux)",
+    "severity": "Medium",
+    "source": "Web Server Logs / EDR",
+    "description": "Reconnaissance commands like 'whoami', 'id', or 'hostname' were executed by the web server process (e.g., www-data, apache), which might indicate a web shell or remote code execution (RCE) vulnerability.",
+    "detectionLogic": "ParentProcess: 'apache2' OR 'nginx' AND ProcessName: 'whoami' OR 'id' OR 'hostname'",
+    "investigationSteps": [
+      "Identify the specific web application or page that triggered the command.",
+      "Analyze the web server access logs for suspicious requests around the time of execution.",
+      "Search for web shells or malicious files on the web server.",
+      "Check for network connections initiated by the web server process to external IPs."
+    ],
+    "remediationSteps": [
+      "Isolate the web server from the network.",
+      "Remove any web shells or malicious code found.",
+      "Patch the vulnerable web application or server software.",
+      "Restrict the permissions of the web server process and implement a Web Application Firewall (WAF)."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1033",
+    "logsNeeded": ["Web Server Access/Error Logs", "EDR Logs", "Auditd Logs"]
+  },
+  {
+    "id": "ALRT-019",
+    "title": "Persistence via AppInit_DLLs Registry Key",
+    "severity": "High",
+    "source": "Windows Registry / Sysmon",
+    "description": "A new DLL was added to the AppInit_DLLs registry key, which causes it to be loaded into every process that links with User32.dll.",
+    "detectionLogic": "EventID: 13 AND TargetObject: '*\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs'",
+    "investigationSteps": [
+      "Identify the DLL being loaded and its file location.",
+      "Determine which user or process modified the registry key.",
+      "Analyze the malicious DLL for its capabilities.",
+      "Check for other signs of persistence and lateral movement on the system."
+    ],
+    "remediationSteps": [
+      "Remove the suspicious DLL from the AppInit_DLLs registry key.",
+      "Delete the DLL file from the system.",
+      "Isolate the host and investigate the root cause of the compromise.",
+      "Monitor this registry key for future unauthorized modifications."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1546.010",
+    "logsNeeded": ["Sysmon Event ID 13 (Registry Value Set)", "AV/EDR Alerts"]
+  },
+  {
+    "id": "ALRT-020",
+    "title": "Unauthorized Access to Key Vault (Azure)",
+    "severity": "High",
+    "source": "Azure Monitor / Key Vault Logs",
+    "description": "An unauthorized user or application attempted to access or retrieve secrets from an Azure Key Vault.",
+    "detectionLogic": "OperationName: 'SecretGet' OR 'KeyGet' AND ResultSignature: 'Forbidden'",
+    "investigationSteps": [
+      "Identify the user or application that attempted the access and its IP address.",
+      "Check the Key Vault access policies and RBAC roles for the identity.",
+      "Determine if this was a misconfiguration or a malicious reconnaissance attempt.",
+      "Review the impact if any secrets were successfully accessed before being blocked."
+    ],
+    "remediationSteps": [
+      "Review and tighten Key Vault access policies.",
+      "Enable 'Private Link' to restrict Key Vault access to internal networks.",
+      "Investigate the identity for signs of compromise.",
+      "Rotate any secrets that might have been compromised."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1555",
+    "logsNeeded": ["Azure Key Vault Diagnostic Logs", "Azure AD Audit Logs"]
+  },
+  {
+    "id": "ALRT-021",
+    "title": "Data Breach: Exfiltration via DNS Tunneling",
+    "severity": "Critical",
+    "source": "DNS Logs / Network Traffic Analysis",
+    "description": "Large volume of DNS queries with high-entropy subdomains, indicating data being exfiltrated via DNS tunneling (e.g., iodine, dnscat2).",
+    "detectionLogic": "QueryLength > 50 AND UniqueSubdomains > 1000 in 1 hour from a single SourceIP",
+    "investigationSteps": [
+      "Identify the internal host making the excessive DNS queries.",
+      "Analyze the payload of the DNS queries for encoded data.",
+      "Identify the destination authoritative DNS server.",
+      "Check for associated malicious processes on the source host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Block the destination domain and nameserver IP.",
+      "Analyze the host for persistent tunneling software.",
+      "Implement DNS inspection and rate limiting."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1048.003",
+    "logsNeeded": ["DNS Server Logs", "Network Traffic Metadata"]
+  },
+  {
+    "id": "ALRT-022",
+    "title": "Ransomware: Mass File Encryption Activity",
+    "severity": "Critical",
+    "source": "EDR / File System Monitoring",
+    "description": "Rapid succession of file renames and writes with known ransomware extensions (e.g., .locked, .crypt, .wanna).",
+    "detectionLogic": "FileExtension IN KnownRansomwareExtensions AND FileWriteCount > 50 in 1 minute",
+    "investigationSteps": [
+      "Identify the process and user responsible for the file changes.",
+      "Determine the scope of the encryption (which drives/folders).",
+      "Look for the ransom note file creation.",
+      "Check for lateral movement from the infected host."
+    ],
+    "remediationSteps": [
+      "Kill the malicious process immediately.",
+      "Isolate the host from the network and shared drives.",
+      "Disable the compromised user account.",
+      "Restore files from the latest verified backup."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "File Access Audit Logs"]
+  },
+  {
+    "id": "ALRT-023",
+    "title": "Account Takeover: MFA Fatigue Attack (MFA Spamming)",
+    "severity": "High",
+    "source": "Identity Provider Logs (Okta/Azure AD)",
+    "description": "Multiple MFA push notifications sent to a user followed by a successful login, suggesting the user eventually approved a malicious request due to fatigue.",
+    "detectionLogic": "MFAPushSentCount > 5 AND MFAStatus: 'Approved' within a short interval",
+    "investigationSteps": [
+      "Contact the user to verify if they intentionally approved the request.",
+      "Check the source IP and location of the initial login attempt.",
+      "Review logs for any actions taken immediately after the successful MFA.",
+      "Identify if the login bypasses Conditional Access policies."
+    ],
+    "remediationSteps": [
+      "Revoke all active sessions for the user.",
+      "Reset the user's password immediately.",
+      "Switch to hardware-based MFA (FIDO2) or number matching for push.",
+      "Review and clean up any unauthorized changes in the account."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1621",
+    "logsNeeded": ["Identity Provider Authentication Logs", "MFA Events"]
+  },
+  {
+    "id": "ALRT-024",
+    "title": "PC Takeover: Unauthorized AnyDesk Connection",
+    "severity": "High",
+    "source": "Endpoint Logs / Network Monitoring",
+    "description": "A connection from an unknown external IP to the AnyDesk service on a corporate workstation, often used for remote access takeover.",
+    "detectionLogic": "Process: 'AnyDesk.exe' AND NetworkConnection: 'External' AND UserNotKnownRemoteWorker",
+    "investigationSteps": [
+      "Identify the user currently logged into the PC.",
+      "Check if AnyDesk was authorized for this specific task.",
+      "Look for files downloaded or transferred during the AnyDesk session.",
+      "Analyze the external IP for reputation and geolocation."
+    ],
+    "remediationSteps": [
+      "Terminate the AnyDesk session and process.",
+      "Uninstall unauthorized remote access software.",
+      "Reset the user's local and domain credentials.",
+      "Implement a policy to block unauthorized remote access ports at the firewall."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Process Execution Logs", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-025",
+    "title": "Domain Takeover: DCSync Attack Detected",
+    "severity": "Critical",
+    "source": "Active Directory / Network Monitoring",
+    "description": "A non-domain controller account is requesting replication of sensitive AD data, indicating a DCSync attack to steal password hashes.",
+    "detectionLogic": "EventID: 4662 AND ObjectType: 'domainDNS' AND AccessMask: '0x100' (Replicating Directory Changes All)",
+    "investigationSteps": [
+      "Identify the source account and host machine.",
+      "Confirm if the account has legitimate replication privileges (highly unlikely for users).",
+      "Check for recent privilege escalation on the source host.",
+      "Monitor for lateral movement or 'Golden Ticket' usage following this event."
+    ],
+    "remediationSteps": [
+      "Isolate the source host immediately.",
+      "Disable the compromised account (likely a highly privileged service account).",
+      "Reset the KRBTGT password twice to invalidate all existing Kerberos tickets.",
+      "Perform a full forensic audit of the Active Directory environment."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1003.006",
+    "logsNeeded": ["Domain Controller Security Logs", "Network IDS (DCE/RPC monitoring)"]
+  },
+  {
+    "id": "ALRT-026",
+    "title": "Ransomware: Shadow Copy Deletion",
+    "severity": "High",
+    "source": "Windows Event Logs / Sysmon",
+    "description": "Execution of 'vssadmin delete shadows' or 'wmic shadowcopy delete', a precursor to ransomware encryption to prevent local recovery.",
+    "detectionLogic": "CommandLine: '*vssadmin*delete*shadows*' OR CommandLine: '*shadowcopy*delete*'",
+    "investigationSteps": [
+      "Identify the parent process that spawned the command (often a malicious script).",
+      "Check if encryption has already started on the host.",
+      "Identify the user account under which the command was executed.",
+      "Search for other ransomware-related tools on the system (e.g., cleaners, scanners)."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Terminate any suspicious running processes.",
+      "Verify the integrity of backups and offline storage.",
+      "Restore the host from a known good state."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1490",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event ID 4688"]
+  },
+  {
+    "id": "ALRT-027",
+    "title": "Data Breach: Large SQL Dump via Internal Host",
+    "severity": "High",
+    "source": "Database Audit Logs",
+    "description": "An unusually large number of rows exported or a 'SELECT *' on a sensitive table (e.g., Users, CreditCards) by an unusual user.",
+    "detectionLogic": "SQLQuery: 'SELECT *' AND TableName: 'Customers' AND ResultRowCount > 10000",
+    "investigationSteps": [
+      "Verify if the query was part of a legitimate reporting task.",
+      "Identify where the resulting data was sent (e.g., to a local file, over the network).",
+      "Check the credentials used and if they were recently rotated.",
+      "Look for other signs of reconnaissance on the database server."
+    ],
+    "remediationSteps": [
+      "Disable the compromised database user account.",
+      "Block the IP of the host that initiated the query.",
+      "Review and restrict database permissions (implement RBAC).",
+      "Enable data masking for sensitive fields in the database."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1530",
+    "logsNeeded": ["SQL Server Audit Logs", "Application Access Logs"]
+  },
+  {
+    "id": "ALRT-028",
+    "title": "Account Takeover: Adversary-in-the-Middle (AiTM) Cookie Theft",
+    "severity": "Critical",
+    "source": "Proxy Logs / Identity Logs",
+    "description": "A session cookie for a critical application was used from an IP address that differs significantly from the initial authentication IP, suggesting cookie theft.",
+    "detectionLogic": "SessionID: 'Matched' AND IPAddress: 'Changed' AND Geolocation: 'Impossible Travel'",
+    "investigationSteps": [
+      "Review the proxy logs for any suspicious domains visited before the cookie was stolen (e.g., look-alike domains).",
+      "Identify the user account and the applications accessed with the stolen cookie.",
+      "Check if MFA was bypassed or already completed by the attacker.",
+      "Assess the level of access granted by the stolen session."
+    ],
+    "remediationSteps": [
+      "Invalidate all active sessions for the affected user account.",
+      "Reset the user's password and MFA tokens.",
+      "Implement Token Binding or IP-bound sessions where supported.",
+      "Educate the user on phishing and suspicious URL verification."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1557.001",
+    "logsNeeded": ["Reverse Proxy Logs", "Azure AD Sign-in Logs (Sign-in risky events)"]
+  },
+  {
+    "id": "ALRT-029",
+    "title": "PC Takeover: Unauthorized RDP from Public IP",
+    "severity": "High",
+    "source": "Windows Security Logs",
+    "description": "Successful RDP login to a workstation directly from a public IP address, bypassing the corporate VPN.",
+    "detectionLogic": "EventID: 4624 AND LogonType: 10 AND SourceIP NOT IN InternalRange",
+    "investigationSteps": [
+      "Identify the user who logged in and the workstation involved.",
+      "Check if the workstation was intentionally exposed to the internet (misconfiguration).",
+      "Analyze the activities performed during the RDP session.",
+      "Look for other workstations exposed in a similar manner."
+    ],
+    "remediationSteps": [
+      "Terminate the RDP session immediately.",
+      "Block RDP (Port 3389) at the external firewall.",
+      "Enforce VPN-only RDP access.",
+      "Disable the compromised user account and reset their password."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1021.001",
+    "logsNeeded": ["Security Event Logs (Event ID 4624)", "TerminalServices-LocalSessionManager Logs"]
+  },
+  {
+    "id": "ALRT-030",
+    "title": "Domain Takeover: Golden Ticket Usage detected via 4624/4672",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs",
+    "description": "A logon event where the user claims to be a highly privileged account but the TGT (Ticket Granting Ticket) has a suspiciously long lifetime or missing fields, indicating a Golden Ticket.",
+    "detectionLogic": "EventID: 4624 AND TargetUserName: 'Administrator' AND AuthenticationPackage: 'Kerberos' AND TicketLifetime > 10 hours",
+    "investigationSteps": [
+      "Identify the host where the Golden Ticket was used.",
+      "Trace the activity back to the initial compromise point.",
+      "Check for DCSync activity that could have preceded the ticket creation.",
+      "Identify all resources accessed using this fraudulent ticket."
+    ],
+    "remediationSteps": [
+      "Isolate all affected systems.",
+      "Reset the KRBTGT account password twice immediately.",
+      "Perform a full rebuild of the compromised forest if necessary.",
+      "Implement Tiered Administration to protect highly privileged accounts."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558.001",
+    "logsNeeded": ["Kerberos Service Ticket Logs", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-031",
+    "title": "Data Breach: Github Repository Leaking Secrets",
+    "severity": "High",
+    "source": "Secret Scanning Tools (TruffleHog/GitGuardian)",
+    "description": "A commit to a public or private company repository contains hardcoded API keys, database credentials, or AWS secret keys.",
+    "detectionLogic": "SecretPatternMatch: 'Matched' IN 'Github Commits'",
+    "investigationSteps": [
+      "Identify the developer who made the commit.",
+      "Verify the validity of the leaked secret (is it active?).",
+      "Determine if the secret has been used by an external entity since the leak.",
+      "Check if the secret grants access to production environments."
+    ],
+    "remediationSteps": [
+      "Revoke and rotate the leaked secret immediately.",
+      "Remove the secret from the Git history (using BFG Repo-Cleaner or git-filter-repo).",
+      "Investigate associated logs for unauthorized access using the secret.",
+      "Implement pre-commit hooks to prevent future leaks."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1552.001",
+    "logsNeeded": ["Github Webhook/Log events", "Secret Scanning Alerts"]
+  },
+  {
+    "id": "ALRT-032",
+    "title": "Ransomware: Cobalt Strike Beaconing Detected",
+    "severity": "Critical",
+    "source": "Network IDS / EDR",
+    "description": "Network traffic pattern consistent with Cobalt Strike beaconing (periodic GET/POST requests with specific metadata headers), often used by ransomware actors for C2.",
+    "detectionLogic": "TrafficPattern: 'Periodic' AND UserAgent: 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)' AND PayloadEntropy: High",
+    "investigationSteps": [
+      "Identify the infected host and the process responsible for the traffic.",
+      "Scan the host for Cobalt Strike artifacts (e.g., reflective loaders in memory).",
+      "Determine the initial infection vector (e.g., spear-phishing, RDP exploit).",
+      "Check for lateral movement or data staging."
+    ],
+    "remediationSteps": [
+      "Isolate the host from the network.",
+      "Kill the malicious process and remove persistence.",
+      "Block the C2 IP and domain at the perimeter.",
+      "Perform memory forensics to identify additional payloads."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1071.001",
+    "logsNeeded": ["NetFlow Logs", "EDR Memory Scanning Alerts"]
+  },
+  {
+    "id": "ALRT-033",
+    "title": "Account Takeover: Session Hijacking via Malicious Browser Extension",
+    "severity": "Medium",
+    "source": "Endpoint Monitoring / Browser Logs",
+    "description": "A browser extension is captured sending session cookies or keystrokes to an external domain.",
+    "detectionLogic": "Process: 'chrome.exe' AND Target: 'unauthorized-domain.com' AND Payload: 'Cookie=*'",
+    "investigationSteps": [
+      "Identify the malicious extension ID and name.",
+      "Determine how the extension was installed (e.g., user-installed, side-loaded).",
+      "Identify which web accounts were accessed during the session.",
+      "Scan the host for other malware."
+    ],
+    "remediationSteps": [
+      "Remove the malicious browser extension.",
+      "Clear browser cache and cookies.",
+      "Invalidate all web sessions and reset passwords for affected accounts.",
+      "Implement a policy to restrict browser extension installations."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1539",
+    "logsNeeded": ["Endpoint Behavioral Logs", "Web Proxy Logs"]
+  },
+  {
+    "id": "ALRT-034",
+    "title": "PC Takeover: Reverse Shell established via Python",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "A python process spawned a cmd.exe or /bin/sh with an active network connection, typical of a reverse shell.",
+    "detectionLogic": "Parent: 'python.exe' AND Child: 'cmd.exe' AND Network: 'Established'",
+    "investigationSteps": [
+      "Analyze the Python script that initiated the shell.",
+      "Identify the remote IP address and its reputation.",
+      "Check what commands were executed through the reverse shell.",
+      "Identify how the Python script was initially executed (e.g., web shell, scheduled task)."
+    ],
+    "remediationSteps": [
+      "Kill the Python process and the child shell.",
+      "Isolate the host and block the remote IP.",
+      "Remove the malicious script and any persistence mechanisms.",
+      "Review and restrict execution of scripting languages for non-developers."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1059.006",
+    "logsNeeded": ["Sysmon Event ID 1 & 3", "EDR Command History"]
+  },
+  {
+    "id": "ALRT-035",
+    "title": "Domain Takeover: AD CS Certificate Template Misconfiguration exploited",
+    "severity": "Critical",
+    "source": "Active Directory Certificate Services Logs",
+    "description": "An attacker requested a certificate for a highly privileged user (e.g., Domain Admin) using a misconfigured template (ESC1/ESC8).",
+    "detectionLogic": "EventID: 4886 AND TemplateName: 'VulnerableTemplate' AND Requester: 'StandardUser' AND SAN: 'Administrator'",
+    "investigationSteps": [
+      "Identify the user account that requested the certificate.",
+      "Verify if the certificate was used for authentication (Event ID 4624).",
+      "Review AD CS templates for misconfigurations (e.g., 'Supply in request' allowed for SAN).",
+      "Identify any other certificates issued using the same vulnerable template."
+    ],
+    "remediationSteps": [
+      "Revoke the fraudulent certificate immediately.",
+      "Disable the vulnerable AD CS template or correct its permissions.",
+      "Isolate the compromised user account.",
+      "Monitor for logons using the revoked certificate thumbprint."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1649",
+    "logsNeeded": ["AD CS Audit Logs", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-036",
+    "title": "Data Breach: Exfiltration via MEGA.nz Desktop App",
+    "severity": "High",
+    "source": "EDR / Proxy Logs",
+    "description": "Unauthorized installation and use of MEGA.nz desktop sync client on a server containing sensitive data.",
+    "detectionLogic": "Process: 'MEGAsync.exe' AND Network: 'mega.nz' AND FileAccess: 'SensitiveDocs'",
+    "investigationSteps": [
+      "Identify the user who installed the client.",
+      "Check which folders were synced to the MEGA cloud.",
+      "Analyze the network logs for total data transferred.",
+      "Determine if the user was authorized to use personal cloud storage."
+    ],
+    "remediationSteps": [
+      "Terminate the MEGAsync process and uninstall the software.",
+      "Block access to MEGA.nz at the firewall/proxy.",
+      "Conduct a data loss assessment to see what was synced.",
+      "Discipline or retrain the user based on security policy."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567.002",
+    "logsNeeded": ["Process Creation Logs", "Proxy Logs"]
+  },
+  {
+    "id": "ALRT-037",
+    "title": "Ransomware: LockBit 3.0 (LockBit Black) behavioral pattern",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of LockBit 3.0 specific behaviors: disabling security tools, deleting logs, and high-speed encryption.",
+    "detectionLogic": "Behavioral: 'StopService' (WinDefend) AND 'ClearLogs' (wevtutil) AND 'RapidFileWrite'",
+    "investigationSteps": [
+      "Confirm the presence of the LockBit binary (often randomly named).",
+      "Identify the ransom note (often named 'README.txt' or similar with a custom extension).",
+      "Check for exfiltration activity prior to encryption (Double Extortion).",
+      "Identify the compromised entry point (e.g., VPN, Phishing)."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Shut down affected servers to prevent further encryption if not already complete.",
+      "Consult with incident response experts and legal counsel.",
+      "Do NOT pay the ransom unless absolutely necessary (consult law enforcement)."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Event Logs", "Windows System Logs"]
+  },
+  {
+    "id": "ALRT-038",
+    "title": "Account Takeover: Password Spraying against O365",
+    "severity": "Medium",
+    "source": "O365 Security & Compliance Logs",
+    "description": "A single external IP address attempting to log into hundreds of different user accounts with a small set of common passwords.",
+    "detectionLogic": "Source: 'External IP' AND UserCount > 50 AND FailedLoginCount > 100",
+    "investigationSteps": [
+      "Identify if any accounts were successfully compromised during the spray.",
+      "Check the IP address reputation (VPN, TOR, known malicious proxy).",
+      "Monitor successful logins from that IP for anomalous activity.",
+      "Determine the password list used if possible."
+    ],
+    "remediationSteps": [
+      "Block the malicious IP at the tenant level.",
+      "Force a password reset for any users with successful logins from that IP.",
+      "Enforce MFA for all users if not already enabled.",
+      "Monitor the environment for lateral movement from potentially compromised accounts."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1110.003",
+    "logsNeeded": ["O365 Audit Logs", "Azure AD Sign-in Logs"]
+  },
+  {
+    "id": "ALRT-039",
+    "title": "PC Takeover: VNC Server started by unusual process",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "A VNC server (e.g., WinVNC, TightVNC) was launched by a non-standard parent process like a web browser or a temporary directory executable.",
+    "detectionLogic": "Process: 'vnc.exe' AND Parent NOT IN ['explorer.exe', 'services.exe']",
+    "investigationSteps": [
+      "Identify the VNC configuration (port, password, allowed IPs).",
+      "Check for active connections to the VNC server.",
+      "Analyze how the VNC binary was dropped on the system.",
+      "Determine if the user was aware of the VNC installation."
+    ],
+    "remediationSteps": [
+      "Kill the VNC process and delete the binary.",
+      "Uninstall any associated VNC services.",
+      "Isolate the host and scan for other remote access tools.",
+      "Review firewall rules to block common VNC ports (5900+)."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Sysmon Event ID 1", "Network Listening Port logs"]
+  },
+  {
+    "id": "ALRT-040",
+    "title": "Domain Takeover: PrintNightmare Exploit Attempt (CVE-2021-34527)",
+    "severity": "Critical",
+    "source": "Windows Print Service Logs / EDR",
+    "description": "Attempt to load a malicious driver via the Print Spooler service, potentially granting SYSTEM privileges and domain control.",
+    "detectionLogic": "EventID: 316 AND DriverPath: '*\\Temp\\*' OR '*\\AppData\\*'",
+    "investigationSteps": [
+      "Identify the source of the print request and the user account.",
+      "Verify if the Spooler service is patched against PrintNightmare.",
+      "Check for the creation of new files in C:\\Windows\\System32\\spool\\drivers.",
+      "Look for privilege escalation activity following the event."
+    ],
+    "remediationSteps": [
+      "Stop and disable the Print Spooler service on all Domain Controllers.",
+      "Apply the latest Microsoft security updates.",
+      "Isolate the host that initiated the exploit attempt.",
+      "Remove any unauthorized printer drivers from the system."
+    ],
+    "mitreTactic": "Privilege Escalation",
+    "mitreTechniqueId": "T1068",
+    "logsNeeded": ["PrintService/Admin Logs", "Sysmon File Creation Logs"]
+  },
+  {
+    "id": "ALRT-041",
+    "title": "Data Breach: Exfiltration of Email PST/OST files",
+    "severity": "High",
+    "source": "File Access Logs / DLP",
+    "description": "Large .pst or .ost files (Outlook data files) being copied to a USB drive or uploaded to a personal cloud account.",
+    "detectionLogic": "FilePath: '*.pst' OR '*.ost' AND Action: 'Copy' AND Target: 'RemovableMedia'",
+    "investigationSteps": [
+      "Identify the user and the workstation.",
+      "Determine the sensitivity of the emails contained in the data files.",
+      "Check if this is a standard archiving procedure or unauthorized theft.",
+      "Verify if the destination storage is company-approved."
+    ],
+    "remediationSteps": [
+      "Block the USB transfer and notify the user.",
+      "Isolate the workstation if the upload was to an unauthorized cloud service.",
+      "Revoke the user's access to sensitive email data.",
+      "Implement DLP rules to block the movement of Outlook data files."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1020",
+    "logsNeeded": ["Removable Storage Audit Logs", "DLP Alerts"]
+  },
+  {
+    "id": "ALRT-042",
+    "title": "Ransomware: Hive Ransomware Indicators detected",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of Hive ransomware strings, ransom notes ('HOW_TO_DECRYPT.txt'), and the '.hive' file extension.",
+    "detectionLogic": "FileExtension: '.hive' AND FileWrite: 'HOW_TO_DECRYPT.txt'",
+    "investigationSteps": [
+      "Identify the compromised user account (often via RDP brute force).",
+      "Check for lateral movement to critical servers (ESXi, SQL).",
+      "Look for exfiltration via tools like Rclone.",
+      "Assess the extent of the damage across the network."
+    ],
+    "remediationSteps": [
+      "Isolate affected servers and workstations immediately.",
+      "Disable compromised credentials.",
+      "Consult with legal and security specialists for extortion negotiation if necessary.",
+      "Restore systems from air-gapped or immutable backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Alerts", "Auth Logs"]
+  },
+  {
+    "id": "ALRT-043",
+    "title": "Account Takeover: Unusual API key usage from new IP (SaaS)",
+    "severity": "High",
+    "source": "SaaS Platform Logs (Slack/GitHub/Salesforce)",
+    "description": "A long-lived API key is being used from a new geolocation or IP address that has never been associated with that key before.",
+    "detectionLogic": "ApiKeyID: 'Matched' AND IPAddress NOT IN KnownGoodIPs",
+    "investigationSteps": [
+      "Identify the owner of the API key and the purpose of its use.",
+      "Check the specific API calls made (e.g., downloading data, changing configs).",
+      "Confirm if the owner is currently working from that new location.",
+      "Review the key for potential exposure in code or logs."
+    ],
+    "remediationSteps": [
+      "Disable or rotate the API key immediately.",
+      "Review and audit all activity performed with the key during the anomalous period.",
+      "Invalidate any data or configurations altered by the key.",
+      "Enforce IP whitelisting for all sensitive API keys."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1528",
+    "logsNeeded": ["SaaS Application Audit Logs"]
+  },
+  {
+    "id": "ALRT-044",
+    "title": "PC Takeover: Execution of 'Advanced IP Scanner' on Server",
+    "severity": "Medium",
+    "source": "Sysmon / EDR",
+    "description": "An administrative tool like 'Advanced IP Scanner' was executed on a sensitive production server by a non-admin user.",
+    "detectionLogic": "Process: 'advanced_ip_scanner.exe' AND HostType: 'Server'",
+    "investigationSteps": [
+      "Identify the user account and why the tool was run.",
+      "Check if any network scanning actually took place.",
+      "Look for other reconnaissance tools (e.g., Nmap, Net scan).",
+      "Identify how the tool was brought onto the server (e.g., USB, download)."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the tool.",
+      "Investigate the user for malicious intent or host compromise.",
+      "Restrict the ability to run executable files in server environments.",
+      "Monitor the network for subsequent lateral movement attempts."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1046",
+    "logsNeeded": ["Process Creation Logs", "Network IDS Logs"]
+  },
+  {
+    "id": "ALRT-045",
+    "title": "Domain Takeover: DCShadow Attack (Service Principal Name change)",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs",
+    "description": "A workstation account is temporarily masquerading as a Domain Controller by modifying its own SPN attributes to inject malicious objects into AD.",
+    "detectionLogic": "EventID: 4742 AND ServicePrincipalNames: 'GC/host*' OR 'E3514235-4B06-11D1-AB04-00C04FC2DCD2/*'",
+    "investigationSteps": [
+      "Identify the workstation account involved in the SPN modification.",
+      "Look for associated Event ID 5136 showing attribute changes on the domain object.",
+      "Check for lateral movement to the workstation from a compromised admin account.",
+      "Verify if any new GPOs or users were injected into AD."
+    ],
+    "remediationSteps": [
+      "Isolate the malicious workstation immediately.",
+      "Reset the workstation's computer account password.",
+      "Verify the integrity of the Active Directory database.",
+      "Restrict the ability for workstations to modify their own SPN attributes."
+    ],
+    "mitreTactic": "Defense Evasion",
+    "mitreTechniqueId": "T1207",
+    "logsNeeded": ["Domain Controller Security Logs (Event ID 4742/5136)"]
+  },
+  {
+    "id": "ALRT-046",
+    "title": "Data Breach: Exfiltration via Telegram Bot",
+    "severity": "High",
+    "source": "Network Logs / EDR",
+    "description": "Malware is using a Telegram bot API to send stolen data to an attacker-controlled channel.",
+    "detectionLogic": "Domain: 'api.telegram.org' AND Payload: 'contains file metadata' AND ByteCount > 10MB",
+    "investigationSteps": [
+      "Identify the process making the API calls and the user account.",
+      "Identify the bot token and chat ID used in the request (if not encrypted).",
+      "Check what files were being sent through the Telegram API.",
+      "Scan the host for the data-stealing malware."
+    ],
+    "remediationSteps": [
+      "Kill the malicious process and isolate the host.",
+      "Block access to Telegram API at the corporate firewall.",
+      "Report the bot to Telegram for take down.",
+      "Search for other infected hosts in the environment."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567",
+    "logsNeeded": ["Network Flow Logs", "DNS Logs"]
+  },
+  {
+    "id": "ALRT-047",
+    "title": "Ransomware: Conti Ransomware - Chained behavior detected",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of Conti-specific tools: BazarLoader, Cobalt Strike, and Rclone used in combination.",
+    "detectionLogic": "ProcessChain: 'BazarLoader' -> 'Cobalt Strike' -> 'Rclone' -> 'Conti.exe'",
+    "investigationSteps": [
+      "Trace the infection back to the BazarLoader entry point (often email).",
+      "Identify the exfiltration destination used by Rclone.",
+      "Assess which critical servers have been reached by the Cobalt Strike beacon.",
+      "Check for the presence of the '.conti' extension on shared drives."
+    ],
+    "remediationSteps": [
+      "Isolate the entire subnet if the infection is spreading rapidly.",
+      "Shut down file servers to protect data integrity.",
+      "Consult with cybersecurity incident response experts immediately.",
+      "Restore from the most recent known-good offline backup."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-048",
+    "title": "Account Takeover: Account creation by unauthorized user (IAM)",
+    "severity": "High",
+    "source": "IAM / Cloud Platform Logs",
+    "description": "A new user account was created by a user who does not typically perform administrative actions or is not in the HR/IT department.",
+    "detectionLogic": "Event: 'CreateUser' AND Actor NOT IN ApprovedAdminList",
+    "investigationSteps": [
+      "Identify the actor account and the new user created.",
+      "Check if the actor recently gained administrative privileges (privilege escalation).",
+      "Verify if the new user has been granted high-level access.",
+      "Identify the source IP and location of the creation event."
+    ],
+    "remediationSteps": [
+      "Disable the newly created user account immediately.",
+      "Revoke administrative permissions from the actor account.",
+      "Audit all actions taken by both accounts.",
+      "Reset the actor's password and enable MFA."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1136.001",
+    "logsNeeded": ["IAM Audit Logs", "Cloud Activity Logs"]
+  },
+  {
+    "id": "ALRT-049",
+    "title": "PC Takeover: Unauthorized TeamViewer usage",
+    "severity": "Medium",
+    "source": "Network Logs / EDR",
+    "description": "A successful TeamViewer connection to a workstation that is not registered for IT support use.",
+    "detectionLogic": "Process: 'TeamViewer.exe' AND Network: 'Established' AND Host NOT IN IT-Approved-List",
+    "investigationSteps": [
+      "Identify the user currently logged into the PC.",
+      "Check if the TeamViewer connection was for a legitimate, documented reason.",
+      "Analyze the external IP of the remote participant.",
+      "Look for files transferred during the session."
+    ],
+    "remediationSteps": [
+      "Close the TeamViewer session and uninstall the software.",
+      "Isolate the host and scan for malware.",
+      "Update the policy to block TeamViewer ports/domains for unauthorized hosts.",
+      "Educate the user on the risks of unauthorized remote access tools."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Process Creation Logs", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-050",
+    "title": "Domain Takeover: AS-REP Roasting Attempt",
+    "severity": "High",
+    "source": "Domain Controller Logs / Network Monitoring",
+    "description": "An attacker is requesting Kerberos tickets for accounts that do not require pre-authentication, allowing for offline password cracking.",
+    "detectionLogic": "EventID: 4768 AND PreAuthType: 0 (Disabled)",
+    "investigationSteps": [
+      "Identify the user accounts targeted in the AS-REP Roasting attempt.",
+      "Check the source IP of the request and if it's an internal workstation.",
+      "Analyze the accounts involved for weak or easily guessable passwords.",
+      "Monitor for successful logins to these accounts from unusual locations."
+    ],
+    "remediationSteps": [
+      "Enable 'Do not require Kerberos pre-authentication' for all sensitive accounts (ensure it's NOT checked).",
+      "Enforce strong, long passwords for all service accounts.",
+      "Rotate passwords for all accounts that were roasted.",
+      "Implement a regular audit to identify accounts with pre-auth disabled."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558.004",
+    "logsNeeded": ["Security Event Logs (Event ID 4768)", "Kerberos traffic captures"]
+  },
+  {
+    "id": "ALRT-051",
+    "title": "Data Breach: Unauthorized Access to Finance Share",
+    "severity": "High",
+    "source": "File Server Audit Logs",
+    "description": "A user from an unrelated department (e.g., Marketing) successfully accessed and read multiple files in the Finance department's restricted network share.",
+    "detectionLogic": "EventID: 4663 AND ObjectPath: '\\\\FinanceShare\\*' AND UserDepartment: 'Marketing'",
+    "investigationSteps": [
+      "Identify the user and verify their current department and role.",
+      "Check the permissions on the Finance share (did they have explicit or inherited access?).",
+      "Review the files accessed for sensitivity (e.g., payroll, budgets).",
+      "Check for bulk file copy or movement."
+    ],
+    "remediationSteps": [
+      "Remove the user's unauthorized access permissions immediately.",
+      "Disable the user's account and reset their password.",
+      "Audit the share's ACLs and remove any broad or incorrect groups (e.g., 'Everyone', 'Authenticated Users').",
+      "Conduct an interview with the user to determine the intent."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1213",
+    "logsNeeded": ["Windows File Access Audit Logs", "Active Directory User Attributes"]
+  },
+  {
+    "id": "ALRT-052",
+    "title": "Ransomware: REvil (Sodinokibi) behavior detected",
+    "severity": "Critical",
+    "source": "EDR / Network IDS",
+    "description": "Detection of REvil's unique encryption routine, use of 'PowerShell' for initial delivery, and communication with known REvil C2 domains.",
+    "detectionLogic": "Behavioral: 'MassFileRename' AND Domain: 'decryption-service-url.net'",
+    "investigationSteps": [
+      "Identify the infected host and the initial delivery vector (phishing or RDP).",
+      "Check for lateral movement to domain controllers or backup servers.",
+      "Identify if data was uploaded to a paste site or cloud storage (Double Extortion).",
+      "Find the ransom note and identify the unique victim ID."
+    ],
+    "remediationSteps": [
+      "Isolate the host and all adjacent systems in the subnet.",
+      "Block the C2 domains and IPs.",
+      "Engage with external incident response and legal teams.",
+      "Evaluate the possibility of using a public decryptor if available (rare)."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Proxy Logs"]
+  },
+  {
+    "id": "ALRT-053",
+    "title": "Account Takeover: Mass Password Resets by Service Account",
+    "severity": "High",
+    "source": "Active Directory / IAM Logs",
+    "description": "A service account which is only supposed to manage a specific application is performing password resets for multiple regular user accounts.",
+    "detectionLogic": "EventID: 4724 AND SubjectUserName: 'svc_app' AND TargetUserNameCount > 5 in 1 hour",
+    "investigationSteps": [
+      "Identify why the service account has the permission to reset user passwords.",
+      "Determine if the service account itself has been compromised.",
+      "Check for logins to the affected user accounts immediately following the reset.",
+      "Trace the source IP from which the password resets were initiated."
+    ],
+    "remediationSteps": [
+      "Disable the service account immediately.",
+      "Lock all user accounts that had their passwords reset.",
+      "Audit and restrict the service account's permissions in AD (least privilege).",
+      "Investigate the application using the service account for vulnerabilities."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1098",
+    "logsNeeded": ["Security Event Logs (Event ID 4724)", "IAM Change Logs"]
+  },
+  {
+    "id": "ALRT-054",
+    "title": "PC Takeover: Unauthorized SSH from internal printer",
+    "severity": "High",
+    "source": "Network Flow Logs / IDS",
+    "description": "An internal network printer is initiating SSH connections to servers, a behavior highly indicative of a compromised IoT device being used for lateral movement.",
+    "detectionLogic": "Source: 'Printer-IP' AND Destination: 'Internal-Server' AND Port: 22",
+    "investigationSteps": [
+      "Identify the printer model and its current firmware version.",
+      "Perform a vulnerability scan on the printer.",
+      "Identify what credentials the printer is using to attempt the SSH login.",
+      "Check for other unusual traffic from the printer (e.g., DNS queries, HTTP to unusual IPs)."
+    ],
+    "remediationSteps": [
+      "Disconnect the printer from the network immediately.",
+      "Reset the printer to factory settings and update its firmware.",
+      "Change the administrative password for the printer's web interface.",
+      "Implement network segmentation to isolate IoT devices from sensitive servers."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1021.004",
+    "logsNeeded": ["NetFlow Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-055",
+    "title": "Domain Takeover: Password Reset of KRBTGT account by unauthorized user",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs",
+    "description": "An attempt to reset the password of the KRBTGT account by an account that is not a member of the Domain Admins group.",
+    "detectionLogic": "EventID: 4724 AND TargetUserName: 'KRBTGT' AND SubjectUserName NOT IN DomainAdmins",
+    "investigationSteps": [
+      "Identify the actor account and the source host.",
+      "Verify if the password reset was successful (if it was, it's a catastrophic breach).",
+      "Identify how the actor account gained the privilege to reset KRBTGT.",
+      "Search for other signs of domain-level compromise (DCSync, DCShadow)."
+    ],
+    "remediationSteps": [
+      "If successful, immediately start the domain recovery process (likely a full forest recovery).",
+      "Isolate the actor account and host.",
+      "Perform an immediate audit of all administrative permissions in AD.",
+      "Engage a specialized incident response team for domain forensics."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1098",
+    "logsNeeded": ["Security Event Logs (Event ID 4724)"]
+  },
+  {
+    "id": "ALRT-056",
+    "title": "Data Breach: Exfiltration via Pastebin",
+    "severity": "Medium",
+    "source": "Proxy Logs / Network IDS",
+    "description": "Large amount of POST data being sent to pastebin.com or similar code-sharing sites, often used for leaking credentials or configuration files.",
+    "detectionLogic": "Domain: 'pastebin.com' AND Method: 'POST' AND PayloadSize > 100KB",
+    "investigationSteps": [
+      "Identify the source host and the user account.",
+      "Identify the specific 'paste' URL and retrieve the content if possible.",
+      "Verify if the content contains proprietary company information.",
+      "Check if the host has been compromised by a malware stager."
+    ],
+    "remediationSteps": [
+      "Block access to pastebin.com at the corporate firewall.",
+      "Request a takedown of the malicious paste from the site administrators.",
+      "Isolate the host and perform a forensic analysis.",
+      "Notify the data owners if sensitive information was exposed."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567",
+    "logsNeeded": ["Web Proxy Logs", "HTTP traffic captures"]
+  },
+  {
+    "id": "ALRT-057",
+    "title": "Ransomware: BlackCat (ALPHV) - Data Staging detected",
+    "severity": "Critical",
+    "source": "EDR / File Monitoring",
+    "description": "Large quantities of files being compressed into .zip or .7z archives in hidden directories (e.g., C:\\ProgramData) prior to encryption.",
+    "detectionLogic": "Process: '7z.exe' OR 'rar.exe' AND TargetDir: 'C:\\ProgramData\\*' AND FileCount > 1000",
+    "investigationSteps": [
+      "Identify the user account and host involved in the compression.",
+      "Identify where the compressed files are being sent (exfiltration path).",
+      "Check for BlackCat's unique Rust-based encryptor on the host.",
+      "Look for exfiltration tools like 'Rclone' or 'StealBit'."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately to stop the data staging and exfiltration.",
+      "Terminate the compression processes.",
+      "Disable the compromised user account.",
+      "Audit all outbound network connections from the host."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1560.001",
+    "logsNeeded": ["Process Execution Logs", "File Access Logs"]
+  },
+  {
+    "id": "ALRT-058",
+    "title": "Account Takeover: Successful login after 20+ failed attempts (Brute Force Success)",
+    "severity": "High",
+    "source": "Application / Identity Logs",
+    "description": "A user account had many failed login attempts from a single IP, followed immediately by a successful login, indicating a successful brute force or password guess.",
+    "detectionLogic": "Event: 'LoginFailed' (Count > 20) FOLLOWED BY Event: 'LoginSuccess' FROM same SourceIP",
+    "investigationSteps": [
+      "Identify the user account and the source IP address.",
+      "Check the reputation of the IP address.",
+      "Assess the user's privilege level and the sensitivity of the application accessed.",
+      "Review the activities performed by the user immediately after the successful login."
+    ],
+    "remediationSteps": [
+      "Lock the account immediately and force a password reset.",
+      "Invalidate all active sessions for that account.",
+      "Block the malicious IP at the firewall.",
+      "Review and strengthen account lockout policies."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1110.001",
+    "logsNeeded": ["Authentication Logs", "Audit Logs"]
+  },
+  {
+    "id": "ALRT-059",
+    "title": "PC Takeover: Unauthorized Screen Sharing (macOS/Linux)",
+    "severity": "Medium",
+    "source": "System Logs / EDR",
+    "description": "The native screen sharing or VNC service was enabled and accessed by an unauthorized remote user on a macOS or Linux workstation.",
+    "detectionLogic": "Process: 'screensharingd' AND Network: 'IncomingConnection' AND User NOT IN Support-Team",
+    "investigationSteps": [
+      "Identify the remote IP and user who connected to the screen sharing service.",
+      "Check if the local user authorized the connection (e.g., via a prompt).",
+      "Look for files downloaded or configuration changes during the session.",
+      "Identify how the screen sharing service was enabled (was it always on?)."
+    ],
+    "remediationSteps": [
+      "Terminate the screen sharing session.",
+      "Disable the screen sharing service if not required for work.",
+      "Isolate the host and scan for other indicators of compromise.",
+      "Enforce MFA for all remote desktop/screen sharing connections."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["System logs (/var/log/system.log or journalctl)", "Network logs"]
+  },
+  {
+    "id": "ALRT-060",
+    "title": "Domain Takeover: Zerologon exploit attempt (CVE-2020-1472)",
+    "severity": "Critical",
+    "source": "Domain Controller Logs / IDS",
+    "description": "Detection of a Netlogon authentication request with a spoofed computer name and all-zero challenge, attempting to reset the machine password of a Domain Controller.",
+    "detectionLogic": "EventID: 5805 AND Message: 'The session setup from the computer <DC_NAME> failed because the security database does not contain a trust account'",
+    "investigationSteps": [
+      "Identify the source IP that attempted the Zerologon exploit.",
+      "Check if the Domain Controller has been patched against CVE-2020-1472.",
+      "Verify if the DC's machine password was successfully reset (check for Event ID 4742).",
+      "Search for subsequent lateral movement from the source IP using the DC's credentials."
+    ],
+    "remediationSteps": [
+      "Isolate the source host immediately.",
+      "Patch all Domain Controllers with the necessary security updates.",
+      "Enforce 'Secure RPC' for all Netlogon connections.",
+      "If successful, initiate the domain recovery process."
+    ],
+    "mitreTactic": "Privilege Escalation",
+    "mitreTechniqueId": "T1068",
+    "logsNeeded": ["System Event Logs (Netlogon)", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-061",
+    "title": "Data Breach: Exfiltration via ICMP Tunneling",
+    "severity": "Critical",
+    "source": "Network Flow Logs / IDS",
+    "description": "An unusually high volume of ICMP Echo Request/Reply packets with large payloads, indicating data being sent through ICMP tunneling.",
+    "detectionLogic": "Protocol: 'ICMP' AND PayloadSize > 1000 AND Count > 5000 in 1 hour",
+    "investigationSteps": [
+      "Identify the source and destination IPs for the ICMP traffic.",
+      "Analyze the ICMP packet payloads for non-standard data (e.g., encrypted strings, file fragments).",
+      "Identify the process on the internal host generating the ICMP traffic.",
+      "Check for other signs of C2 activity from the host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Block ICMP traffic to the external destination IP at the firewall.",
+      "Kill the malicious process on the host and remove persistence.",
+      "Implement deep packet inspection to detect and block ICMP tunneling."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1048.003",
+    "logsNeeded": ["NetFlow Logs", "Full Packet Captures (PCAP)"]
+  },
+  {
+    "id": "ALRT-062",
+    "title": "Ransomware: WannaCry (EternalBlue) worm activity detected",
+    "severity": "Critical",
+    "source": "Network IDS / Endpoint Security",
+    "description": "Network traffic matching the EternalBlue (MS17-010) exploit on port 445, followed by the execution of the WannaCry ransomware binary.",
+    "detectionLogic": "Signature: 'ETERNALBLUE' AND Process: 'tasksche.exe' (WannaCry variant)",
+    "investigationSteps": [
+      "Identify all unpatched hosts on the same subnet as the infected host.",
+      "Check for the presence of the WannaCry 'kill switch' domain check in proxy logs.",
+      "Look for mass encryption on local and mapped drives.",
+      "Identify the initial source of the worm in the network."
+    ],
+    "remediationSteps": [
+      "Isolate the entire subnet to prevent further worm propagation.",
+      "Patch all Windows systems for MS17-010 immediately.",
+      "Disable SMBv1 on all hosts.",
+      "Restore affected systems from verified backups."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1210",
+    "logsNeeded": ["IDS Alerts", "Firewall Logs (Port 445 activity)"]
+  },
+  {
+    "id": "ALRT-063",
+    "title": "Account Takeover: Brute Force against VPN Gateway",
+    "severity": "High",
+    "source": "VPN Gateway Logs",
+    "description": "Hundreds of failed login attempts for multiple users from a single external IP address against the corporate VPN.",
+    "detectionLogic": "VPN-Login-Failure AND Count > 100 in 10 minutes from a single SourceIP",
+    "investigationSteps": [
+      "Identify the target usernames and the source IP address.",
+      "Check if any accounts were successfully compromised during the attack.",
+      "Verify the reputation of the source IP (is it a known malicious proxy?).",
+      "Check if the VPN requires MFA and if any MFA attempts were triggered."
+    ],
+    "remediationSteps": [
+      "Block the source IP at the external firewall or VPN gateway.",
+      "Enforce MFA for all VPN accounts immediately.",
+      "Inform the targeted users and reset their passwords if a compromise is suspected.",
+      "Implement geographic-based blocking (Geo-fencing) for VPN access."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1110.003",
+    "logsNeeded": ["VPN Gateway Logs", "MFA Logs"]
+  },
+  {
+    "id": "ALRT-064",
+    "title": "PC Takeover: Unauthorized use of PSExec from a workstation",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "A regular user workstation is using PSExec to execute commands on a remote server or another workstation, which is unusual for non-IT staff.",
+    "detectionLogic": "Process: 'psexec.exe' AND SourceHostType: 'Workstation' AND User NOT IN IT-Group",
+    "investigationSteps": [
+      "Identify the user account and the target host machine.",
+      "Analyze the commands being executed via PSExec.",
+      "Check if the user account has administrative privileges on the target host.",
+      "Identify how PSExec was installed on the workstation."
+    ],
+    "remediationSteps": [
+      "Terminate the PSExec processes and isolate the workstation.",
+      "Investigate the user for malicious activity or account compromise.",
+      "Remove PSExec from the workstation.",
+      "Restrict the ability for regular users to initiate remote execution commands."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1021.002",
+    "logsNeeded": ["Process Execution Logs", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-065",
+    "title": "Domain Takeover: Unusual modification of AdminSDHolder object",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs",
+    "description": "A modification was made to the AdminSDHolder object's ACL, which could be used to grant permanent administrative access to a malicious user.",
+    "detectionLogic": "EventID: 5136 AND ObjectDN: 'CN=AdminSDHolder,CN=System,DC=...'",
+    "investigationSteps": [
+      "Identify the administrator account that modified the AdminSDHolder object.",
+      "Examine the specific changes made to the ACL (e.g., addition of a new user or group).",
+      "Check if this change was authorized and follows security policy.",
+      "Identify if any privileged accounts have already inherited the new ACL."
+    ],
+    "remediationSteps": [
+      "Revert the AdminSDHolder ACL to its original secure state immediately.",
+      "Investigate the administrator account for compromise.",
+      "Check all privileged accounts for unauthorized changes.",
+      "Monitor the AdminSDHolder object for any future modifications."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1098",
+    "logsNeeded": ["Security Event Logs (Event ID 5136)"]
+  },
+  {
+    "id": "ALRT-066",
+    "title": "Data Breach: Exfiltration via Hidden Git Repository",
+    "severity": "High",
+    "source": "EDR / File Monitoring",
+    "description": "A hidden .git directory was created in a folder containing sensitive project data, and data is being pushed to an external unauthorized Git provider.",
+    "detectionLogic": "DirectoryCreated: '.git' AND FolderContains: 'ProjectX_Source' AND Network: 'github.com/attacker-repo'",
+    "investigationSteps": [
+      "Identify the user who initialized the Git repository.",
+      "Analyze the Git config to identify the destination remote repository.",
+      "Identify what files were committed and pushed to the remote repo.",
+      "Check if the Git credentials used were personal or stolen."
+    ],
+    "remediationSteps": [
+      "Block access to the destination Git repository.",
+      "Isolate the host and remove the hidden .git directory.",
+      "Request a takedown of the stolen data from the Git provider.",
+      "Perform a full security review of the affected project."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1041",
+    "logsNeeded": ["File System Audit Logs", "Process Creation Logs"]
+  },
+  {
+    "id": "ALRT-067",
+    "title": "Ransomware: Ryuk indicators detected in network traffic",
+    "severity": "Critical",
+    "source": "Network IDS / Firewall",
+    "description": "Traffic matching Ryuk ransom notes and communication patterns with TrickBot C2, which is often used as a precursor to Ryuk deployment.",
+    "detectionLogic": "Signature: 'RYUK_RANSOM_NOTE' AND Domain: 'trickbot-c2.xyz'",
+    "investigationSteps": [
+      "Identify all hosts communicating with the TrickBot C2 infrastructure.",
+      "Scan for Ryuk binary artifacts on the network.",
+      "Check for lateral movement via RDP or SMB.",
+      "Assess which critical systems (especially backups) have been targeted."
+    ],
+    "remediationSteps": [
+      "Isolate all hosts showing signs of TrickBot or Ryuk activity.",
+      "Block all C2 domains and IPs at the perimeter firewall.",
+      "Ensure all offline backups are secured and not reachable from the network.",
+      "Deploy specialized anti-ransomware tools for monitoring."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["IDS Alerts", "NetFlow Logs"]
+  },
+  {
+    "id": "ALRT-068",
+    "title": "Account Takeover: Login from known TOR exit node",
+    "severity": "Medium",
+    "source": "Proxy Logs / Identity Logs",
+    "description": "A successful login to a corporate application from an IP address identified as a TOR exit node.",
+    "detectionLogic": "SourceIP IN TOR-Exit-Node-List AND Event: 'LoginSuccess'",
+    "investigationSteps": [
+      "Identify the user account and the application accessed.",
+      "Check if the user is authorized or expected to use TOR for their work.",
+      "Review the activities performed during the TOR session for anomalies.",
+      "Look for other login attempts from different TOR exit nodes for the same account."
+    ],
+    "remediationSteps": [
+      "Temporarily lock the account and force a password reset.",
+      "Invalidate all active sessions for the user.",
+      "Block all traffic from known TOR exit nodes at the corporate firewall.",
+      "Enable MFA for all users if not already enforced."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078.004",
+    "logsNeeded": ["Application Access Logs", "Threat Intelligence Feeds"]
+  },
+  {
+    "id": "ALRT-069",
+    "title": "PC Takeover: Unauthorized RDP Shadowing activity",
+    "severity": "High",
+    "source": "Windows Security Logs",
+    "description": "An attempt to shadow an active RDP session without the user's consent, allowing an attacker to observe or take control of the user's desktop.",
+    "detectionLogic": "EventID: 4624 AND LogonType: 2 (Interactive) AND Command: 'mstsc.exe /shadow:*'",
+    "investigationSteps": [
+      "Identify the user account attempting to shadow the session and the target user.",
+      "Check if the actor has the necessary administrative rights to perform shadowing.",
+      "Verify if the shadowing attempt was successful.",
+      "Identify the host from which the shadowing was initiated."
+    ],
+    "remediationSteps": [
+      "Terminate the RDP shadowing session immediately.",
+      "Investigate the actor account for malicious intent or host compromise.",
+      "Disable RDP shadowing if it is not a required business function.",
+      "Audit all RDP sessions for similar unauthorized activity."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1113",
+    "logsNeeded": ["Security Event Logs", "TerminalServices-RemoteConnectionManager Logs"]
+  },
+  {
+    "id": "ALRT-070",
+    "title": "Domain Takeover: DCShadow attempt via DRSUAPI",
+    "severity": "Critical",
+    "source": "Network IDS / RPC Audit Logs",
+    "description": "Detection of non-DC hosts initiating DRSUAPI (Directory Replication Service Remote Protocol) calls to a Domain Controller, characteristic of a DCShadow attack.",
+    "detectionLogic": "Protocol: 'DRSUAPI' AND Source NOT IN DomainControllerList",
+    "investigationSteps": [
+      "Identify the source host and the user account making the DRSUAPI calls.",
+      "Analyze the RPC traffic for specific replication commands (e.g., DRSReplicaAdd).",
+      "Identify if any new objects were added or modified in the AD database.",
+      "Check for lateral movement to the source host."
+    ],
+    "remediationSteps": [
+      "Isolate the source host immediately.",
+      "Perform a full forensic analysis of the Active Directory database for injected objects.",
+      "Disable the compromised account used for the attack.",
+      "Implement RPC filters to restrict DRSUAPI access to authorized DCs only."
+    ],
+    "mitreTactic": "Defense Evasion",
+    "mitreTechniqueId": "T1207",
+    "logsNeeded": ["Network IDS Alerts", "RPC Audit Logs on DCs"]
+  },
+  {
+    "id": "ALRT-071",
+    "title": "Data Breach: Exfiltration via Steganography in Image Files",
+    "severity": "High",
+    "source": "DLP / Proxy Logs",
+    "description": "A high volume of image files (e.g., .jpg, .png) being uploaded to an external website, with file entropy suggesting the presence of hidden data.",
+    "detectionLogic": "FileType: 'Image' AND Entropy > 7.5 AND ByteCount > 50MB",
+    "investigationSteps": [
+      "Identify the source host and the user account.",
+      "Analyze the image files for steganographic content using specialized tools.",
+      "Identify the destination website and its reputation.",
+      "Check for the use of steganography tools (e.g., Steghide, OpenStego) on the host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Block access to the destination website.",
+      "Delete the steganographic tools from the host.",
+      "Assess the content of the hidden data to determine what was leaked."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1027.003",
+    "logsNeeded": ["Proxy Logs", "Endpoint Behavioral Logs"]
+  },
+  {
+    "id": "ALRT-072",
+    "title": "Ransomware: BlackByte ransomware indicators",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of BlackByte's unique Go-based encryptor, use of 'AnyDesk' for persistence, and encryption with a specific extension.",
+    "detectionLogic": "Process: 'blackbyte.exe' OR FileExtension: '.blackbyte'",
+    "investigationSteps": [
+      "Identify the entry point (often via ProxyShell or similar vulnerabilities).",
+      "Check for the presence of the BlackByte ransom note on the systems.",
+      "Identify if lateral movement occurred to the ESXi environment.",
+      "Look for data exfiltration activity to Mega.nz or similar."
+    ],
+    "remediationSteps": [
+      "Isolate all infected systems immediately.",
+      "Disable the compromised user accounts and administrative access.",
+      "Consult with incident response specialists for specialized decryption if possible.",
+      "Restore from verified offline backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Alerts", "Vulnerability Scanner Logs"]
+  },
+  {
+    "id": "ALRT-073",
+    "title": "Account Takeover: Unusual login from VPN and LAN simultaneously",
+    "severity": "High",
+    "source": "VPN Gateway Logs / Domain Controller Logs",
+    "description": "A single user account is logged in via the corporate VPN from an external IP and simultaneously logged in locally on an internal workstation, which is physically impossible for the same user.",
+    "detectionLogic": "Event: 'VPN-Login' AND Event: 'Local-Login' FOR same User within 1 minute",
+    "investigationSteps": [
+      "Identify both the VPN source IP and the internal workstation IP.",
+      "Contact the user to verify their current physical location and activity.",
+      "Identify which session is anomalous and potentially malicious.",
+      "Check for lateral movement or data access in both sessions."
+    ],
+    "remediationSteps": [
+      "Terminate both sessions immediately.",
+      "Disable the account and force a password reset.",
+      "Invalidate all MFA tokens for the user.",
+      "Investigate the internal host for signs of compromise (malware, RDP)."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078",
+    "logsNeeded": ["VPN Gateway Logs", "Security Event Logs (Event ID 4624)"]
+  },
+  {
+    "id": "ALRT-074",
+    "title": "PC Takeover: Unauthorized PowerShell Remoting",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "An incoming PowerShell Remoting connection from an unauthorized internal workstation, potentially used for lateral movement.",
+    "detectionLogic": "Process: 'wsmprovhost.exe' AND Parent NOT IN IT-Approved-Hosts",
+    "investigationSteps": [
+      "Identify the source host and user initiating the PowerShell Remoting session.",
+      "Analyze the commands executed during the remoting session (check Event ID 4104).",
+      "Verify if PowerShell Remoting is enabled and required for the workstation.",
+      "Check the permissions of the user account on the target machine."
+    ],
+    "remediationSteps": [
+      "Terminate the PowerShell Remoting session.",
+      "Disable WinRM (Windows Remote Management) on the target host if not required.",
+      "Isolate the source host and scan for lateral movement tools.",
+      "Implement restrictive WinRM policies (e.g., trusted hosts only)."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1021.006",
+    "logsNeeded": ["Sysmon Event ID 1", "PowerShell Script Block Logging"]
+  },
+  {
+    "id": "ALRT-075",
+    "title": "Domain Takeover: Detecting 'Diamond Ticket' usage",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs",
+    "description": "A Kerberos TGT was modified to include unauthorized privileges, similar to a Golden Ticket but using a legitimate TGT as a base, making it harder to detect.",
+    "detectionLogic": "EventID: 4624 AND AuthenticationPackage: 'Kerberos' AND TicketAnomaly: 'PrivilegeMismatch'",
+    "investigationSteps": [
+      "Identify the host where the Diamond Ticket was used.",
+      "Trace the activity back to the initial compromise point.",
+      "Look for recent DCSync or other privilege escalation events on the host.",
+      "Identify what resources were accessed using the fraudulent ticket."
+    ],
+    "remediationSteps": [
+      "Isolate the affected host and perform a full forensic analysis.",
+      "Reset the KRBTGT password twice immediately.",
+      "Check and strengthen Active Directory security configurations.",
+      "Implement multifactor authentication for all privileged service access."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558",
+    "logsNeeded": ["Kerberos Audit Logs", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-076",
+    "title": "Data Breach: Unauthorized Access to Source Code Repo (Internal)",
+    "severity": "High",
+    "source": "Git / SVN Audit Logs",
+    "description": "A user from a non-engineering team is cloning or downloading large amounts of source code from a restricted project repository.",
+    "detectionLogic": "Event: 'RepoClone' AND User NOT IN DeveloperGroup AND RepoName: 'RestrictedProject'",
+    "investigationSteps": [
+      "Identify the user account and the source IP.",
+      "Determine if the user's role justifies access to the source code.",
+      "Check if any code has been pushed back to the repo (tampering).",
+      "Verify if the cloned code has been transferred outside the network."
+    ],
+    "remediationSteps": [
+      "Disable the user's access to the Git repository immediately.",
+      "Lock the user's account and reset their password.",
+      "Review and audit repository permissions (implement RBAC).",
+      "Conduct an interview with the user to understand their actions."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1213",
+    "logsNeeded": ["Git/Bitbucket/GitLab Audit Logs"]
+  },
+  {
+    "id": "ALRT-077",
+    "title": "Ransomware: AvosLocker indicators detected",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of AvosLocker's unique ransom note ('GET_YOUR_FILES_BACK.txt'), use of 'Advanced IP Scanner', and specific extension '.avos'.",
+    "detectionLogic": "FileWrite: 'GET_YOUR_FILES_BACK.txt' OR FileExtension: '.avos'",
+    "investigationSteps": [
+      "Identify the entry point (often via unpatched VPN or RDP).",
+      "Check for lateral movement via PDQ Deploy or AnyDesk.",
+      "Identify if data was exfiltrated to the AvosLocker leak site.",
+      "Analyze the host for the AvosLocker encryptor binary."
+    ],
+    "remediationSteps": [
+      "Isolate all infected systems immediately.",
+      "Block the known AvosLocker C2 domains and IPs.",
+      "Contact incident response and legal counsel for assistance.",
+      "Restore affected data from offline or air-gapped backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-078",
+    "title": "Account Takeover: Session Cookie reuse from multiple IPs",
+    "severity": "High",
+    "source": "Application Logs / Web Proxy",
+    "description": "A single application session cookie is being used from multiple different IP addresses and geolocations within a short timeframe, indicating session hijacking.",
+    "detectionLogic": "SessionID: 'Matched' AND IPCount > 3 in 30 minutes",
+    "investigationSteps": [
+      "Identify the user account and the application involved.",
+      "Check if the user is using a VPN or proxy that might cause IP rotation.",
+      "Identify if any critical actions (e.g., funds transfer, config change) were performed.",
+      "Look for other signs of account compromise."
+    ],
+    "remediationSteps": [
+      "Invalidate the application session immediately.",
+      "Force a logout for the user on all devices.",
+      "Reset the user's password and MFA tokens.",
+      "Implement session-to-IP binding in the application."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1539",
+    "logsNeeded": ["Application Server Logs", "Web Proxy Logs"]
+  },
+  {
+    "id": "ALRT-079",
+    "title": "PC Takeover: Unauthorized access to system microphone",
+    "severity": "Medium",
+    "source": "Endpoint Monitoring / EDR",
+    "description": "A non-communications process (e.g., a background script or unknown executable) is accessing the system's microphone, potentially for eavesdropping.",
+    "detectionLogic": "Process NOT IN ['teams.exe', 'zoom.exe'] AND Action: 'AccessMicrophone'",
+    "investigationSteps": [
+      "Identify the process accessing the microphone and the user account.",
+      "Check if the microphone was actively recording data.",
+      "Identify where the recorded data was being sent (exfiltration path).",
+      "Analyze the process binary for malicious capabilities."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the binary.",
+      "Disable the microphone at the system level if not required.",
+      "Isolate the host and scan for spyware/malware.",
+      "Educate the user on the risks of unauthorized app permissions."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1123",
+    "logsNeeded": ["Endpoint Behavioral Logs", "System Privacy Audit Logs"]
+  },
+  {
+    "id": "ALRT-080",
+    "title": "Domain Takeover: Detection of 'Kekeo' tool execution",
+    "severity": "Critical",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Kekeo, a well-known tool for manipulating Kerberos tickets (e.g., silver ticket, golden ticket, as-rep roasting).",
+    "detectionLogic": "ProcessName: 'kekeo.exe' OR CommandLine: '*tgt::ask*' OR '*tgs::s4u*'",
+    "investigationSteps": [
+      "Identify the user account and host machine.",
+      "Verify if any Kerberos tickets were successfully requested or forged.",
+      "Search for lateral movement from the host using the forged tickets.",
+      "Check for other offensive tools on the host (e.g., Mimikatz, Rubeus)."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Reset the KRBTGT password twice to invalidate any potential golden tickets.",
+      "Remove Kekeo and all associated files from the system."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (Kerberos events)"]
+  },
+  {
+    "id": "ALRT-081",
+    "title": "Data Breach: Exfiltration via Hidden Alternate Data Streams (NTFS)",
+    "severity": "High",
+    "source": "EDR / File Monitoring",
+    "description": "Sensitive data is being written to an Alternate Data Stream (ADS) of a common file (e.g., text.txt:hidden.zip) to hide it from standard file browsers.",
+    "detectionLogic": "FilePath: '*:*' AND Action: 'Write' AND FileSize > 1MB",
+    "investigationSteps": [
+      "Identify the process and user creating the Alternate Data Stream.",
+      "Extract and examine the content of the hidden stream.",
+      "Identify how the ADS file is being transferred (exfiltration path).",
+      "Scan the host for other uses of ADS for persistence or hiding."
+    ],
+    "remediationSteps": [
+      "Isolate the host and delete the file containing the ADS.",
+      "Kill the malicious process and remove its source.",
+      "Conduct a forensic review of the host's file system for other hidden streams.",
+      "Monitor and block the creation of non-standard ADS."
+    ],
+    "mitreTactic": "Defense Evasion",
+    "mitreTechniqueId": "T1564.004",
+    "logsNeeded": ["File System Audit Logs", "Sysmon Event ID 15 (FileCreateStreamHash)"]
+  },
+  {
+    "id": "ALRT-082",
+    "title": "Ransomware: DarkSide ransomware indicators",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of DarkSide's unique ransom note ('README.txt' with a link to a private onion site), use of PowerShell for volume shadow copy deletion, and specific encryption behaviors.",
+    "detectionLogic": "FileWrite: 'README.xxxxxxxx.txt' AND CommandLine: '*shadowcopy*delete*'",
+    "investigationSteps": [
+      "Identify the initial entry point (often via stolen credentials on RDP or VPN).",
+      "Check for exfiltration of large datasets to the DarkSide leak site (Double Extortion).",
+      "Look for lateral movement to the ESXi or domain controller environment.",
+      "Identify the DarkSide encryptor binary on the host."
+    ],
+    "remediationSteps": [
+      "Isolate all infected systems immediately.",
+      "Shut down file servers and critical databases to prevent further encryption.",
+      "Engage with law enforcement and incident response experts.",
+      "Restore data from offsite, immutable backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-083",
+    "title": "Account Takeover: Unusual Login followed by immediate inbox rule creation",
+    "severity": "High",
+    "source": "O365 / Exchange Logs",
+    "description": "A successful login to an email account is immediately followed by the creation of a rule to move or delete incoming emails from IT/Security or containing 'invoice/payment' keywords, common in Business Email Compromise (BEC).",
+    "detectionLogic": "Event: 'LoginSuccess' FOLLOWED BY Event: 'NewInboxRule' AND RuleParams: 'move/delete' AND Subject: '*invoice*'",
+    "investigationSteps": [
+      "Verify if the user created the rule for a legitimate purpose.",
+      "Identify the source IP and location of the login and rule creation.",
+      "Check for other signs of BEC activity (e.g., unauthorized emails sent).",
+      "Assess the potential financial impact of the compromised account."
+    ],
+    "remediationSteps": [
+      "Delete the suspicious inbox rule immediately.",
+      "Force a password reset and invalidate all active sessions for the user.",
+      "Enable MFA if not already enforced.",
+      "Monitor the account for any further unauthorized activities."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1137.005",
+    "logsNeeded": ["Exchange Audit Logs", "Azure AD Sign-in Logs"]
+  },
+  {
+    "id": "ALRT-084",
+    "title": "PC Takeover: Unauthorized Use of Screen Sharing (macOS/Linux)",
+    "severity": "Medium",
+    "source": "System Logs / EDR",
+    "description": "The native screen sharing or VNC service was enabled and accessed by an unauthorized remote user on a macOS or Linux workstation.",
+    "detectionLogic": "Process: 'screensharingd' AND Network: 'IncomingConnection' AND User NOT IN Support-Team",
+    "investigationSteps": [
+      "Identify the remote IP and user who connected to the screen sharing service.",
+      "Check if the local user authorized the connection (e.g., via a prompt).",
+      "Look for files downloaded or configuration changes during the session.",
+      "Identify how the screen sharing service was enabled (was it always on?)."
+    ],
+    "remediationSteps": [
+      "Terminate the screen sharing session.",
+      "Disable the screen sharing service if not required for work.",
+      "Isolate the host and scan for other indicators of compromise.",
+      "Enforce MFA for all remote desktop/screen sharing connections."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["System logs (/var/log/system.log or journalctl)", "Network logs"]
+  },
+  {
+    "id": "ALRT-085",
+    "title": "Domain Takeover: Detection of 'Rubeus' tool execution",
+    "severity": "Critical",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Rubeus, a powerful tool for Kerberos interaction and abuse (e.g., ticket harvesting, roasting, s4u).",
+    "detectionLogic": "ProcessName: 'rubeus.exe' OR CommandLine: '*kerberoast*' OR '*asreproast*' OR '*triage*'",
+    "investigationSteps": [
+      "Identify the user account and host machine.",
+      "Verify if any Kerberos tickets were successfully requested or harvested.",
+      "Check for lateral movement from the host using the harvested tickets.",
+      "Look for other offensive tools on the host (e.g., Mimikatz, BloodHound)."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Reset the KRBTGT password twice to invalidate any forged tickets.",
+      "Remove Rubeus and all associated files from the system."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (Kerberos events)"]
+  },
+  {
+    "id": "ALRT-086",
+    "title": "Data Breach: Exfiltration via BitTorrent Protocol",
+    "severity": "High",
+    "source": "Network IDS / Proxy Logs",
+    "description": "Use of the BitTorrent protocol from an internal host to transfer large amounts of data to multiple external IPs.",
+    "detectionLogic": "Protocol: 'BitTorrent' AND ByteCount > 1GB AND UniquePeers > 100",
+    "investigationSteps": [
+      "Identify the internal host and the user account.",
+      "Determine what files were being shared via BitTorrent (if possible).",
+      "Check if the host has been compromised and turned into a bot in a torrent network.",
+      "Identify if any sensitive data was included in the shared files."
+    ],
+    "remediationSteps": [
+      "Terminate the BitTorrent client and isolate the host.",
+      "Block BitTorrent traffic at the corporate firewall.",
+      "Identify and delete any unauthorized files on the host.",
+      "Review and enforce policies regarding the use of P2P software."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1041",
+    "logsNeeded": ["Network IDS Alerts", "NetFlow Logs"]
+  },
+  {
+    "id": "ALRT-087",
+    "title": "Ransomware: Egregor ransomware indicators",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of Egregor's ransom note ('RECOVER-FILES.txt'), use of 'Qakbot' or 'IcedID' as entry points, and high-speed multi-threaded encryption.",
+    "detectionLogic": "FileWrite: 'RECOVER-FILES.txt' AND Behavioral: 'MultiThreadedEncryption'",
+    "investigationSteps": [
+      "Identify the initial delivery vector (often phishing emails with malicious attachments).",
+      "Check for exfiltration to cloud storage like Mega.nz or through FTP.",
+      "Look for lateral movement to critical servers via Cobalt Strike.",
+      "Identify the Egregor encryptor binary on the host."
+    ],
+    "remediationSteps": [
+      "Isolate all infected systems immediately.",
+      "Disable the compromised user accounts and administrative access.",
+      "Consult with incident response specialists for specialized forensics.",
+      "Restore data from verified offline or air-gapped backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-088",
+    "title": "Account Takeover: Impossible Travel between multiple cloud apps",
+    "severity": "High",
+    "source": "Cloud Platform Logs (O365, Salesforce, AWS)",
+    "description": "A single user account was accessed from two or more distinct geolocations within a timeframe that is physically impossible to travel between.",
+    "detectionLogic": "Event: 'LoginSuccess' AND Location1: 'USA' AND Location2: 'China' AND TimeDelta < 1 hour",
+    "investigationSteps": [
+      "Identify all IPs and geolocations involved in the login events.",
+      "Check if the user is using a VPN or proxy service that could cause geolocation shifting.",
+      "Analyze the activities performed in each session for anomalies.",
+      "Contact the user to verify their current location."
+    ],
+    "remediationSteps": [
+      "Invalidate all active sessions for the user account immediately.",
+      "Force a password reset and update MFA tokens.",
+      "Block the suspicious IPs at the conditional access level.",
+      "Review the audit logs for any unauthorized changes or data access."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078",
+    "logsNeeded": ["Identity Provider Authentication Logs", "Cloud Activity Logs"]
+  },
+  {
+    "id": "ALRT-089",
+    "title": "PC Takeover: Execution of 'Nmap' from unauthorized host",
+    "severity": "Medium",
+    "source": "Sysmon / EDR",
+    "description": "The Nmap network scanner was executed on a workstation by a non-IT user, suggesting internal reconnaissance.",
+    "detectionLogic": "Process: 'nmap.exe' AND User NOT IN IT-Security-Group",
+    "investigationSteps": [
+      "Identify the user account and why the tool was run.",
+      "Identify the target network ranges being scanned.",
+      "Check for other reconnaissance tools (e.g., Netcat, Wireshark).",
+      "Identify how the tool was brought onto the host (e.g., USB, download)."
+    ],
+    "remediationSteps": [
+      "Terminate the Nmap process and delete the tool.",
+      "Investigate the user for malicious intent or host compromise.",
+      "Restrict the ability for regular users to run network scanning tools.",
+      "Monitor the network for subsequent lateral movement attempts."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1046",
+    "logsNeeded": ["Process Creation Logs", "Network IDS Logs"]
+  },
+  {
+    "id": "ALRT-090",
+    "title": "Domain Takeover: Detection of 'Mimikatz' via LSASS memory access",
+    "severity": "Critical",
+    "source": "Sysmon / EDR",
+    "description": "An unauthorized process is attempting to read the memory of the Local Security Authority Subsystem Service (LSASS), a characteristic behavior of Mimikatz for harvesting credentials.",
+    "detectionLogic": "EventID: 10 AND TargetImage: 'C:\\Windows\\system32\\lsass.exe' AND GrantedAccess: '0x1410' OR '0x1010'",
+    "investigationSteps": [
+      "Identify the source process and user attempting to access LSASS.",
+      "Verify if the access was successful (Mimikatz likely obtained credentials).",
+      "Look for other signs of Mimikatz usage (e.g., process execution).",
+      "Identify if the credentials obtained were used for lateral movement."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Enforce LSA Protection (RunAsPPL) to prevent further LSASS access.",
+      "Rotate passwords for all accounts that may have been harvested."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1003.001",
+    "logsNeeded": ["Sysmon Event ID 10", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-091",
+    "title": "Data Breach: Exfiltration via WhatsApp Desktop App",
+    "severity": "Medium",
+    "source": "EDR / Proxy Logs",
+    "description": "Large quantities of company documents being sent through the WhatsApp desktop application to an external contact.",
+    "detectionLogic": "Process: 'WhatsApp.exe' AND Action: 'FileUpload' AND ByteCount > 50MB",
+    "investigationSteps": [
+      "Identify the user account and the workstation involved.",
+      "Check if the use of WhatsApp for business purposes is authorized.",
+      "Identify the sensitivity of the documents being transferred.",
+      "Verify if the external contact is a known business partner or a personal contact."
+    ],
+    "remediationSteps": [
+      "Terminate the WhatsApp process and uninstall the software.",
+      "Block access to WhatsApp Web and desktop app at the corporate firewall.",
+      "Conduct a data loss assessment to see what was transferred.",
+      "Discipline or retrain the user based on security policy."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567",
+    "logsNeeded": ["Process Execution Logs", "Proxy Logs"]
+  },
+  {
+    "id": "ALRT-092",
+    "title": "Ransomware: Suncrypt ransomware indicators",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of Suncrypt's ransom note ('YOUR_FILES_ARE_ENCRYPTED.txt'), use of 'Advanced IP Scanner', and specific extension '.suncrypt'.",
+    "detectionLogic": "FileWrite: 'YOUR_FILES_ARE_ENCRYPTED.txt' OR FileExtension: '.suncrypt'",
+    "investigationSteps": [
+      "Identify the entry point (often via unpatched RDP or phishing).",
+      "Check for lateral movement to the ESXi environment.",
+      "Identify if data was exfiltrated to the Suncrypt leak site.",
+      "Analyze the host for the Suncrypt encryptor binary."
+    ],
+    "remediationSteps": [
+      "Isolate all infected systems immediately.",
+      "Block the known Suncrypt C2 domains and IPs.",
+      "Contact incident response and legal counsel for assistance.",
+      "Restore affected data from offline or air-gapped backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-093",
+    "title": "Account Takeover: Password Reset followed by unusual location login",
+    "severity": "High",
+    "source": "Identity Provider Logs / Application Logs",
+    "description": "A user account's password was reset, followed immediately by a successful login from a new IP and geolocation that is not typical for the user.",
+    "detectionLogic": "Event: 'PasswordReset' FOLLOWED BY Event: 'LoginSuccess' FROM NewLocation",
+    "investigationSteps": [
+      "Identify the user account and the source IPs for both the reset and the login.",
+      "Check if the user initiated the password reset themselves (e.g., via a help desk call or self-service).",
+      "Verify if the login geolocation matches the user's current location.",
+      "Analyze the activities performed by the user after the successful login."
+    ],
+    "remediationSteps": [
+      "Lock the user account immediately and invalidate all active sessions.",
+      "Force another password reset and update MFA tokens.",
+      "Investigate the actor account if it was an internal help desk reset.",
+      "Review the audit logs for any unauthorized changes or data access."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078",
+    "logsNeeded": ["Identity Provider Logs", "Application Access Logs"]
+  },
+  {
+    "id": "ALRT-094",
+    "title": "PC Takeover: Unauthorized access to system camera",
+    "severity": "Medium",
+    "source": "Endpoint Monitoring / EDR",
+    "description": "A non-communications process (e.g., a background script or unknown executable) is accessing the system's webcam, potentially for spying.",
+    "detectionLogic": "Process NOT IN ['teams.exe', 'zoom.exe'] AND Action: 'AccessWebcam'",
+    "investigationSteps": [
+      "Identify the process accessing the camera and the user account.",
+      "Check if the camera was actively recording images or video.",
+      "Identify where the captured data was being sent (exfiltration path).",
+      "Analyze the process binary for malicious capabilities."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the binary.",
+      "Disable the webcam at the system level if not required.",
+      "Isolate the host and scan for spyware/malware.",
+      "Educate the user on the risks of unauthorized app permissions."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1125",
+    "logsNeeded": ["Endpoint Behavioral Logs", "System Privacy Audit Logs"]
+  },
+  {
+    "id": "ALRT-095",
+    "title": "Domain Takeover: Detection of 'BloodHound' activity",
+    "severity": "High",
+    "source": "Active Directory Audit Logs / IDS",
+    "description": "An unusually high volume of LDAP queries for AD relationships and permissions, characteristic of the BloodHound reconnaissance tool.",
+    "detectionLogic": "EventID: 1644 AND SearchFilter: '(objectClass=*)' AND ResultCount > 10000",
+    "investigationSteps": [
+      "Identify the user account and the host machine performing the LDAP queries.",
+      "Verify if the user's role justifies such extensive AD reconnaissance.",
+      "Search for the 'SharpHound' collector executable on the host.",
+      "Identify any lateral movement following the AD reconnaissance."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Identify and patch any security misconfigurations discovered by BloodHound (if possible).",
+      "Remove all BloodHound-related files from the system."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1087.002",
+    "logsNeeded": ["Domain Controller Security Logs", "LDAP Audit Logs"]
+  },
+  {
+    "id": "ALRT-096",
+    "title": "Data Breach: Exfiltration via Cloud Storage API (B2/S3)",
+    "severity": "High",
+    "source": "Network Logs / EDR",
+    "description": "Malware is using a cloud storage API (e.g., Backblaze B2, Amazon S3) to send stolen data to an attacker-controlled bucket.",
+    "detectionLogic": "Domain: 'backblaze.com' OR 'amazonaws.com' AND Method: 'PUT' AND ByteCount > 100MB",
+    "investigationSteps": [
+      "Identify the process making the API calls and the user account.",
+      "Identify the specific bucket and API credentials used in the request.",
+      "Check what files were being sent through the cloud storage API.",
+      "Scan the host for the data-stealing malware."
+    ],
+    "remediationSteps": [
+      "Kill the malicious process and isolate the host.",
+      "Block access to the destination cloud storage API at the corporate firewall.",
+      "Report the malicious bucket to the cloud provider for take down.",
+      "Search for other infected hosts in the environment."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567",
+    "logsNeeded": ["Network Flow Logs", "DNS Logs"]
+  },
+  {
+    "id": "ALRT-097",
+    "title": "Ransomware: Mamba (HDDCryptor) - Disk Encryption detected",
+    "severity": "Critical",
+    "source": "EDR / File Monitoring",
+    "description": "The Mamba ransomware is encrypting entire disk partitions using a legitimate tool like DiskCryptor.",
+    "detectionLogic": "Process: 'dcrypt.exe' AND Action: 'DiskEncryption' AND User NOT IN Admin-Group",
+    "investigationSteps": [
+      "Identify the compromised user account and the infected host.",
+      "Determine the scope of the disk encryption (which drives/partitions).",
+      "Check for the Mamba ransom note on the systems.",
+      "Identify the initial entry point (often via unpatched RDP or phishing)."
+    ],
+    "remediationSteps": [
+      "Isolate the infected system immediately.",
+      "Shut down affected servers to prevent further disk encryption.",
+      "Consult with incident response specialists for specialized disk recovery.",
+      "Restore the disk from verified offline backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "System Disk Audit Logs"]
+  },
+  {
+    "id": "ALRT-098",
+    "title": "Account Takeover: Login from a datacenter IP range (Proxy/VPN)",
+    "severity": "Medium",
+    "source": "Identity Provider Logs / Threat Intel",
+    "description": "A successful login to a corporate application from an IP address identified as belonging to a public cloud datacenter (e.g., AWS, Azure, GCP), which is often used as a proxy or VPN.",
+    "detectionLogic": "SourceIP IN Datacenter-IP-Range AND Event: 'LoginSuccess'",
+    "investigationSteps": [
+      "Identify the user account and the application accessed.",
+      "Check if the user is authorized to use a cloud-based proxy or VPN for their work.",
+      "Analyze the activities performed during the session for anomalies.",
+      "Review the reputation of the specific datacenter IP."
+    ],
+    "remediationSteps": [
+      "Temporarily lock the account and force a password reset.",
+      "Invalidate all active sessions for the user.",
+      "Block all traffic from known datacenter IP ranges at the corporate firewall.",
+      "Enable MFA for all users if not already enforced."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078.004",
+    "logsNeeded": ["Identity Provider Logs", "Threat Intelligence Feeds"]
+  },
+  {
+    "id": "ALRT-099",
+    "title": "PC Takeover: Unauthorized access to system location",
+    "severity": "Low",
+    "source": "Endpoint Monitoring / EDR",
+    "description": "A non-mapping or non-navigation process (e.g., a background script or unknown executable) is accessing the system's geolocation data.",
+    "detectionLogic": "Process NOT IN ['maps.exe', 'browser.exe'] AND Action: 'AccessLocation'",
+    "investigationSteps": [
+      "Identify the process accessing the location data and the user account.",
+      "Check if the location data was being sent to an external IP.",
+      "Identify the frequency and purpose of the location access.",
+      "Analyze the process binary for malicious capabilities."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the binary.",
+      "Disable location services at the system level if not required.",
+      "Isolate the host and scan for malware/spyware.",
+      "Educate the user on the risks of unauthorized app permissions."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1614",
+    "logsNeeded": ["Endpoint Behavioral Logs", "System Privacy Audit Logs"]
+  },
+  {
+    "id": "ALRT-100",
+    "title": "Domain Takeover: Detection of 'PowerView' script execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of PowerView, a powerful PowerShell-based tool for Active Directory reconnaissance and enumeration.",
+    "detectionLogic": "Process: 'powershell.exe' AND CommandLine: '*Get-NetUser*' OR '*Get-NetComputer*' OR '*Get-NetGroup*'",
+    "investigationSteps": [
+      "Identify the user account and the host machine running the PowerView commands.",
+      "Verify if the user's role justifies such extensive AD enumeration.",
+      "Analyze the output of the PowerView commands to identify potential targets.",
+      "Look for lateral movement following the AD enumeration."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Restrict the ability for regular users to run PowerShell scripts.",
+      "Remove all PowerView-related files from the system."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1087.002",
+    "logsNeeded": ["Sysmon Event ID 1", "PowerShell Script Block Logging"]
+  },
+  {
+    "id": "ALRT-101",
+    "title": "Data Breach: Exfiltration via Hidden File Metadata (XMP/EXIF)",
+    "severity": "High",
+    "source": "DLP / Proxy Logs",
+    "description": "Sensitive data is being embedded into the metadata (e.g., XMP, EXIF) of common files (e.g., .jpg, .pdf) to hide it from standard data loss prevention tools.",
+    "detectionLogic": "FileType: 'Document' OR 'Image' AND MetadataSize > 100KB AND MetadataEntropy > 7.5",
+    "investigationSteps": [
+      "Identify the process and user modifying the file metadata.",
+      "Extract and examine the content of the hidden metadata.",
+      "Identify how the files with hidden metadata are being transferred (exfiltration path).",
+      "Scan the host for the steganography or metadata manipulation tools."
+    ],
+    "remediationSteps": [
+      "Isolate the host and delete the files containing the hidden metadata.",
+      "Kill the malicious process and remove its source.",
+      "Conduct a forensic review of the host's file system for other hidden data.",
+      "Implement deep metadata inspection to detect and block hidden data exfiltration."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1027.003",
+    "logsNeeded": ["DLP Alerts", "File System Audit Logs"]
+  },
+  {
+    "id": "ALRT-102",
+    "title": "Ransomware: Hello ransomware indicators",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of Hello ransomware's unique ransom note ('hello_readme.txt'), use of 'PowerShell' for initial delivery, and specific encryption behaviors.",
+    "detectionLogic": "FileWrite: 'hello_readme.txt' AND Behavioral: 'HelloEncryption'",
+    "investigationSteps": [
+      "Identify the initial entry point (often via unpatched SharePoint or RDP).",
+      "Check for lateral movement to the ESXi environment.",
+      "Identify if data was exfiltrated to the Hello leak site.",
+      "Analyze the host for the Hello encryptor binary."
+    ],
+    "remediationSteps": [
+      "Isolate all infected systems immediately.",
+      "Block the known Hello C2 domains and IPs.",
+      "Contact incident response and legal counsel for assistance.",
+      "Restore affected data from offline or air-gapped backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-103",
+    "title": "Account Takeover: Unusual Login from a mobile IP range",
+    "severity": "Low",
+    "source": "Identity Provider Logs / Threat Intel",
+    "description": "A successful login to a corporate application from an IP address identified as belonging to a mobile carrier's network, which could be an indicator of account compromise.",
+    "detectionLogic": "SourceIP IN Mobile-IP-Range AND Event: 'LoginSuccess'",
+    "investigationSteps": [
+      "Identify the user account and the application accessed.",
+      "Check if the user is expected to use a mobile device for their work from that location.",
+      "Analyze the activities performed during the session for anomalies.",
+      "Review the reputation of the specific mobile IP."
+    ],
+    "remediationSteps": [
+      "Temporarily lock the account and force a password reset.",
+      "Invalidate all active sessions for the user.",
+      "Review and strengthen mobile access policies.",
+      "Enable MFA for all users if not already enforced."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078",
+    "logsNeeded": ["Identity Provider Logs", "Threat Intelligence Feeds"]
+  },
+  {
+    "id": "ALRT-104",
+    "title": "PC Takeover: Unauthorized access to system clipboard",
+    "severity": "Low",
+    "source": "Endpoint Monitoring / EDR",
+    "description": "A background process is accessing the system's clipboard data, potentially for capturing passwords or sensitive information.",
+    "detectionLogic": "Process NOT IN ['explorer.exe', 'browser.exe'] AND Action: 'AccessClipboard'",
+    "investigationSteps": [
+      "Identify the process accessing the clipboard and the user account.",
+      "Check if the clipboard data was being sent to an external IP.",
+      "Identify the frequency and purpose of the clipboard access.",
+      "Analyze the process binary for malicious capabilities."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the binary.",
+      "Clear the system clipboard immediately.",
+      "Isolate the host and scan for malware/spyware.",
+      "Educate the user on the risks of copying sensitive information to the clipboard."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1115",
+    "logsNeeded": ["Endpoint Behavioral Logs", "System Privacy Audit Logs"]
+  },
+  {
+    "id": "ALRT-105",
+    "title": "Domain Takeover: Detection of 'AdFind' tool execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of AdFind, a legitimate but powerful tool for Active Directory reconnaissance and enumeration.",
+    "detectionLogic": "Process: 'adfind.exe' AND CommandLine: '* -f *' OR '* -sc *'",
+    "investigationSteps": [
+      "Identify the user account and the host machine running the AdFind commands.",
+      "Verify if the user's role justifies such extensive AD enumeration.",
+      "Analyze the output of the AdFind commands to identify potential targets.",
+      "Look for lateral movement following the AD enumeration."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Restrict the ability for regular users to run command-line tools.",
+      "Remove all AdFind-related files from the system."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1087.002",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (LDAP events)"]
+  },
+  {
+    "id": "ALRT-106",
+    "title": "Data Breach: Exfiltration via Cloud Storage API (B2/S3)",
+    "severity": "High",
+    "source": "Network Logs / EDR",
+    "description": "Malware is using a cloud storage API (e.g., Backblaze B2, Amazon S3) to send stolen data to an attacker-controlled bucket.",
+    "detectionLogic": "Domain: 'backblaze.com' OR 'amazonaws.com' AND Method: 'PUT' AND ByteCount > 100MB",
+    "investigationSteps": [
+      "Identify the process making the API calls and the user account.",
+      "Identify the specific bucket and API credentials used in the request.",
+      "Check what files were being sent through the cloud storage API.",
+      "Scan the host for the data-stealing malware."
+    ],
+    "remediationSteps": [
+      "Kill the malicious process and isolate the host.",
+      "Block access to the destination cloud storage API at the corporate firewall.",
+      "Report the malicious bucket to the cloud provider for take down.",
+      "Search for other infected hosts in the environment."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1567",
+    "logsNeeded": ["Network Flow Logs", "DNS Logs"]
+  },
+  {
+    "id": "ALRT-107",
+    "title": "Ransomware: Mamba (HDDCryptor) - Disk Encryption detected",
+    "severity": "Critical",
+    "source": "EDR / File Monitoring",
+    "description": "The Mamba ransomware is encrypting entire disk partitions using a legitimate tool like DiskCryptor.",
+    "detectionLogic": "Process: 'dcrypt.exe' AND Action: 'DiskEncryption' AND User NOT IN Admin-Group",
+    "investigationSteps": [
+      "Identify the compromised user account and the infected host.",
+      "Determine the scope of the disk encryption (which drives/partitions).",
+      "Check for the Mamba ransom note on the systems.",
+      "Identify the initial entry point (often via unpatched RDP or phishing)."
+    ],
+    "remediationSteps": [
+      "Isolate the infected system immediately.",
+      "Shut down affected servers to prevent further disk encryption.",
+      "Consult with incident response specialists for specialized disk recovery.",
+      "Restore the disk from verified offline backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "System Disk Audit Logs"]
+  },
+  {
+    "id": "ALRT-108",
+    "title": "Account Takeover: Login from a datacenter IP range (Proxy/VPN)",
+    "severity": "Medium",
+    "source": "Identity Provider Logs / Threat Intel",
+    "description": "A successful login to a corporate application from an IP address identified as belonging to a public cloud datacenter (e.g., AWS, Azure, GCP), which is often used as a proxy or VPN.",
+    "detectionLogic": "SourceIP IN Datacenter-IP-Range AND Event: 'LoginSuccess'",
+    "investigationSteps": [
+      "Identify the user account and the application accessed.",
+      "Check if the user is authorized to use a cloud-based proxy or VPN for their work.",
+      "Analyze the activities performed during the session for anomalies.",
+      "Review the reputation of the specific datacenter IP."
+    ],
+    "remediationSteps": [
+      "Temporarily lock the account and force a password reset.",
+      "Invalidate all active sessions for the user.",
+      "Block all traffic from known datacenter IP ranges at the corporate firewall.",
+      "Enable MFA for all users if not already enforced."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078.004",
+    "logsNeeded": ["Identity Provider Logs", "Threat Intelligence Feeds"]
+  },
+  {
+    "id": "ALRT-109",
+    "title": "PC Takeover: Unauthorized access to system location",
+    "severity": "Low",
+    "source": "Endpoint Monitoring / EDR",
+    "description": "A non-mapping or non-navigation process (e.g., a background script or unknown executable) is accessing the system's geolocation data.",
+    "detectionLogic": "Process NOT IN ['maps.exe', 'browser.exe'] AND Action: 'AccessLocation'",
+    "investigationSteps": [
+      "Identify the process accessing the location data and the user account.",
+      "Check if the location data was being sent to an external IP.",
+      "Identify the frequency and purpose of the location access.",
+      "Analyze the process binary for malicious capabilities."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the binary.",
+      "Disable location services at the system level if not required.",
+      "Isolate the host and scan for malware/spyware.",
+      "Educate the user on the risks of unauthorized app permissions."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1614",
+    "logsNeeded": ["Endpoint Behavioral Logs", "System Privacy Audit Logs"]
+  },
+  {
+    "id": "ALRT-110",
+    "title": "Domain Takeover: Detection of 'PowerView' script execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of PowerView, a powerful PowerShell-based tool for Active Directory reconnaissance and enumeration.",
+    "detectionLogic": "Process: 'powershell.exe' AND CommandLine: '*Get-NetUser*' OR '*Get-NetComputer*' OR '*Get-NetGroup*'",
+    "investigationSteps": [
+      "Identify the user account and the host machine running the PowerView commands.",
+      "Verify if the user's role justifies such extensive AD enumeration.",
+      "Analyze the output of the PowerView commands to identify potential targets.",
+      "Look for lateral movement following the AD enumeration."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Restrict the ability for regular users to run PowerShell scripts.",
+      "Remove all PowerView-related files from the system."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1087.002",
+    "logsNeeded": ["Sysmon Event ID 1", "PowerShell Script Block Logging"]
+  },
+  {
+    "id": "ALRT-111",
+    "title": "Account Takeover: Session Hijacking via Browser Cookie Manipulation",
+    "severity": "High",
+    "source": "Web Proxy / Application Logs",
+    "description": "A session cookie for a critical web application was modified and used from an unauthorized IP, suggesting cookie manipulation for session hijacking.",
+    "detectionLogic": "CookieModified: 'True' AND SessionID: 'Matched' AND IPAddress: 'Unauthorized'",
+    "investigationSteps": [
+      "Identify the user account and the web application involved.",
+      "Analyze the proxy logs for signs of cookie theft or manipulation.",
+      "Check if any critical actions were performed using the hijacked session.",
+      "Identify the source IP and location of the unauthorized session."
+    ],
+    "remediationSteps": [
+      "Invalidate the application session immediately.",
+      "Force a logout for the user on all devices.",
+      "Reset the user's password and MFA tokens.",
+      "Implement session-to-IP binding and cookie encryption."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1539",
+    "logsNeeded": ["Web Proxy Logs", "Application Server Logs"]
+  },
+  {
+    "id": "ALRT-112",
+    "title": "Account Takeover: Unauthorized Password Reset via Password Forget Feature",
+    "severity": "Medium",
+    "source": "Application Audit Logs",
+    "description": "An unusually high number of password reset requests using the 'forgot password' feature for different users from a single external IP.",
+    "detectionLogic": "Event: 'PasswordResetRequest' AND Count > 50 in 1 hour from a single SourceIP",
+    "investigationSteps": [
+      "Identify the target usernames and the source IP address.",
+      "Check if any password resets were successfully completed.",
+      "Analyze the reputation of the source IP.",
+      "Monitor the environment for successful logins from potentially compromised accounts."
+    ],
+    "remediationSteps": [
+      "Block the malicious IP at the web application firewall.",
+      "Review and strengthen the password reset process (e.g., add CAPTCHA).",
+      "Inform the targeted users and reset their security questions.",
+      "Monitor the accounts for any further unauthorized activities."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078",
+    "logsNeeded": ["Application Server Audit Logs", "WAF Logs"]
+  },
+  {
+    "id": "ALRT-113",
+    "title": "Account Takeover: Successful Login after Account Lockout",
+    "severity": "High",
+    "source": "Active Directory / Identity Provider Logs",
+    "description": "A user account was successfully logged into immediately after an account lockout event, suggesting a brute-force attack succeeded just before the lockout took effect.",
+    "detectionLogic": "EventID: 4740 (Account Lockout) FOLLOWED BY EventID: 4624 (Login Success) FROM same SourceIP",
+    "investigationSteps": [
+      "Identify the user account and the source IP address.",
+      "Check the duration and intensity of the brute-force attack before the lockout.",
+      "Verify if the login was from a known good IP or a new, suspicious one.",
+      "Assess the user's privilege level and the activities performed after the login."
+    ],
+    "remediationSteps": [
+      "Lock the account immediately and force a password reset.",
+      "Invalidate all active sessions for that account.",
+      "Block the malicious IP at the firewall.",
+      "Review and strengthen account lockout and password policies."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1110.001",
+    "logsNeeded": ["Security Event Logs", "Identity Provider Logs"]
+  },
+  {
+    "id": "ALRT-114",
+    "title": "Account Takeover: Login from a high-risk IP address (TOR, VPN, Botnet)",
+    "severity": "Medium",
+    "source": "Threat Intelligence Feeds / Identity Logs",
+    "description": "A successful login to a corporate application from an IP address identified as a high-risk TOR exit node, known malicious VPN, or part of a botnet.",
+    "detectionLogic": "SourceIP IN High-Risk-IP-List AND Event: 'LoginSuccess'",
+    "investigationSteps": [
+      "Identify the user account and the application accessed.",
+      "Check if the user is authorized or expected to use a VPN/TOR for their work.",
+      "Analyze the activities performed during the session for anomalies.",
+      "Review the threat intelligence report for the specific IP."
+    ],
+    "remediationSteps": [
+      "Temporarily lock the account and force a password reset.",
+      "Invalidate all active sessions for the user.",
+      "Block all traffic from the high-risk IP at the corporate firewall.",
+      "Enable MFA for all users if not already enforced."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078.004",
+    "logsNeeded": ["Identity Provider Logs", "Threat Intelligence Feeds"]
+  },
+  {
+    "id": "ALRT-115",
+    "title": "Account Takeover: Account Creation with Unusual Privileges (GCP)",
+    "severity": "High",
+    "source": "GCP Cloud Audit Logs",
+    "description": "A new Google Cloud Service Account was created and immediately granted high-level roles (e.g., Project Editor, Security Admin) by an unauthorized user.",
+    "detectionLogic": "Event: 'google.iam.v1.IAM.CreateServiceAccount' FOLLOWED BY 'google.iam.v1.IAM.SetIamPolicy'",
+    "investigationSteps": [
+      "Identify the actor account and the new service account created.",
+      "Check if the actor's role justifies the creation of a high-privilege service account.",
+      "Verify if the new service account has been used for any activities.",
+      "Identify the source IP and location of the creation event."
+    ],
+    "remediationSteps": [
+      "Delete the newly created service account immediately.",
+      "Revoke administrative permissions from the actor account.",
+      "Audit all actions taken by both accounts.",
+      "Reset the actor's password and enable MFA."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1136.003",
+    "logsNeeded": ["GCP Cloud Audit Logs", "IAM Policy Logs"]
+  },
+  {
+    "id": "ALRT-116",
+    "title": "Account Takeover: Unusual API key usage from a cloud datacenter (AWS)",
+    "severity": "High",
+    "source": "AWS CloudTrail Logs",
+    "description": "An AWS IAM access key is being used from an IP address identified as belonging to a public cloud datacenter (e.g., Azure, GCP), suggesting the key was stolen and used from a malicious cloud instance.",
+    "detectionLogic": "AccessKeyID: 'Matched' AND SourceIP IN Cloud-Datacenter-IP-Range",
+    "investigationSteps": [
+      "Identify the owner of the IAM access key and the purpose of its use.",
+      "Check the specific API calls made (e.g., downloading data, creating resources).",
+      "Confirm if the owner has any legitimate cloud-based automation using that key.",
+      "Review the key for potential exposure in code or logs."
+    ],
+    "remediationSteps": [
+      "Disable or rotate the IAM access key immediately.",
+      "Review and audit all activity performed with the key during the anomalous period.",
+      "Invalidate any resources or configurations altered by the key.",
+      "Enforce IP whitelisting for all sensitive IAM keys."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1528",
+    "logsNeeded": ["AWS CloudTrail Logs"]
+  },
+  {
+    "id": "ALRT-117",
+    "title": "Account Takeover: Mass MFA Registration from new locations",
+    "severity": "High",
+    "source": "Identity Provider Audit Logs",
+    "description": "Multiple user accounts are registering new MFA devices from geographic locations that are not consistent with their known work or home locations, indicating a mass account takeover campaign.",
+    "detectionLogic": "Event: 'MFADeviceRegistered' AND Count > 10 in 1 hour from multiple NewLocations",
+    "investigationSteps": [
+      "Identify all user accounts and geolocations involved in the MFA registrations.",
+      "Check if any of the users were traveling or had legitimate reasons for the new registrations.",
+      "Analyze the source IP reputation for each registration event.",
+      "Verify if any of the accounts were subsequently used for malicious activities."
+    ],
+    "remediationSteps": [
+      "Revoke all newly registered MFA devices immediately.",
+      "Force a password reset and re-registration of MFA for all affected users.",
+      "Block the suspicious geolocations at the identity provider level.",
+      "Audit all recent activity for the affected accounts."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1556",
+    "logsNeeded": ["Identity Provider Audit Logs", "MFA Activity Logs"]
+  },
+  {
+    "id": "ALRT-118",
+    "title": "Account Takeover: Unauthorized Addition of External User to O365 Tenant",
+    "severity": "High",
+    "source": "Azure AD Audit Logs",
+    "description": "An external user (guest) was added to the corporate O365 tenant and granted administrative or high-level access without proper authorization.",
+    "detectionLogic": "Event: 'AddUser' AND UserType: 'Guest' AND Role: 'Global Administrator' OR 'Security Admin'",
+    "investigationSteps": [
+      "Identify the administrator account that added the external user.",
+      "Verify if the addition followed proper change management and security procedures.",
+      "Assess the potential impact of the external user's access level.",
+      "Investigate the external user's activities within the tenant."
+    ],
+    "remediationSteps": [
+      "Remove the unauthorized external user from the tenant immediately.",
+      "Investigate the administrator account for compromise.",
+      "Audit all actions taken by the external user during their access.",
+      "Review and strengthen guest user and administrative access policies."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1098.001",
+    "logsNeeded": ["Azure AD Audit Logs", "Role Assignment Logs"]
+  },
+  {
+    "id": "ALRT-119",
+    "title": "Account Takeover: Unusual Login from an IP with poor reputation",
+    "severity": "Medium",
+    "source": "Identity Logs / Threat Intelligence",
+    "description": "A successful login to a corporate application from an IP address with a known poor reputation (e.g., associated with malware C2, phishing, or historical attacks).",
+    "detectionLogic": "SourceIP IN Poor-Reputation-IP-List AND Event: 'LoginSuccess'",
+    "investigationSteps": [
+      "Identify the user account and the application accessed.",
+      "Check the reputation report for the specific IP address.",
+      "Analyze the activities performed during the session for anomalies.",
+      "Review other login events for the same account from different IPs."
+    ],
+    "remediationSteps": [
+      "Temporarily lock the account and force a password reset.",
+      "Invalidate all active sessions for the user.",
+      "Block the poor reputation IP at the corporate firewall.",
+      "Enable MFA for all users if not already enforced."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078.004",
+    "logsNeeded": ["Identity Provider Logs", "Threat Intelligence Feeds"]
+  },
+  {
+    "id": "ALRT-120",
+    "title": "Account Takeover: Simultaneous Logins from Multiple Geolocations",
+    "severity": "High",
+    "source": "Identity Provider Logs / Application Logs",
+    "description": "A single user account is logged in from two or more different geolocations at the exact same time, which is physically impossible for the user.",
+    "detectionLogic": "Event: 'LoginSuccess' AND Count(Distinct Geolocation) > 1 at the same timestamp",
+    "investigationSteps": [
+      "Identify all geolocations and IPs involved in the simultaneous logins.",
+      "Contact the user to verify their current physical location and activity.",
+      "Identify which session is anomalous and potentially malicious.",
+      "Analyze the activities performed in each session for signs of compromise."
+    ],
+    "remediationSteps": [
+      "Terminate all active sessions for the user account immediately.",
+      "Force a password reset and invalidate all MFA tokens.",
+      "Investigate the source IP of the malicious session.",
+      "Review the audit logs for any unauthorized changes or data access."
+    ],
+    "mitreTactic": "Initial Access",
+    "mitreTechniqueId": "T1078",
+    "logsNeeded": ["Identity Provider Authentication Logs", "Application Access Logs"]
+  },
+  {
+    "id": "ALRT-121",
+    "title": "PC Takeover: Unauthorized Execution of 'RDP Wrapper' to allow multiple sessions",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of 'RDP Wrapper' or similar tools on a workstation to bypass the single-user RDP limit, often used by attackers to maintain a hidden remote session.",
+    "detectionLogic": "Process: 'RDPWInst.exe' OR CommandLine: '*rdpwrap*'",
+    "investigationSteps": [
+      "Identify the user account and host machine.",
+      "Check for active unauthorized RDP sessions on the host.",
+      "Identify how the RDP Wrapper binary was dropped on the system.",
+      "Analyze the activities performed during the hidden RDP sessions."
+    ],
+    "remediationSteps": [
+      "Terminate all RDP Wrapper processes and uninstall the software.",
+      "Isolate the host and scan for other remote access tools.",
+      "Reset the user's local and domain credentials.",
+      "Implement a policy to block unauthorized RDP modification tools."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1546",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (RDP events)"]
+  },
+  {
+    "id": "ALRT-122",
+    "title": "PC Takeover: Unauthorized access to system camera and microphone simultaneously",
+    "severity": "High",
+    "source": "Endpoint Monitoring / EDR",
+    "description": "A non-communications process is simultaneously accessing both the system's webcam and microphone, suggesting comprehensive eavesdropping and spying.",
+    "detectionLogic": "Process NOT IN ['teams.exe', 'zoom.exe'] AND Action: 'AccessWebcam' AND Action: 'AccessMicrophone'",
+    "investigationSteps": [
+      "Identify the process accessing both sensors and the user account.",
+      "Check if both sensors were actively recording and exfiltrating data.",
+      "Identify the exfiltration destination and its reputation.",
+      "Analyze the process binary for malicious spying capabilities."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the binary immediately.",
+      "Disable webcam and microphone at the system level if not required.",
+      "Isolate the host and perform a full forensic scan for malware.",
+      "Educate the user on the risks of unauthorized app permissions."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1125",
+    "logsNeeded": ["Endpoint Behavioral Logs", "System Privacy Audit Logs"]
+  },
+  {
+    "id": "ALRT-123",
+    "title": "PC Takeover: Unauthorized Use of Remote Screen Capture Tool (e.g., Greenshot, Snagit)",
+    "severity": "Medium",
+    "source": "Process Monitoring / EDR",
+    "description": "A screen capture tool is being used by a non-standard process to capture the user's desktop, potentially for sensitive information theft.",
+    "detectionLogic": "Process NOT IN ['Greenshot.exe', 'Snagit.exe'] AND Action: 'CaptureScreen'",
+    "investigationSteps": [
+      "Identify the process performing the screen capture and the user account.",
+      "Identify where the captured images are being stored and if they are exfiltrated.",
+      "Verify if the user is aware of the screen capture activity.",
+      "Analyze the process binary for malicious intent."
+    ],
+    "remediationSteps": [
+      "Terminate the process and delete the binary.",
+      "Isolate the host and scan for malware/spyware.",
+      "Review and restrict the use of screen capture tools for sensitive data.",
+      "Educate the user on the risks of unauthorized screen capture."
+    ],
+    "mitreTactic": "Collection",
+    "mitreTechniqueId": "T1113",
+    "logsNeeded": ["Endpoint Behavioral Logs", "System Privacy Audit Logs"]
+  },
+  {
+    "id": "ALRT-124",
+    "title": "PC Takeover: Unauthorized Execution of 'Ammyy Admin' remote access tool",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of 'Ammyy Admin', a lightweight remote access tool often used by attackers for quick takeover and persistence.",
+    "detectionLogic": "Process: 'AA_v*.exe' OR CommandLine: '*Ammyy*'",
+    "investigationSteps": [
+      "Identify the user account and host machine.",
+      "Check for active unauthorized remote sessions using Ammyy Admin.",
+      "Identify how the Ammyy Admin binary was dropped on the system.",
+      "Analyze the activities performed during the remote sessions."
+    ],
+    "remediationSteps": [
+      "Terminate all Ammyy Admin processes and delete the binary.",
+      "Isolate the host and scan for other remote access tools.",
+      "Reset the user's local and domain credentials.",
+      "Implement a policy to block unauthorized remote access binaries."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Sysmon Event ID 1", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-125",
+    "title": "PC Takeover: Unauthorized Installation of 'RustDesk' open-source remote access tool",
+    "severity": "High",
+    "source": "Process Monitoring / EDR",
+    "description": "The RustDesk remote access tool was installed and used on a workstation that is not registered for IT support, suggesting an unauthorized takeover.",
+    "detectionLogic": "Process: 'rustdesk.exe' AND Host NOT IN IT-Approved-List",
+    "investigationSteps": [
+      "Identify the user currently logged into the PC.",
+      "Check if the RustDesk connection was for a legitimate, documented reason.",
+      "Analyze the external IP of the remote participant.",
+      "Look for files transferred during the session."
+    ],
+    "remediationSteps": [
+      "Close the RustDesk session and uninstall the software.",
+      "Isolate the host and scan for malware.",
+      "Update the policy to block RustDesk ports/domains for unauthorized hosts.",
+      "Educate the user on the risks of unauthorized open-source remote access tools."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Process Creation Logs", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-126",
+    "title": "PC Takeover: Unauthorized Execution of 'TightVNC' server",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "The TightVNC server was launched by a non-standard parent process like a script or a temporary directory executable, suggesting an unauthorized takeover.",
+    "detectionLogic": "Process: 'tvnserver.exe' AND Parent NOT IN ['explorer.exe', 'services.exe']",
+    "investigationSteps": [
+      "Identify the TightVNC configuration (port, password, allowed IPs).",
+      "Check for active connections to the TightVNC server.",
+      "Analyze how the TightVNC binary was dropped on the system.",
+      "Determine if the user was aware of the TightVNC installation."
+    ],
+    "remediationSteps": [
+      "Kill the TightVNC process and delete the binary.",
+      "Uninstall any associated TightVNC services.",
+      "Isolate the host and scan for other indicators of compromise.",
+      "Review firewall rules to block common VNC ports (5900+)."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Sysmon Event ID 1", "Network Listening Port logs"]
+  },
+  {
+    "id": "ALRT-127",
+    "title": "PC Takeover: Unauthorized Execution of 'LogMeIn' remote access tool",
+    "severity": "High",
+    "source": "Process Monitoring / EDR",
+    "description": "Execution of 'LogMeIn', a popular remote access tool, on a workstation where it is not a part of the standard IT management software.",
+    "detectionLogic": "Process: 'LogMeIn.exe' AND Host NOT IN Managed-Software-List",
+    "investigationSteps": [
+      "Identify the user account and host machine.",
+      "Check for active unauthorized remote sessions using LogMeIn.",
+      "Identify how the LogMeIn binary was dropped on the system.",
+      "Analyze the activities performed during the remote sessions."
+    ],
+    "remediationSteps": [
+      "Terminate all LogMeIn processes and uninstall the software.",
+      "Isolate the host and scan for other remote access tools.",
+      "Reset the user's local and domain credentials.",
+      "Implement a policy to block unauthorized commercial remote access software."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Process Creation Logs", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-128",
+    "title": "PC Takeover: Unauthorized Use of 'GoToMyPC' remote access tool",
+    "severity": "High",
+    "source": "Process Monitoring / EDR",
+    "description": "Execution of 'GoToMyPC', a commercial remote access tool, on a workstation that is not registered for IT support.",
+    "detectionLogic": "Process: 'GoToMyPC.exe' AND Host NOT IN IT-Approved-List",
+    "investigationSteps": [
+      "Identify the user currently logged into the PC.",
+      "Check if the GoToMyPC connection was for a legitimate, documented reason.",
+      "Analyze the external IP of the remote participant.",
+      "Look for files transferred during the session."
+    ],
+    "remediationSteps": [
+      "Close the GoToMyPC session and uninstall the software.",
+      "Isolate the host and scan for malware.",
+      "Update the policy to block GoToMyPC ports/domains for unauthorized hosts.",
+      "Educate the user on the risks of unauthorized commercial remote access tools."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Process Creation Logs", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-129",
+    "title": "PC Takeover: Unauthorized Execution of 'UltraVNC' server",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "The UltraVNC server was launched by a non-standard parent process, suggesting an unauthorized takeover.",
+    "detectionLogic": "Process: 'winvnc.exe' AND Parent NOT IN ['explorer.exe', 'services.exe']",
+    "investigationSteps": [
+      "Identify the UltraVNC configuration (port, password, allowed IPs).",
+      "Check for active connections to the UltraVNC server.",
+      "Analyze how the UltraVNC binary was dropped on the system.",
+      "Determine if the user was aware of the UltraVNC installation."
+    ],
+    "remediationSteps": [
+      "Kill the UltraVNC process and delete the binary.",
+      "Uninstall any associated UltraVNC services.",
+      "Isolate the host and scan for other indicators of compromise.",
+      "Review firewall rules to block common VNC ports (5900+)."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Sysmon Event ID 1", "Network Listening Port logs"]
+  },
+  {
+    "id": "ALRT-130",
+    "title": "PC Takeover: Unauthorized Use of 'ScreenConnect' (ConnectWise Control) remote access tool",
+    "severity": "High",
+    "source": "Process Monitoring / EDR",
+    "description": "Execution of 'ScreenConnect', a popular IT support remote access tool, on a workstation that is not managed by the IT department.",
+    "detectionLogic": "Process: 'ScreenConnect.Client.exe' AND Host NOT IN Managed-Software-List",
+    "investigationSteps": [
+      "Identify the user account and host machine.",
+      "Check for active unauthorized remote sessions using ScreenConnect.",
+      "Identify how the ScreenConnect binary was dropped on the system.",
+      "Analyze the activities performed during the remote sessions."
+    ],
+    "remediationSteps": [
+      "Terminate all ScreenConnect processes and uninstall the software.",
+      "Isolate the host and scan for other remote access tools.",
+      "Reset the user's local and domain credentials.",
+      "Implement a policy to block unauthorized IT support remote access tools."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Process Creation Logs", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-131",
+    "title": "Domain Takeover: Detection of 'AdMod' tool execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of AdMod, a powerful tool for modifying Active Directory objects and attributes, characteristic of domain-level attacks.",
+    "detectionLogic": "Process: 'admod.exe' AND CommandLine: '* -b *' OR '* -add *' OR '* -del *'",
+    "investigationSteps": [
+      "Identify the administrator account and host machine running the AdMod commands.",
+      "Verify if the specific modifications to AD were authorized and follows security policy.",
+      "Analyze the impact of the AD modifications on the overall domain security.",
+      "Look for lateral movement following the AD modifications."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the administrator account and reset their password.",
+      "Revert any unauthorized AD modifications to their original secure state.",
+      "Remove AdMod and all associated files from the system."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1098",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (AD modification events)"]
+  },
+  {
+    "id": "ALRT-132",
+    "title": "Domain Takeover: Detection of 'SharpView' script execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of SharpView, a .NET port of PowerView for Active Directory reconnaissance and enumeration, often used to bypass PowerShell monitoring.",
+    "detectionLogic": "Process: 'SharpView.exe' OR CommandLine: '*Get-NetUser*' OR '*Get-NetComputer*' OR '*Get-NetGroup*'",
+    "investigationSteps": [
+      "Identify the user account and host machine running the SharpView commands.",
+      "Verify if the user's role justifies such extensive AD enumeration.",
+      "Analyze the output of the SharpView commands to identify potential targets.",
+      "Look for lateral movement following the AD enumeration."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Restrict the ability for regular users to run .NET binaries.",
+      "Remove all SharpView-related files from the system."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1087.002",
+    "logsNeeded": ["Sysmon Event ID 1", "Endpoint Behavioral Logs"]
+  },
+  {
+    "id": "ALRT-133",
+    "title": "Domain Takeover: Detection of 'SharpCradle' tool execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of SharpCradle, a tool used to download and execute assemblies in memory, bypassing traditional endpoint security and monitoring.",
+    "detectionLogic": "Process: 'SharpCradle.exe' OR CommandLine: '* -url *' OR '* -exec *'",
+    "investigationSteps": [
+      "Identify the user account and host machine running SharpCradle.",
+      "Identify the source URL from which the assembly was downloaded.",
+      "Analyze the downloaded assembly for its malicious capabilities.",
+      "Look for other signs of in-memory execution and C2 activity."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Kill the SharpCradle process and all associated child processes.",
+      "Block the source URL at the corporate firewall.",
+      "Perform memory forensics on the host to identify the malicious assembly."
+    ],
+    "mitreTactic": "Execution",
+    "mitreTechniqueId": "T1105",
+    "logsNeeded": ["Sysmon Event ID 1", "Network Connection Logs"]
+  },
+  {
+    "id": "ALRT-134",
+    "title": "Domain Takeover: Detection of 'Seatbelt' tool execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Seatbelt, a tool for performing local system security checks and reconnaissance, often used by attackers to identify misconfigurations and targets.",
+    "detectionLogic": "Process: 'Seatbelt.exe' OR CommandLine: '* -group=all *' OR '* -check=*'",
+    "investigationSteps": [
+      "Identify the user account and host machine running Seatbelt.",
+      "Analyze the output of Seatbelt to identify the security misconfigurations discovered.",
+      "Check if any of the discovered misconfigurations were exploited.",
+      "Look for other offensive tools on the host (e.g., Mimikatz, Rubeus)."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Identify and patch any security misconfigurations discovered by Seatbelt.",
+      "Remove all Seatbelt-related files from the system."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1082",
+    "logsNeeded": ["Sysmon Event ID 1", "Endpoint Behavioral Logs"]
+  },
+  {
+    "id": "ALRT-135",
+    "title": "Domain Takeover: Detection of 'SharpHound' collector execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of SharpHound, the C# based data collector for BloodHound, used to map out Active Directory relationships and attack paths.",
+    "detectionLogic": "Process: 'SharpHound.exe' OR CommandLine: '* -c All *' OR '* -d *'",
+    "investigationSteps": [
+      "Identify the user account and host machine running SharpHound.",
+      "Verify if the user's role justifies such extensive AD reconnaissance.",
+      "Analyze the generated zip file to see what data was collected.",
+      "Look for lateral movement following the AD reconnaissance."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Restrict the ability for regular users to run LDAP collectors.",
+      "Remove all SharpHound-related files from the system."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1087.002",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (LDAP events)"]
+  },
+  {
+    "id": "ALRT-136",
+    "title": "Domain Takeover: Detection of 'Rubeus' with 'monitor' command",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Rubeus with the 'monitor' command to harvest Kerberos tickets in real-time as users log in.",
+    "detectionLogic": "Process: 'Rubeus.exe' AND CommandLine: '* monitor *' AND CommandLine: '* /interval:*'",
+    "investigationSteps": [
+      "Identify the user account and host machine running Rubeus monitor.",
+      "Identify all user accounts that logged into the host during the monitor interval.",
+      "Check if any of the harvested tickets were used for lateral movement.",
+      "Look for other Rubeus commands being executed on the host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Reset the KRBTGT password twice and force password resets for all harvested users.",
+      "Remove Rubeus and all associated files from the system."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (Kerberos events)"]
+  },
+  {
+    "id": "ALRT-137",
+    "title": "Domain Takeover: Detection of 'Mimikatz' with 'lsadump::lsa' command",
+    "severity": "Critical",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Mimikatz with the 'lsadump::lsa' command to dump secrets from the LSA database, characteristic of domain-level attacks.",
+    "detectionLogic": "Process: 'mimikatz.exe' AND CommandLine: '*lsadump::lsa*'",
+    "investigationSteps": [
+      "Identify the administrator account and host machine running Mimikatz.",
+      "Verify if the command was successful and what secrets were dumped.",
+      "Analyze the impact of the leaked secrets on the overall domain security.",
+      "Look for lateral movement following the lsadump event."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the administrator account and reset their password.",
+      "Enforce LSA Protection (RunAsPPL) and rotate all leaked secrets.",
+      "Remove Mimikatz and all associated files from the system."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1003.001",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-138",
+    "title": "Domain Takeover: Detection of 'PowerSploit' script execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of PowerSploit, a powerful collection of PowerShell modules for post-exploitation, reconnaissance, and lateral movement.",
+    "detectionLogic": "Process: 'powershell.exe' AND CommandLine: '*Invoke-Mimikatz*' OR '*Get-GPPPassword*' OR '*Find-LocalAdminAccess*'",
+    "investigationSteps": [
+      "Identify the user account and host machine running the PowerSploit commands.",
+      "Analyze the specific commands executed to identify the attacker's objectives.",
+      "Verify if any of the commands were successful and what data was obtained.",
+      "Look for other signs of PowerSploit modules being used on the host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Restrict the ability for regular users to run PowerShell and specific modules.",
+      "Remove all PowerSploit-related files from the system."
+    ],
+    "mitreTactic": "Post-Exploitation",
+    "mitreTechniqueId": "T1059.001",
+    "logsNeeded": ["Sysmon Event ID 1", "PowerShell Script Block Logging"]
+  },
+  {
+    "id": "ALRT-139",
+    "title": "Domain Takeover: Detection of 'Karkas' tool execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Karkas, a tool used to perform reconnaissance and lateral movement in Windows environments, often used to bypass traditional security tools.",
+    "detectionLogic": "Process: 'karkas.exe' OR CommandLine: '* -u *' OR '* -p *' OR '* -h *'",
+    "investigationSteps": [
+      "Identify the user account and host machine running Karkas.",
+      "Analyze the commands executed to identify the attacker's targets and credentials used.",
+      "Verify if any lateral movement or privilege escalation was successful.",
+      "Look for other offensive tools on the host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Kill the Karkas process and all child processes.",
+      "Disable the compromised user account and reset their password.",
+      "Remove Karkas and all associated files from the system."
+    ],
+    "mitreTactic": "Lateral Movement",
+    "mitreTechniqueId": "T1021",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-140",
+    "title": "Domain Takeover: Detection of 'Responder' tool activity",
+    "severity": "High",
+    "source": "Network IDS / RPC Audit Logs",
+    "description": "Detection of Responder activity, which involves spoofing LLMNR, NBT-NS, and MDNS traffic to capture credentials from unsuspecting internal clients.",
+    "detectionLogic": "Protocol: 'LLMNR' OR 'NBT-NS' AND Source NOT IN InternalRange AND Message: 'SpoofedChallenge'",
+    "investigationSteps": [
+      "Identify the source host and user account running Responder.",
+      "Identify all internal clients that communicated with the Responder spoofed services.",
+      "Verify if any credential hashes were captured and if any successful crack attempts occurred.",
+      "Look for lateral movement from the source host."
+    ],
+    "remediationSteps": [
+      "Isolate the host running Responder immediately.",
+      "Disable LLMNR, NBT-NS, and MDNS at the corporate network level.",
+      "Enforce SMB signing for all clients and servers.",
+      "Reset passwords for all users who may have been targeted by Responder."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1557.001",
+    "logsNeeded": ["Network IDS Alerts", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-141",
+    "title": "Domain Takeover: Unauthorized modification of the Domain Controller's 'NTDS.dit' file",
+    "severity": "Critical",
+    "source": "File System Audit Logs on DC",
+    "description": "An attempt was made to access or copy the 'NTDS.dit' file on a Domain Controller, which contains all Active Directory data, including password hashes.",
+    "detectionLogic": "EventID: 4663 AND ObjectPath: 'C:\\Windows\\NTDS\\ntds.dit' AND User NOT IN DomainControllers",
+    "investigationSteps": [
+      "Identify the user account and host machine attempting to access the NTDS.dit file.",
+      "Verify if the access attempt was successful and if the file was copied.",
+      "Identify if VSS (Volume Shadow Copy) was used to bypass file locking.",
+      "Search for lateral movement from the host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately and perform a full forensic analysis of the DC.",
+      "Reset the KRBTGT password twice immediately and force all user password resets.",
+      "Monitor the environment for logons using the potentially leaked hashes.",
+      "Implement restrictive file access policies on all Domain Controllers."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1003.003",
+    "logsNeeded": ["DC File System Audit Logs", "Sysmon Event ID 1"]
+  },
+  {
+    "id": "ALRT-142",
+    "title": "Domain Takeover: Detection of 'PetitPotam' exploit attempt (CVE-2021-36942)",
+    "severity": "Critical",
+    "source": "Network IDS / RPC Audit Logs",
+    "description": "An attempt to exploit PetitPotam, which uses the MS-EFSR protocol to force a Domain Controller to authenticate to an attacker-controlled host, allowing for credential theft.",
+    "detectionLogic": "Protocol: 'EFSRPC' AND Method: 'EfsRpcOpenFileRaw' AND Source NOT IN InternalRange",
+    "investigationSteps": [
+      "Identify the source host and user account attempting the PetitPotam exploit.",
+      "Verify if the Domain Controller has been patched or mitigated against PetitPotam.",
+      "Identify if the DC successfully authenticated to the attacker-controlled host.",
+      "Search for subsequent lateral movement from the attacker's IP."
+    ],
+    "remediationSteps": [
+      "Isolate the source host immediately.",
+      "Apply the latest Microsoft security updates and mitigations for PetitPotam.",
+      "Disable the MS-EFSR protocol on all Domain Controllers if not required.",
+      "Implement RPC filters to restrict EFSRPC access to authorized hosts."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1557.001",
+    "logsNeeded": ["Network IDS Alerts", "RPC Audit Logs"]
+  },
+  {
+    "id": "ALRT-143",
+    "title": "Domain Takeover: Detection of 'Juicy Potato' exploit execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Juicy Potato, a tool used for local privilege escalation on Windows systems by abusing the BITS service or DCOM.",
+    "detectionLogic": "Process: 'JuicyPotato.exe' OR CommandLine: '* -l 1337 *' OR '* -p *'",
+    "investigationSteps": [
+      "Identify the user account and host machine running Juicy Potato.",
+      "Verify if the privilege escalation was successful and what level of access was obtained.",
+      "Identify if the new privileges were used for lateral movement or domain-level attacks.",
+      "Analyze the process binary for malicious intent."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Kill the Juicy Potato process and all child processes.",
+      "Identify and patch any security misconfigurations exploited by Juicy Potato.",
+      "Remove all Juicy Potato-related files from the system."
+    ],
+    "mitreTactic": "Privilege Escalation",
+    "mitreTechniqueId": "T1068",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-144",
+    "title": "Domain Takeover: Detection of 'NoPac' exploit attempt (CVE-2021-42278/42287)",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs / IDS",
+    "description": "An attempt to exploit NoPac, which allows a regular user to obtain a Domain Admin ticket by abusing a vulnerability in the Kerberos authentication process.",
+    "detectionLogic": "EventID: 4741 (Computer account creation) FOLLOWED BY EventID: 4742 (SPN modification) WITH TargetName: 'DC_NAME'",
+    "investigationSteps": [
+      "Identify the user account and host machine attempting the NoPac exploit.",
+      "Verify if the Domain Controller has been patched against CVE-2021-42278 and CVE-2021-42287.",
+      "Identify if the attacker successfully obtained a Domain Admin ticket.",
+      "Search for subsequent lateral movement from the attacker's IP."
+    ],
+    "remediationSteps": [
+      "Isolate the source host immediately.",
+      "Apply the latest Microsoft security updates to all Domain Controllers.",
+      "Enforce 'Secure RPC' for all Kerberos connections.",
+      "If successful, initiate the domain recovery process."
+    ],
+    "mitreTactic": "Privilege Escalation",
+    "mitreTechniqueId": "T1068",
+    "logsNeeded": ["Security Event Logs", "Network IDS Alerts"]
+  },
+  {
+    "id": "ALRT-145",
+    "title": "Domain Takeover: Unauthorized modification of the 'defaultNamingContext' attribute",
+    "severity": "Critical",
+    "source": "Active Directory Audit Logs",
+    "description": "A modification was made to the 'defaultNamingContext' attribute of the domain, which could be used to divert authentication or modify AD structure.",
+    "detectionLogic": "EventID: 5136 AND AttributeName: 'defaultNamingContext' AND ObjectDN: 'DC=...'",
+    "investigationSteps": [
+      "Identify the administrator account and host machine that modified the attribute.",
+      "Analyze the specific changes made and their potential impact on AD operations.",
+      "Verify if the modification was authorized and followed proper change management.",
+      "Look for other signs of domain-level compromise."
+    ],
+    "remediationSteps": [
+      "Revert the 'defaultNamingContext' attribute to its original secure value immediately.",
+      "Investigate the administrator account for compromise.",
+      "Check the integrity of the entire AD database.",
+      "Monitor all domain-level attribute modifications for future unauthorized activity."
+    ],
+    "mitreTactic": "Persistence",
+    "mitreTechniqueId": "T1098",
+    "logsNeeded": ["Security Event Logs (Event ID 5136)"]
+  },
+  {
+    "id": "ALRT-146",
+    "title": "Domain Takeover: Detection of 'SharpRoast' tool execution",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of SharpRoast, a .NET based tool for Kerberoasting, allowing an attacker to request service tickets for offline password cracking.",
+    "detectionLogic": "Process: 'SharpRoast.exe' OR CommandLine: '* -o *' OR '* -p *'",
+    "investigationSteps": [
+      "Identify the user account and host machine running SharpRoast.",
+      "Identify all service accounts that were roasted.",
+      "Analyze the service accounts involved for weak or easily guessable passwords.",
+      "Monitor for successful logins to these service accounts."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Force password resets for all roasted service accounts.",
+      "Remove all SharpRoast-related files from the system."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558.003",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs (Kerberos events)"]
+  },
+  {
+    "id": "ALRT-147",
+    "title": "Domain Takeover: Detection of 'Mimikatz' with 'sekurlsa::kerberos' command",
+    "severity": "Critical",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Mimikatz with the 'sekurlsa::kerberos' command to extract Kerberos tickets from memory, characteristic of domain-level attacks.",
+    "detectionLogic": "Process: 'mimikatz.exe' AND CommandLine: '*sekurlsa::kerberos*'",
+    "investigationSteps": [
+      "Identify the administrator account and host machine running Mimikatz.",
+      "Verify if the command was successful and what tickets were extracted.",
+      "Analyze the impact of the leaked tickets on the overall domain security.",
+      "Look for lateral movement following the Kerberos ticket dump."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the administrator account and reset their password.",
+      "Enforce LSA Protection (RunAsPPL) and rotate the KRBTGT password.",
+      "Remove Mimikatz and all associated files from the system."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1558",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-148",
+    "title": "Domain Takeover: Detection of 'PowerView' with 'Invoke-ACLScanner' command",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of PowerView with the 'Invoke-ACLScanner' command to identify vulnerable or misconfigured ACLs in Active Directory.",
+    "detectionLogic": "Process: 'powershell.exe' AND CommandLine: '*Invoke-ACLScanner*'",
+    "investigationSteps": [
+      "Identify the user account and host machine running the ACL scanner.",
+      "Identify the specific AD objects and ACLs identified as vulnerable.",
+      "Verify if any of the vulnerable ACLs were exploited for privilege escalation.",
+      "Look for other signs of PowerView modules being used on the host."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the user account and reset their password.",
+      "Identify and correct any misconfigured ACLs in AD.",
+      "Restrict the ability for regular users to run PowerShell and specific modules."
+    ],
+    "mitreTactic": "Discovery",
+    "mitreTechniqueId": "T1087.002",
+    "logsNeeded": ["Sysmon Event ID 1", "PowerShell Script Block Logging"]
+  },
+  {
+    "id": "ALRT-149",
+    "title": "Domain Takeover: Detection of 'Kekeo' with 'exploit::ms14068' command",
+    "severity": "Critical",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Kekeo with the MS14-068 exploit to forge Kerberos tickets with unauthorized privileges, characteristic of domain-level attacks.",
+    "detectionLogic": "Process: 'kekeo.exe' AND CommandLine: '*exploit::ms14068*'",
+    "investigationSteps": [
+      "Identify the user account and host machine attempting the MS14-068 exploit.",
+      "Verify if the Domain Controller has been patched against MS14-068.",
+      "Identify if the attacker successfully forged a privileged ticket.",
+      "Search for subsequent lateral movement from the attacker's IP."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Apply the latest Microsoft security updates to all Domain Controllers.",
+      "Enforce 'Secure RPC' for all Kerberos connections.",
+      "If successful, initiate the domain recovery process."
+    ],
+    "mitreTactic": "Privilege Escalation",
+    "mitreTechniqueId": "T1558",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs"]
+  },
+  {
+    "id": "ALRT-150",
+    "title": "Domain Takeover: Detection of 'Responder' activity with spoofed WPAD",
+    "severity": "High",
+    "source": "Network IDS / Web Proxy Logs",
+    "description": "Detection of Responder spoofing WPAD (Web Proxy Auto-Discovery) traffic to redirect web traffic through the attacker's host and capture credentials.",
+    "detectionLogic": "Protocol: 'WPAD' AND Source NOT IN InternalRange AND Message: 'SpoofedWPADResponse'",
+    "investigationSteps": [
+      "Identify the source host and user account running Responder.",
+      "Identify all internal clients that received the spoofed WPAD response.",
+      "Analyze the web traffic redirected through the Responder host for signs of credential theft.",
+      "Look for lateral movement from the source host."
+    ],
+    "remediationSteps": [
+      "Isolate the host running Responder immediately.",
+      "Disable WPAD at the corporate network level and on all internal clients.",
+      "Implement a static proxy configuration on all clients and servers.",
+      "Reset passwords for all users who may have been targeted by the spoofed WPAD."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1557.001",
+    "logsNeeded": ["Network IDS Alerts", "Web Proxy Logs"]
+  },
+  {
+    "id": "ALRT-151",
+    "title": "Data Breach: Exfiltration via Cloud Backup Software (Backblaze/Carbonite)",
+    "severity": "High",
+    "source": "EDR / Proxy Logs",
+    "description": "Unauthorized installation and use of personal cloud backup software on a workstation containing sensitive company data.",
+    "detectionLogic": "Process: 'bztransmit.exe' OR 'carbonite.exe' AND Host NOT IN Managed-Backup-List",
+    "investigationSteps": [
+      "Identify the user who installed the backup software.",
+      "Check which folders were backed up to the personal cloud storage.",
+      "Analyze the network logs for total data transferred.",
+      "Determine if the user was authorized to use personal backup solutions."
+    ],
+    "remediationSteps": [
+      "Terminate the backup process and uninstall the software.",
+      "Block access to cloud backup domains at the firewall/proxy.",
+      "Conduct a data loss assessment to see what was backed up.",
+      "Discipline or retrain the user based on security policy."
+    ],
+    "mitreTactic": "Exfiltration",
+    "mitreTechniqueId": "T1537",
+    "logsNeeded": ["Process Execution Logs", "Proxy Logs"]
+  },
+  {
+    "id": "ALRT-152",
+    "title": "Ransomware: RansomExx indicators detected",
+    "severity": "Critical",
+    "source": "EDR / AV",
+    "description": "Detection of RansomExx's unique ransom note ('README_TO_RESTORE.txt'), use of VSSAdmin to delete shadows, and specific encryption behaviors.",
+    "detectionLogic": "FileWrite: 'README_TO_RESTORE.txt' AND CommandLine: '*vssadmin*delete*shadows*'",
+    "investigationSteps": [
+      "Identify the initial entry point (often via unpatched VMWare or RDP).",
+      "Check for lateral movement to the ESXi environment.",
+      "Identify if data was exfiltrated to the RansomExx leak site.",
+      "Analyze the host for the RansomExx encryptor binary."
+    ],
+    "remediationSteps": [
+      "Isolate all infected systems immediately.",
+      "Block the known RansomExx C2 domains and IPs.",
+      "Contact incident response and legal counsel for assistance.",
+      "Restore affected data from offline or air-gapped backups."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1486",
+    "logsNeeded": ["EDR Behavioral Logs", "Firewall Logs"]
+  },
+  {
+    "id": "ALRT-153",
+    "title": "Account Takeover: Unusual Login followed by large-scale file deletion",
+    "severity": "High",
+    "source": "Identity Logs / File System Audit",
+    "description": "A successful login from a new location is followed immediately by the deletion of a large number of files on a corporate file server or cloud storage.",
+    "detectionLogic": "Event: 'LoginSuccess' FROM NewLocation FOLLOWED BY Event: 'FileDelete' AND Count > 500",
+    "investigationSteps": [
+      "Identify the user account and the source IP of the login and deletions.",
+      "Verify if the user had a legitimate reason to delete such a large amount of data.",
+      "Identify which files were deleted and if they are recoverable.",
+      "Check if any of the deleted files were exfiltrated before deletion (Extortion)."
+    ],
+    "remediationSteps": [
+      "Lock the user account immediately and invalidate all active sessions.",
+      "Restore the deleted files from the latest verified backup.",
+      "Investigate the actor IP for malicious intent or host compromise.",
+      "Audit all recent activity for the affected account."
+    ],
+    "mitreTactic": "Impact",
+    "mitreTechniqueId": "T1485",
+    "logsNeeded": ["Identity Provider Logs", "File Server Audit Logs"]
+  },
+  {
+    "id": "ALRT-154",
+    "title": "PC Takeover: Unauthorized Execution of 'TightVNC' server with hidden window",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "The TightVNC server was launched with a hidden window and non-standard settings, suggesting a stealthy unauthorized takeover.",
+    "detectionLogic": "Process: 'tvnserver.exe' AND CommandLine: '* -hidden *' OR '* -noclient *'",
+    "investigationSteps": [
+      "Identify the TightVNC configuration and why it was launched in hidden mode.",
+      "Check for active connections to the hidden VNC server.",
+      "Identify the parent process and user account responsible for launching VNC.",
+      "Look for other signs of persistence and lateral movement on the host."
+    ],
+    "remediationSteps": [
+      "Kill the hidden TightVNC process and uninstall the software.",
+      "Isolate the host and scan for other stealthy remote access tools.",
+      "Reset the user's local and domain credentials.",
+      "Implement a policy to block unauthorized remote access software with stealth features."
+    ],
+    "mitreTactic": "Command and Control",
+    "mitreTechniqueId": "T1219",
+    "logsNeeded": ["Sysmon Event ID 1", "Endpoint Behavioral Logs"]
+  },
+  {
+    "id": "ALRT-155",
+    "title": "Domain Takeover: Detection of 'Mimikatz' with 'crypto::certificates' command",
+    "severity": "High",
+    "source": "Sysmon / EDR",
+    "description": "Execution of Mimikatz with the 'crypto::certificates' command to export certificates and private keys from the system, characteristic of domain-level attacks.",
+    "detectionLogic": "Process: 'mimikatz.exe' AND CommandLine: '*crypto::certificates*'",
+    "investigationSteps": [
+      "Identify the administrator account and host machine running Mimikatz.",
+      "Verify if any sensitive certificates or private keys were successfully exported.",
+      "Analyze the impact of the leaked certificates on the overall domain security.",
+      "Look for lateral movement following the certificate export event."
+    ],
+    "remediationSteps": [
+      "Isolate the host immediately.",
+      "Disable the administrator account and reset their password.",
+      "Revoke and rotate any leaked certificates and private keys.",
+      "Remove Mimikatz and all associated files from the system."
+    ],
+    "mitreTactic": "Credential Access",
+    "mitreTechniqueId": "T1552.004",
+    "logsNeeded": ["Sysmon Event ID 1", "Security Event Logs"]
+  }
+]

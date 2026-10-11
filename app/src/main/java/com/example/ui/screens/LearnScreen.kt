@@ -55,6 +55,7 @@ import com.example.ui.viewmodel.ThreatFeedViewModel
 fun LearnScreen(
     viewModel: ThreatFeedViewModel,
     onNavigateToChatbot: (() -> Unit)? = null,
+    onNavigateToAlertsLibrary: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val theme = CyberTheme.colors
@@ -146,6 +147,12 @@ fun LearnScreen(
                         onClick = { selectedSubTab = 4 },
                         text = { Text("Interactive Quiz", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("tab_learn_quiz")
+                    )
+                    Tab(
+                        selected = selectedSubTab == 5,
+                        onClick = { onNavigateToAlertsLibrary?.invoke() },
+                        text = { Text("Alerts Library", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_learn_alerts_library")
                     )
                 }
             }

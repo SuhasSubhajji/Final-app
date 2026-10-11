@@ -3,6 +3,8 @@ package com.example.ui.viewmodel
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.graphics.Color
@@ -39,7 +41,6 @@ import com.example.data.remote.GeminiAnalysisResult
 import com.example.data.repository.CveIntelligenceRepository
 import com.example.data.repository.ThreatRepository
 import com.example.data.repository.BreachRepository
-import com.example.data.repository.TechStackRepository
 import com.example.data.update.UpdateCheckResult
 import com.example.notification.SecurityAlertManager
 import com.example.ui.theme.CyberCyan
@@ -68,6 +69,9 @@ import com.example.data.update.AppUpdateInfo
 import com.example.data.update.AppUpdateManager
 import com.example.data.update.UpdateDownloadState
 
+import com.example.data.learning.SecurityAlertExample
+import kotlinx.coroutines.Dispatchers
+
 sealed interface AiAnalysisUiState {
     data object Idle : AiAnalysisUiState
     data object Loading : AiAnalysisUiState
@@ -81,7 +85,6 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     private val breachRepository = BreachRepository(AppDatabase.getInstance(application))
     private val glossaryRepository = GlossaryRepository(AppDatabase.getInstance(application))
     private val dynamicRoadmapManager = DynamicRoadmapManager(AppDatabase.getInstance(application))
-    private val techStackRepository = TechStackRepository(application)
 
     // --- In-App Updates & GitHub CI/CD Auto-Updater ---
     val updateManager = AppUpdateManager(application)
@@ -91,12 +94,6 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     val configuredRepo: StateFlow<String> = updateManager.configuredRepo
 
     val updateCheckResult = MutableStateFlow<UpdateCheckResult?>(null)
-
-    val techStack = techStackRepository.techStackFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptySet()
-    )
 
     init {
         // Automatically check for GitHub release updates on startup
@@ -316,6 +313,25 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     // Map of threatId to loading state for inline CVE summaries
     private val _summarizingThreatIds = MutableStateFlow<Set<String>>(emptySet())
     val summarizingThreatIds: StateFlow<Set<String>> = _summarizingThreatIds.asStateFlow()
+
+    // --- Security Alerts Library (Learning) ---
+    private val _securityAlertExamples = MutableStateFlow<List<SecurityAlertExample>>(emptyList())
+    val securityAlertExamples: StateFlow<List<SecurityAlertExample>> = _securityAlertExamples.asStateFlow()
+
+    private fun loadSecurityAlertExamples() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val json = getApplication<Application>().assets.open("security_alerts.json").bufferedReader().use { it.readText() }
+                val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+                val type = com.squareup.moshi.Types.newParameterizedType(List::class.java, SecurityAlertExample::class.java)
+                val adapter = moshi.adapter<List<SecurityAlertExample>>(type)
+                val list = adapter.fromJson(json) ?: emptyList()
+                _securityAlertExamples.value = list
+            } catch (e: Exception) {
+                Log.e("ThreatFeedViewModel", "Error loading security alerts: ${e.message}")
+            }
+        }
+    }
 
     // --- Gemini Interactive Chatbot Engine ---
     private val geminiService = GeminiService()
@@ -578,26 +594,13 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         allThreatsFlow,
         filterState,
         isRlSortEnabled,
-        rlAgentState,
-        techStack
-    ) { threats, filter, rlSort, _, selectedTech ->
+        rlAgentState
+    ) { threats, filter, rlSort, _ ->
         val filtered = repository.applyFilter(threats, filter)
-        
-        val sorted = if (selectedTech.isEmpty()) {
-            filtered
-        } else {
-            val (relevant, rest) = filtered.partition { threat ->
-                selectedTech.any { tech ->
-                    threat.title.contains(tech, true) || threat.description.contains(tech, true)
-                }
-            }
-            relevant + rest
-        }
-        
         if (rlSort) {
-            rlEngine.sortThreatsByRlScore(sorted)
+            rlEngine.sortThreatsByRlScore(filtered)
         } else {
-            sorted
+            filtered
         }
     }.stateIn(
         scope = viewModelScope,
@@ -881,6 +884,7 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
             glossaryRepository.initializeSeedsIfNeeded()
             repository.initializeWithSeedsIfNeeded()
             breachRepository.initializeBreachDatabase()
+            loadSecurityAlertExamples()
             refreshFeeds()
         }
     }
