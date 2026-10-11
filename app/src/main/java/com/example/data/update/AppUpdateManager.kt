@@ -93,15 +93,20 @@ class AppUpdateManager(private val context: Context) {
             val result = versionCheckService.checkRemoteVersion(repo)
             
             if (result is UpdateCheckResult.UpdateAvailable) {
+                val versionManager = VersionManager()
+                val isNewer = versionManager.isNewerVersion(result.updateInfo.versionCode, result.updateInfo.versionName)
+                
                 val dismissedVersionCode = prefs.getInt(KEY_DISMISSED_VERSION_CODE, 0)
                 val dismissedVersionName = prefs.getString(KEY_DISMISSED_VERSION_NAME, "") ?: ""
                 
                 val isDismissed = (result.updateInfo.versionCode <= dismissedVersionCode || result.updateInfo.versionName == dismissedVersionName) && !isUserInitiated
                 
-                if (!isDismissed) {
+                if (isNewer && !isDismissed) {
                     _updateInfo.value = result.updateInfo
                     return@withContext result
                 }
+            } else if (result is UpdateCheckResult.Error) {
+                return@withContext result
             }
             
             _updateInfo.value = null

@@ -38,11 +38,15 @@ class VersionCheckService(private val okHttpClient: OkHttpClient, private val mo
                             moshi.adapter(AppUpdateInfo::class.java).fromJson(bodyString)
                         }
 
+                        Log.d(TAG, "Detected version: $detectedInfo from $url")
+
                         if (detectedInfo != null) {
                             val currentVersionName = BuildConfig.VERSION_NAME
                             val currentVersionCode = BuildConfig.VERSION_CODE
                             
                             val isNewer = compareVersionNames(detectedInfo.versionName, currentVersionName) > 0
+                            
+                            Log.d(TAG, "Comparing $detectedInfo.versionName > $currentVersionName, isNewer: $isNewer")
                             
                             if (isNewer) {
                                 return UpdateCheckResult.UpdateAvailable(detectedInfo)
