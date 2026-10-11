@@ -77,19 +77,8 @@ class AppUpdateManager(private val context: Context) {
         _configuredRepo.value = cleanRepo
     }
 
-    internal fun compareVersionNames(v1: String, v2: String): Int {
-        val cleanV1 = v1.removePrefix("v").trim()
-        val cleanV2 = v2.removePrefix("v").trim()
-        val parts1 = cleanV1.split(".").mapNotNull { it.toIntOrNull() }
-        val parts2 = cleanV2.split(".").mapNotNull { it.toIntOrNull() }
-        val maxLength = maxOf(parts1.size, parts2.size)
-        for (i in 0 until maxLength) {
-            val p1 = parts1.getOrElse(i) { 0 }
-            val p2 = parts2.getOrElse(i) { 0 }
-            if (p1 != p2) return p1.compareTo(p2)
-        }
-        return 0
-    }
+
+    private val versionCheckService = VersionCheckService(okHttpClient, moshi)
 
     /**
      * Checks for new APK updates from GitHub release artifacts or custom JSON endpoint.
@@ -101,64 +90,22 @@ class AppUpdateManager(private val context: Context) {
         try {
             val repo = _configuredRepo.value.ifBlank { DEFAULT_FALLBACK_REPO }
             
-            // Priority 1: GitHub Raw main branch or release metadata app-version.json
-            val candidateUrls = listOf(
-                "https://raw.githubusercontent.com/$repo/main/app-version.json",
-                "https://github.com/$repo/releases/latest/download/app-version.json",
-                "https://api.github.com/repos/$repo/releases/latest"
-            )
-
-            var detectedInfo: AppUpdateInfo? = null
-
-            for (url in candidateUrls) {
-                try {
-                    val request = Request.Builder()
-                        .url(url)
-                        .header("Accept", "application/vnd.github.v3+json")
-                        .header("User-Agent", "CyberShield-Android")
-                        .build()
-
-                    val response = okHttpClient.newCall(request).execute()
-                    if (response.isSuccessful) {
-                        val bodyString = response.body?.string() ?: ""
-                        if (bodyString.isNotBlank()) {
-                            if (url.contains("api.github.com")) {
-                                // Parse GitHub Releases API response
-                                detectedInfo = parseGitHubReleaseApiResponse(bodyString)
-                            } else {
-                                // Parse custom app-version.json
-                                val adapter = moshi.adapter(AppUpdateInfo::class.java)
-                                detectedInfo = adapter.fromJson(bodyString)
-                            }
-                            if (detectedInfo != null) break
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.d(TAG, "Error checking candidate URL $url: ${e.message}")
-                }
-            }
-
-            val currentVersionCode = BuildConfig.VERSION_CODE
-            val currentVersionName = BuildConfig.VERSION_NAME
-            val dismissedVersionCode = prefs.getInt(KEY_DISMISSED_VERSION_CODE, 0)
-            val dismissedVersionName = prefs.getString(KEY_DISMISSED_VERSION_NAME, "") ?: ""
-
-            if (detectedInfo != null) {
-                // Use version name comparison as the source of truth for updates, 
-                // as BuildConfig.VERSION_CODE is hardcoded to 1 in build.gradle.kts
-                val isNewer = compareVersionNames(detectedInfo.versionName, currentVersionName) > 0
-
-                val isDismissed = (detectedInfo.versionCode <= dismissedVersionCode || detectedInfo.versionName == dismissedVersionName) && !isUserInitiated
-
-                // Strictly trigger update ONLY if detected version is genuinely newer than installed version AND not dismissed
-                if (isNewer && !isDismissed) {
-                    _updateInfo.value = detectedInfo
-                    return@withContext UpdateCheckResult.UpdateAvailable(detectedInfo)
+            val result = versionCheckService.checkRemoteVersion(repo)
+            
+            if (result is UpdateCheckResult.UpdateAvailable) {
+                val dismissedVersionCode = prefs.getInt(KEY_DISMISSED_VERSION_CODE, 0)
+                val dismissedVersionName = prefs.getString(KEY_DISMISSED_VERSION_NAME, "") ?: ""
+                
+                val isDismissed = (result.updateInfo.versionCode <= dismissedVersionCode || result.updateInfo.versionName == dismissedVersionName) && !isUserInitiated
+                
+                if (!isDismissed) {
+                    _updateInfo.value = result.updateInfo
+                    return@withContext result
                 }
             }
             
             _updateInfo.value = null
-            return@withContext UpdateCheckResult.UpToDate(currentVersionName, currentVersionCode)
+            return@withContext UpdateCheckResult.UpToDate(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
         } catch (e: Exception) {
             Log.e(TAG, "Failed checking for update: ${e.message}", e)
             _updateInfo.value = null
@@ -274,46 +221,4 @@ class AppUpdateManager(private val context: Context) {
         _downloadState.value = UpdateDownloadState.Idle
     }
 
-    private fun parseGitHubReleaseApiResponse(jsonStr: String): AppUpdateInfo? {
-        return try {
-            val json = org.json.JSONObject(jsonStr)
-            val tagName = json.optString("tag_name", "")
-            val name = json.optString("name", tagName)
-            val body = json.optString("body", "Bug fixes and improvements")
-            val publishedAt = json.optString("published_at", "")
-
-            // Look for apk asset
-            var apkUrl = ""
-            val assets = json.optJSONArray("assets")
-            if (assets != null) {
-                for (i in 0 until assets.length()) {
-                    val asset = assets.getJSONObject(i)
-                    val assetName = asset.optString("name", "")
-                    if (assetName.endsWith(".apk", ignoreCase = true)) {
-                        apkUrl = asset.optString("browser_download_url", "")
-                        break
-                    }
-                }
-            }
-
-            if (apkUrl.isBlank()) {
-                apkUrl = json.optString("html_url", "")
-            }
-
-            // Extract version code and name
-            val cleanVersion = tagName.removePrefix("v").trim()
-            val parts = cleanVersion.split(".")
-            val code = parts.lastOrNull()?.toIntOrNull() ?: 1
-
-            AppUpdateInfo(
-                versionCode = code,
-                versionName = cleanVersion.ifBlank { name },
-                releaseNotes = body,
-                downloadUrl = apkUrl,
-                publishedAt = publishedAt
-            )
-        } catch (e: Exception) {
-            null
-        }
-    }
 }

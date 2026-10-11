@@ -13,8 +13,8 @@ android {
     applicationId = "com.aistudio.cybershield.v2"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0.0"
+    versionCode = 2
+    versionName = "1.0.23"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
