@@ -44,7 +44,8 @@ enum class FeedSource(
     NIST_NVD("NIST NVD CVEs", "https://nvd.nist.gov/feeds/xml/cve/misc/nvd-rss.xml", "https://nvd.nist.gov", "CVE Vulnerabilities"),
     DARK_READING("Dark Reading", "https://www.darkreading.com/rss.xml", "https://www.darkreading.com", "Enterprise"),
     DEVSECOPS_WEEKLY("DevSecOps Weekly", "https://www.devsecops.org/feed.xml", "https://www.devsecops.org", "DevSecOps / CI/CD"),
-    OWASP("OWASP Alerts", "https://owasp.org/feed.xml", "https://owasp.org", "AppSec / Best Practices");
+    OWASP("OWASP Alerts", "https://owasp.org/feed.xml", "https://owasp.org", "AppSec / Best Practices"),
+    CISA_KEV("CISA KEV Catalog", "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", "https://www.cisa.gov/known-exploited-vulnerabilities-catalog", "Threat Intel");
 
     companion object {
         fun fromString(value: String): FeedSource {

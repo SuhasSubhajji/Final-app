@@ -39,6 +39,7 @@ import com.example.data.remote.GeminiAnalysisResult
 import com.example.data.repository.CveIntelligenceRepository
 import com.example.data.repository.ThreatRepository
 import com.example.data.repository.BreachRepository
+import com.example.data.repository.TechStackRepository
 import com.example.data.update.UpdateCheckResult
 import com.example.notification.SecurityAlertManager
 import com.example.ui.theme.CyberCyan

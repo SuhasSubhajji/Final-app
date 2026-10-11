@@ -43,13 +43,16 @@ class FeedFetcherService {
             val request = Request.Builder()
                 .url(source.feedUrl)
                 .header("User-Agent", "CyberShield-Threat-Aggregator/1.0 (Android)")
-                .header("Accept", "application/rss+xml, application/atom+xml, text/xml;q=0.9, */*;q=0.8")
+                .header("Accept", "application/rss+xml, application/atom+xml, text/xml;q=0.9, application/json, */*;q=0.8")
                 .build()
 
             val response = httpClient.newCall(request).execute()
             if (response.isSuccessful) {
                 response.body?.byteStream()?.use { stream ->
-                    RssFeedParser.parse(stream, source)
+                    when (source) {
+                        FeedSource.CISA_KEV -> CisaKevParser.parse(stream)
+                        else -> RssFeedParser.parse(stream, source)
+                    }
                 } ?: emptyList()
             } else {
                 emptyList()

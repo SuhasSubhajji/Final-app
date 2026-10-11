@@ -105,6 +105,7 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
   implementation("androidx.work:work-runtime-ktx:2.10.0")
+  implementation(libs.androidx.datastore.preferences)
 }
 
 tasks.withType<Test> {
