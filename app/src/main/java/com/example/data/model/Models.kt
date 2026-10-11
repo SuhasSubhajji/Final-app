@@ -95,7 +95,9 @@ data class ThreatItem(
     val aiSummary: String? = null,
     val aiRemediationSteps: List<String>? = null,
     val aiRiskScore: Int? = null,
-    val aiMitigationCode: String? = null
+    val aiMitigationCode: String? = null,
+    val cisaKev: Boolean = false,
+    val epssScore: Double? = null
 )
 
 data class SecurityAlert(

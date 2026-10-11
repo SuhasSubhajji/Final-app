@@ -423,6 +423,28 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         initialValue = emptyList()
     )
 
+    val bookmarkedThreats: StateFlow<List<ThreatItem>> = allThreatsFlow.map { threats ->
+        threats.filter { it.isBookmarked }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val offlineCacheStatus: StateFlow<com.example.data.model.OfflineCacheStatus> = repository.offlineCacheStatus
+
+    val isOfflineMode: StateFlow<Boolean> = offlineCacheStatus.map { it.isOfflineMode }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val lastSyncTimeFormatted: StateFlow<String> = offlineCacheStatus.map { it.formattedLastSync }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "Just now"
+    )
+
     val cveSearchQuery = MutableStateFlow("")
 
     fun setCveSearchQuery(query: String) {
@@ -450,8 +472,6 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
-
-    val offlineCacheStatus: StateFlow<com.example.data.model.OfflineCacheStatus> = repository.offlineCacheStatus
 
     val ttpProgressMap: StateFlow<Map<String, String>> = repository.allTtpProgressFlow.stateIn(
         scope = viewModelScope,

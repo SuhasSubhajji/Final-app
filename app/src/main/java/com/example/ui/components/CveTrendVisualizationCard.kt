@@ -709,6 +709,8 @@ private fun D3JsWebViewChart(
                         useWideViewPort = true
                         builtInZoomControls = false
                         displayZoomControls = false
+                        allowContentAccess = false
+                        allowFileAccess = false
                     }
                     tag = html
                     loadDataWithBaseURL("https://d3js.org", html, "text/html", "UTF-8", null)

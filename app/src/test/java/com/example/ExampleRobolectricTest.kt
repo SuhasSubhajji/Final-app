@@ -130,4 +130,19 @@ class ExampleRobolectricTest {
         assertTrue(dbId.isNotBlank())
         assertEquals("ai-studio-android-cybershi-6caf5f56-0ea0-46dd-94f3-5f9488eca635", dbId)
     }
+
+    @Test
+    fun `test compare version names logic in AppUpdateManager`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val updateManager = com.example.data.update.AppUpdateManager(context)
+
+        // 2.0.0 > 1.0.12
+        assertTrue(updateManager.compareVersionNames("2.0.0", "1.0.12") > 0)
+        // 2.1.0 > 2.0.0
+        assertTrue(updateManager.compareVersionNames("v2.1.0", "2.0.0") > 0)
+        // 2.0.0 == 2.0.0
+        assertEquals(0, updateManager.compareVersionNames("2.0.0", "v2.0.0"))
+        // 1.9.9 < 2.0.0
+        assertTrue(updateManager.compareVersionNames("1.9.9", "2.0.0") < 0)
+    }
 }

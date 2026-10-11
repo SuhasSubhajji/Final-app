@@ -65,7 +65,7 @@ class AppUpdateManager(private val context: Context) {
         _configuredRepo.value = cleanRepo
     }
 
-    private fun compareVersionNames(v1: String, v2: String): Int {
+    internal fun compareVersionNames(v1: String, v2: String): Int {
         val cleanV1 = v1.removePrefix("v").trim()
         val cleanV2 = v2.removePrefix("v").trim()
         val parts1 = cleanV1.split(".").mapNotNull { it.toIntOrNull() }
@@ -160,8 +160,8 @@ class AppUpdateManager(private val context: Context) {
      * Downloads the APK file and emits progress updates.
      */
     suspend fun downloadAndInstallUpdate(update: AppUpdateInfo) = withContext(Dispatchers.IO) {
-        if (update.downloadUrl.isBlank()) {
-            _downloadState.value = UpdateDownloadState.Error("Invalid download URL for update.")
+        if (update.downloadUrl.isBlank() || !update.downloadUrl.startsWith("https://", ignoreCase = true)) {
+            _downloadState.value = UpdateDownloadState.Error("Security policy violation: Download URL must start with https://")
             return@withContext
         }
 

@@ -85,11 +85,17 @@ fun MitreFlowChartWebView(
                         builtInZoomControls = false
                         displayZoomControls = false
                         cacheMode = WebSettings.LOAD_DEFAULT
-                        allowContentAccess = true
-                        allowFileAccess = true
+                        allowContentAccess = false
+                        allowFileAccess = false
                     }
                     webChromeClient = WebChromeClient()
-                    webViewClient = object : WebViewClient() {}
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                            val url = request?.url?.toString() ?: return false
+                            // Only allow internal data or local app scheme
+                            return !(url.startsWith("https://cyber-mitre-app.local/") || url.startsWith("data:"))
+                        }
+                    }
                     addJavascriptInterface(
                         MitreAndroidBridge(ctx, onTechniqueSelected),
                         "AndroidBridge"

@@ -7,7 +7,14 @@ import com.example.data.model.ThreatCategory
 import com.example.data.model.ThreatItem
 import com.example.data.model.ThreatSeverity
 
-@Entity(tableName = "threat_items")
+@Entity(
+    tableName = "threat_items",
+    indices = [
+        androidx.room.Index("pubDateMillis"),
+        androidx.room.Index("isBookmarked"),
+        androidx.room.Index("source")
+    ]
+)
 data class ThreatItemEntity(
     @PrimaryKey
     val id: String,
@@ -26,7 +33,9 @@ data class ThreatItemEntity(
     val aiSummary: String?,
     val aiRemediationStepsJson: String?,
     val aiRiskScore: Int?,
-    val aiMitigationCode: String?
+    val aiMitigationCode: String?,
+    val cisaKev: Boolean,
+    val epssScore: Double?
 ) {
     fun toDomain(): ThreatItem {
         val cves = if (cveIdsJson.isBlank()) emptyList() else cveIdsJson.split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -50,7 +59,9 @@ data class ThreatItemEntity(
             aiSummary = aiSummary,
             aiRemediationSteps = steps,
             aiRiskScore = aiRiskScore,
-            aiMitigationCode = aiMitigationCode
+            aiMitigationCode = aiMitigationCode,
+            cisaKev = cisaKev,
+            epssScore = epssScore
         )
     }
 
@@ -73,7 +84,9 @@ data class ThreatItemEntity(
                 aiSummary = item.aiSummary,
                 aiRemediationStepsJson = item.aiRemediationSteps?.joinToString(";;;"),
                 aiRiskScore = item.aiRiskScore,
-                aiMitigationCode = item.aiMitigationCode
+                aiMitigationCode = item.aiMitigationCode,
+                cisaKev = item.cisaKev,
+                epssScore = item.epssScore
             )
         }
     }

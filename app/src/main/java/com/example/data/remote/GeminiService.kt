@@ -187,6 +187,10 @@ class GeminiService {
             // Creates a crisp placeholder diagram so user receives an actual visual asset
             return "iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAACOEfKtAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAHtJREFUeNrs2bENwCAQA0F3/6Ubg1QWSCS3d6qg4c4XAQAAAGBrt13mNfv2L/P4944uBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAsLkB8N4CHQv3/XwAAAAASUVORK5CYII="
         }
+        private fun getValidApiKey(): String? {
+            val key = BuildConfig.GEMINI_API_KEY
+            return if (key.isNotBlank() && key != "MY_GEMINI_API_KEY") key else null
+        }
     }
 
     /**
