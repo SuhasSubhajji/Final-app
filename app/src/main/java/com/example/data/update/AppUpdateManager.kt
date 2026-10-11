@@ -144,13 +144,13 @@ class AppUpdateManager(private val context: Context) {
             val dismissedVersionName = prefs.getString(KEY_DISMISSED_VERSION_NAME, "") ?: ""
 
             if (detectedInfo != null) {
-                val isNewerCode = detectedInfo.versionCode > currentVersionCode
-                val isNewerName = compareVersionNames(detectedInfo.versionName, currentVersionName) > 0
-                val isNewer = isNewerCode || isNewerName
+                // Use version name comparison as the source of truth for updates, 
+                // as BuildConfig.VERSION_CODE is hardcoded to 1 in build.gradle.kts
+                val isNewer = compareVersionNames(detectedInfo.versionName, currentVersionName) > 0
 
                 val isDismissed = (detectedInfo.versionCode <= dismissedVersionCode || detectedInfo.versionName == dismissedVersionName) && !isUserInitiated
 
-                // Strictly trigger update ONLY if detected version/build is genuinely newer than installed build AND not dismissed
+                // Strictly trigger update ONLY if detected version is genuinely newer than installed version AND not dismissed
                 if (isNewer && !isDismissed) {
                     _updateInfo.value = detectedInfo
                     return@withContext UpdateCheckResult.UpdateAvailable(detectedInfo)
