@@ -81,6 +81,7 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     private val breachRepository = BreachRepository(AppDatabase.getInstance(application))
     private val glossaryRepository = GlossaryRepository(AppDatabase.getInstance(application))
     private val dynamicRoadmapManager = DynamicRoadmapManager(AppDatabase.getInstance(application))
+    private val techStackRepository = TechStackRepository(application)
 
     // --- In-App Updates & GitHub CI/CD Auto-Updater ---
     val updateManager = AppUpdateManager(application)
@@ -90,6 +91,12 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     val configuredRepo: StateFlow<String> = updateManager.configuredRepo
 
     val updateCheckResult = MutableStateFlow<UpdateCheckResult?>(null)
+
+    val techStack = techStackRepository.techStackFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptySet()
+    )
 
     init {
         // Automatically check for GitHub release updates on startup
@@ -571,13 +578,26 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
         allThreatsFlow,
         filterState,
         isRlSortEnabled,
-        rlAgentState
-    ) { threats, filter, rlSort, _ ->
+        rlAgentState,
+        techStack
+    ) { threats, filter, rlSort, _, selectedTech ->
         val filtered = repository.applyFilter(threats, filter)
-        if (rlSort) {
-            rlEngine.sortThreatsByRlScore(filtered)
-        } else {
+        
+        val sorted = if (selectedTech.isEmpty()) {
             filtered
+        } else {
+            val (relevant, rest) = filtered.partition { threat ->
+                selectedTech.any { tech ->
+                    threat.title.contains(tech, true) || threat.description.contains(tech, true)
+                }
+            }
+            relevant + rest
+        }
+        
+        if (rlSort) {
+            rlEngine.sortThreatsByRlScore(sorted)
+        } else {
+            sorted
         }
     }.stateIn(
         scope = viewModelScope,

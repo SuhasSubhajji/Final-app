@@ -138,4 +138,7 @@ interface ThreatDao {
 
     @Query("DELETE FROM threat_items")
     suspend fun clearAllThreats()
+
+    @Query("UPDATE threat_items SET cisaKev = 1 WHERE cveIdsJson LIKE '%' || :cveId || '%'")
+    suspend fun markThreatsAsCisaKevByCveId(cveId: String)
 }

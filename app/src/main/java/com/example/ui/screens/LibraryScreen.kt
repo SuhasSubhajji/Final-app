@@ -249,6 +249,9 @@ fun LibraryScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         item {
+                            TechStackSettingsScreen(repository = TechStackRepository(androidx.compose.ui.platform.LocalContext.current))
+                        }
+                        item {
                             Surface(
                                 color = theme.surface,
                                 shape = RoundedCornerShape(10.dp),
