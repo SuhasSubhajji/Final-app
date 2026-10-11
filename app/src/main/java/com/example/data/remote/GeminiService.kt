@@ -574,7 +574,7 @@ class GeminiService {
      * Local Seed Data for 1000 breaches scenario simulation when Gemini is offline.
      */
     fun getLocalSeedAttackScenarios(): List<AttackScenario> {
-        return com.example.data.breaches.RealWorldBreachesData.breaches
+        return com.example.data.breaches.RealWorldBreachesData.getLocalSeedAttackScenarios()
     }
 
     private fun generateChatbotLocalResponse(model: GeminiModel, prompt: String, hasUploadedImage: Boolean = false): String {

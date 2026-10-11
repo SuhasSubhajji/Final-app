@@ -63,8 +63,6 @@ import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
 import com.example.ui.theme.CyberTheme
 import com.example.ui.viewmodel.ThreatFeedViewModel
-import com.example.ui.screens.TechStackSettingsScreen
-import com.example.data.repository.TechStackRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +70,7 @@ fun LibraryScreen(
     viewModel: ThreatFeedViewModel,
     onThreatClick: (String) -> Unit,
     onNavigateToChatbot: (() -> Unit)? = null,
+    onNavigateToTechStack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -249,9 +248,6 @@ fun LibraryScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         item {
-                            TechStackSettingsScreen(repository = TechStackRepository(androidx.compose.ui.platform.LocalContext.current))
-                        }
-                        item {
                             Surface(
                                 color = theme.surface,
                                 shape = RoundedCornerShape(10.dp),
@@ -417,6 +413,54 @@ fun LibraryScreen(
                                         fontSize = 10.sp,
                                         modifier = Modifier.padding(top = 4.dp)
                                     )
+                                }
+                            }
+                        }
+
+                        item {
+                            Surface(
+                                color = theme.surface,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CyberBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Key,
+                                                contentDescription = "Tech Stack",
+                                                tint = CyberCyan,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Tech Stack Profile",
+                                                    color = theme.textPrimary,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "Configure your infrastructure stack",
+                                                    color = theme.textMuted,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        }
+
+                                        Button(
+                                            onClick = { onNavigateToTechStack?.invoke() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan, contentColor = Color.Black),
+                                            modifier = Modifier.testTag("btn_configure_tech_stack")
+                                        ) {
+                                            Text("Configure")
+                                        }
+                                    }
                                 }
                             }
                         }

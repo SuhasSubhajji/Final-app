@@ -56,6 +56,7 @@ import com.example.ui.screens.IntelScreen
 import com.example.ui.screens.LearnScreen
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.SecurityAlertsLibraryScreen
+import com.example.ui.screens.TechStackSettingsScreen
 import com.example.ui.screens.ThreatDetailScreen
 import com.example.ui.theme.CyberCyan
 import com.example.ui.theme.CyberEmerald
@@ -109,6 +110,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     data object Library : Screen("library", "Library", Icons.Default.FolderSpecial)
     data object AlertsLibrary : Screen("alerts_library", "Alerts Library", Icons.Default.Security)
     data object Chatbot : Screen("chatbot", "Gemini AI", Icons.Default.Security)
+    data object TechStack : Screen("tech_stack", "Tech Stack", Icons.Default.Security)
     data object Detail : Screen("detail/{threatId}", "Threat Detail", Icons.Default.Security) {
         fun createRoute(threatId: String) = "detail/${java.net.URLEncoder.encode(threatId, "UTF-8")}"
     }
@@ -311,7 +313,18 @@ fun CyberShieldApp(
                     },
                     onNavigateToChatbot = {
                         navController.navigate(Screen.Chatbot.route)
+                    },
+                    onNavigateToTechStack = {
+                        navController.navigate(Screen.TechStack.route)
                     }
+                )
+            }
+
+            // 5b. Tech Stack Settings
+            composable(Screen.TechStack.route) {
+                TechStackSettingsScreen(
+                    repository = viewModel.techStackRepository,
+                    onBack = { navController.popBackStack() }
                 )
             }
 

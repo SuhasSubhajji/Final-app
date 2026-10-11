@@ -104,6 +104,7 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+  implementation(libs.androidx.datastore.preferences)
   implementation("androidx.work:work-runtime-ktx:2.10.0")
 }
 

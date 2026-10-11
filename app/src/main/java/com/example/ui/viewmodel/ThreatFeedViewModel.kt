@@ -41,6 +41,7 @@ import com.example.data.remote.GeminiAnalysisResult
 import com.example.data.repository.CveIntelligenceRepository
 import com.example.data.repository.ThreatRepository
 import com.example.data.repository.BreachRepository
+import com.example.data.repository.TechStackRepository
 import com.example.data.update.UpdateCheckResult
 import com.example.notification.SecurityAlertManager
 import com.example.ui.theme.CyberCyan
@@ -85,6 +86,7 @@ class ThreatFeedViewModel(application: Application) : AndroidViewModel(applicati
     private val breachRepository = BreachRepository(AppDatabase.getInstance(application))
     private val glossaryRepository = GlossaryRepository(AppDatabase.getInstance(application))
     private val dynamicRoadmapManager = DynamicRoadmapManager(AppDatabase.getInstance(application))
+    val techStackRepository = TechStackRepository(application)
 
     // --- In-App Updates & GitHub CI/CD Auto-Updater ---
     val updateManager = AppUpdateManager(application)
