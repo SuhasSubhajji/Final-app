@@ -182,50 +182,19 @@ fun MitreMatrixScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Primary Switcher: Matrix Catalog vs. Interactive D3.js Flow Chart
-            TabRow(
-                selectedTabIndex = mainViewTab,
-                containerColor = CyberNavyDark,
-                contentColor = CyberCyan,
-                indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[mainViewTab]),
-                        color = CyberCyan
-                    )
-                }
+            // Matrix Catalog
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Interactive Flow Chart Preview Banner
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CyberCyan.copy(alpha = 0.4f))
             ) {
-                Tab(
-                    selected = mainViewTab == 0,
-                    onClick = { mainViewTab = 0 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                "Matrix Catalog (${filteredTtps.size})",
-                                fontWeight = if (mainViewTab == 0) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 12.sp
-                            )
-                        }
-                    },
-                    modifier = Modifier.testTag("tab_mitre_matrix_catalog")
-                )
-                Tab(
-                    selected = mainViewTab == 1,
-                    onClick = { mainViewTab = 1 },
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (mainViewTab == 1) CyberCyan else CyberTextSecondary)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                "D3.js Flow Chart",
-                                fontWeight = if (mainViewTab == 1) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 12.sp
-                            )
-                        }
-                    },
-                    modifier = Modifier.testTag("tab_mitre_d3_flow_chart")
-                )
+                // ... (Banner content)
             }
 
             if (mainViewTab == 1) {

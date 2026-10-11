@@ -83,8 +83,7 @@ import com.example.ui.theme.SeverityCritical
 enum class MitreGraphViewMode(val label: String, val iconEmoji: String) {
     ATTACK("ATT&CK Graph", "⚔️"),
     DEFEND("D3FEND Graph", "🛡️"),
-    UNIFIED("Unified Flow", "🔗"),
-    D3_CANVAS("D3.js Flow", "🌐")
+    UNIFIED("Unified Flow", "🔗")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,7 +102,6 @@ fun MitreInteractiveGraphComposable(
             when (initialMode) {
                 "DEFEND" -> MitreGraphViewMode.DEFEND
                 "UNIFIED" -> MitreGraphViewMode.UNIFIED
-                "D3_CANVAS" -> MitreGraphViewMode.D3_CANVAS
                 else -> MitreGraphViewMode.ATTACK
             }
         )
@@ -133,7 +131,6 @@ fun MitreInteractiveGraphComposable(
         MitreGraphViewMode.ATTACK -> "${filteredAttackTtps.size} ATT&CK TTPs"
         MitreGraphViewMode.DEFEND -> "${filteredD3fendItems.size} D3FEND Rules"
         MitreGraphViewMode.UNIFIED -> "${filteredAttackTtps.size} ATT&CK • ${filteredD3fendItems.size} D3FEND"
-        MitreGraphViewMode.D3_CANVAS -> "${allTtps.size} ATT&CK + ${allD3fendItems.size} D3FEND Flow"
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -256,7 +253,6 @@ fun MitreInteractiveGraphComposable(
                             MitreGraphViewMode.ATTACK -> SeverityCritical
                             MitreGraphViewMode.DEFEND -> CyberEmerald
                             MitreGraphViewMode.UNIFIED -> CyberCyan
-                            MitreGraphViewMode.D3_CANVAS -> Color(0xFFA855F7)
                         }
                         Box(
                             modifier = Modifier
@@ -343,27 +339,10 @@ fun MitreInteractiveGraphComposable(
         }
 
         // --- Main Visual Graph / D3 Canvas Area ---
-        if (selectedViewMode == MitreGraphViewMode.D3_CANVAS) {
-            com.example.ui.screens.MitreFlowChartWebView(
-                initialFocusMode = when (selectedViewMode) {
-                    MitreGraphViewMode.DEFEND -> "DEFEND"
-                    MitreGraphViewMode.UNIFIED -> "ALL"
-                    else -> "ATTACK"
-                },
-                onTechniqueSelected = { techId ->
-                    val foundAtt = allTtps.firstOrNull { it.techniqueId == techId }
-                    if (foundAtt != null) {
-                        selectedTtpForInspection = foundAtt
-                    } else {
-                        val foundDef = allD3fendItems.firstOrNull { it.d3fendId == techId }
-                        if (foundDef != null) {
-                            selectedD3fendForInspection = foundDef
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        } else if (selectedViewMode == MitreGraphViewMode.DEFEND) {
+        // (Removed D3 chart to simplify interactive tabs)
+        
+        // Default to Matrix View for other modes
+        if (selectedViewMode == MitreGraphViewMode.DEFEND) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -980,7 +959,6 @@ private fun MitreGraphTtpCard(
                     MitreGraphViewMode.ATTACK -> SeverityCritical.copy(alpha = 0.4f)
                     MitreGraphViewMode.DEFEND -> CyberEmerald.copy(alpha = 0.4f)
                     MitreGraphViewMode.UNIFIED -> CyberCyan.copy(alpha = 0.4f)
-                    MitreGraphViewMode.D3_CANVAS -> Color(0xFFA855F7).copy(alpha = 0.4f)
                 }
             }
         )
