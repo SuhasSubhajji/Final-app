@@ -249,69 +249,55 @@ fun GeminiChatbotScreen(
                             shape = CircleShape,
                             color = theme.accentPrimary.copy(alpha = 0.15f),
                             border = androidx.compose.foundation.BorderStroke(1.dp, theme.accentPrimary.copy(alpha = 0.4f)),
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = "Gemini",
                                     tint = theme.accentPrimary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Gemini AI",
-                                    color = theme.textPrimary,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = theme.accentPrimary.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = "CYBER",
-                                        color = theme.accentPrimary,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
+                        Text(
+                            text = "Gemini AI",
+                            color = theme.textPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
 
-                            // Interactive Model Switcher Button
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = theme.surfaceVariant,
-                                border = androidx.compose.foundation.BorderStroke(0.6.dp, theme.border),
-                                modifier = Modifier
-                                    .clickable { showModelSelectorSheet = true }
-                                    .testTag("chatbot_model_selector_button")
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        // Compact Model Switcher Pill in Top Bar
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = theme.accentPrimary.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(0.8.dp, theme.accentPrimary.copy(alpha = 0.4f)),
+                            modifier = Modifier
+                                .clickable { showModelSelectorSheet = true }
+                                .testTag("chatbot_model_selector_button")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = selectedModel.displayName,
-                                        color = theme.textSecondary,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = "Select Model",
-                                        tint = theme.textSecondary,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
+                                Text(
+                                    text = selectedModel.displayName,
+                                    color = theme.accentPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Change Model",
+                                    tint = theme.accentPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
                             }
                         }
                     }
@@ -329,6 +315,26 @@ fun GeminiChatbotScreen(
                     }
                 },
                 actions = {
+                    // Search Grounding Toggle
+                    IconButton(
+                        onClick = {
+                            viewModel.toggleSearchGrounding()
+                            Toast.makeText(
+                                context,
+                                if (!isSearchGrounded) "Google Search Grounding enabled" else "Search Grounding disabled",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier.testTag("toggle_search_grounding_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "Toggle Search Grounding",
+                            tint = if (isSearchGrounded) theme.accentPrimary else theme.textMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
                     // Reset / Clear Chat
                     IconButton(
                         onClick = {
@@ -354,7 +360,7 @@ fun GeminiChatbotScreen(
             )
         },
         bottomBar = {
-            // Chat Input & Model Indicator Bar
+            // Chat Input & Action Bar
             Surface(
                 color = theme.surface,
                 tonalElevation = 6.dp,
@@ -365,41 +371,6 @@ fun GeminiChatbotScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    // Active model telemetry - COMPACT
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Model indicator
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clickable { showModelSelectorSheet = true }
-                                .padding(vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "Model: ${selectedModel.displayName}",
-                                color = theme.accentPrimary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        
-                        // Compact Grounding Toggle
-                        Text(
-                            text = if (isSearchGrounded) "🌐 Grounded" else "Offline",
-                            color = if (isSearchGrounded) theme.accentPrimary else theme.textMuted,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clickable { viewModel.toggleSearchGrounding() }
-                                .testTag("toggle_search_grounding_button")
-                        )
-                    }
-
                     // Selected Image Preview Banner (if user picked an image)
                     AnimatedVisibility(visible = selectedImageUri != null) {
                         Surface(

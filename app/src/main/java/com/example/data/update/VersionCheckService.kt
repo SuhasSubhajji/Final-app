@@ -5,7 +5,6 @@ import com.example.BuildConfig
 import com.squareup.moshi.Moshi
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.util.concurrent.TimeUnit
 
 class VersionCheckService(private val okHttpClient: OkHttpClient, private val moshi: Moshi) {
 
@@ -13,11 +12,13 @@ class VersionCheckService(private val okHttpClient: OkHttpClient, private val mo
         private const val TAG = "VersionCheckService"
     }
 
+    private val versionManager = VersionManager()
+
     suspend fun checkRemoteVersion(repo: String): UpdateCheckResult {
         val candidateUrls = listOf(
-            "https://raw.githubusercontent.com/$repo/main/app-version.json",
             "https://github.com/$repo/releases/latest/download/app-version.json",
-            "https://api.github.com/repos/$repo/releases/latest"
+            "https://api.github.com/repos/$repo/releases/latest",
+            "https://raw.githubusercontent.com/$repo/main/app-version.json"
         )
 
         for (url in candidateUrls) {
@@ -38,16 +39,16 @@ class VersionCheckService(private val okHttpClient: OkHttpClient, private val mo
                             moshi.adapter(AppUpdateInfo::class.java).fromJson(bodyString)
                         }
 
-                        Log.d(TAG, "Detected version: $detectedInfo from $url")
+                        Log.d(TAG, "Detected version info: $detectedInfo from $url")
 
-                        if (detectedInfo != null) {
+                        if (detectedInfo != null && detectedInfo.downloadUrl.isNotBlank()) {
                             val currentVersionName = BuildConfig.VERSION_NAME
                             val currentVersionCode = BuildConfig.VERSION_CODE
-                            
-                            val isNewer = compareVersionNames(detectedInfo.versionName, currentVersionName) > 0
-                            
-                            Log.d(TAG, "Comparing $detectedInfo.versionName > $currentVersionName, isNewer: $isNewer")
-                            
+
+                            val isNewer = versionManager.isNewerVersion(detectedInfo.versionCode, detectedInfo.versionName)
+
+                            Log.d(TAG, "Remote: code=${detectedInfo.versionCode}, name=${detectedInfo.versionName} | Local: code=$currentVersionCode, name=$currentVersionName -> isNewer: $isNewer")
+
                             if (isNewer) {
                                 return UpdateCheckResult.UpdateAvailable(detectedInfo)
                             } else {
@@ -63,26 +64,12 @@ class VersionCheckService(private val okHttpClient: OkHttpClient, private val mo
         return UpdateCheckResult.Error("Failed to check update server")
     }
 
-    private fun compareVersionNames(v1: String, v2: String): Int {
-        val cleanV1 = v1.removePrefix("v").trim()
-        val cleanV2 = v2.removePrefix("v").trim()
-        val parts1 = cleanV1.split(".").mapNotNull { it.toIntOrNull() }
-        val parts2 = cleanV2.split(".").mapNotNull { it.toIntOrNull() }
-        val maxLength = maxOf(parts1.size, parts2.size)
-        for (i in 0 until maxLength) {
-            val p1 = parts1.getOrElse(i) { 0 }
-            val p2 = parts2.getOrElse(i) { 0 }
-            if (p1 != p2) return p1.compareTo(p2)
-        }
-        return 0
-    }
-
     private fun parseGitHubReleaseApiResponse(jsonStr: String): AppUpdateInfo? {
         return try {
             val json = org.json.JSONObject(jsonStr)
             val tagName = json.optString("tag_name", "")
             val name = json.optString("name", tagName)
-            val body = json.optString("body", "Bug fixes and improvements")
+            val body = json.optString("body", "Bug fixes and performance improvements")
             val publishedAt = json.optString("published_at", "")
 
             var apkUrl = ""
@@ -102,10 +89,10 @@ class VersionCheckService(private val okHttpClient: OkHttpClient, private val mo
 
             val cleanVersion = tagName.removePrefix("v").trim()
             val parts = cleanVersion.split(".")
-            val code = parts.lastOrNull()?.toIntOrNull() ?: 1
+            val runNum = parts.lastOrNull()?.toIntOrNull() ?: 1
 
             AppUpdateInfo(
-                versionCode = code,
+                versionCode = runNum,
                 versionName = cleanVersion.ifBlank { name },
                 releaseNotes = body,
                 downloadUrl = apkUrl,

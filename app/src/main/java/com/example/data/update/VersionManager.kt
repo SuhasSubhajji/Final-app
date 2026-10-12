@@ -15,23 +15,22 @@ class VersionManager {
         val currentCode = BuildConfig.VERSION_CODE
         val currentName = BuildConfig.VERSION_NAME
 
-        // If code is genuinely higher, it is newer
+        // 1. Primary check: If remote versionCode is strictly higher, it is newer
         if (remoteVersionCode > currentCode) return true
-        
-        // If code is same, check version name as secondary check
-        if (remoteVersionCode == currentCode) {
-            return compareVersionNames(remoteVersionName, currentName) > 0
-        }
 
-        return false
+        // 2. If remote versionCode is lower, it is NOT newer
+        if (remoteVersionCode < currentCode) return false
+
+        // 3. Secondary check: If versionCode is identical, compare semver version names
+        return compareVersionNames(remoteVersionName, currentName) > 0
     }
 
-    private fun compareVersionNames(v1: String, v2: String): Int {
+    fun compareVersionNames(v1: String, v2: String): Int {
         val cleanV1 = v1.removePrefix("v").trim()
         val cleanV2 = v2.removePrefix("v").trim()
         val parts1 = cleanV1.split(".").mapNotNull { it.toIntOrNull() }
         val parts2 = cleanV2.split(".").mapNotNull { it.toIntOrNull() }
-        
+
         val maxLength = maxOf(parts1.size, parts2.size)
         for (i in 0 until maxLength) {
             val p1 = parts1.getOrElse(i) { 0 }
