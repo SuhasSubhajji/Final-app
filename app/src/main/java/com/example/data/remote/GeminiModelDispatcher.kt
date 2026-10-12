@@ -22,14 +22,13 @@ object GeminiModelDispatcher {
 
     private const val TAG = "GeminiModelDispatcher"
 
-    // Text & reasoning fallback cascade priority list
+    // Text & reasoning fallback cascade priority list of verified available models
     val fallbackChain = listOf(
         GeminiModel.GEMINI_3_5_FLASH,
-        GeminiModel.GEMINI_3_1_FLASH_LITE,
         GeminiModel.GEMINI_FLASH_LATEST,
-        GeminiModel.GEMINI_3_1_PRO,
-        GeminiModel.GEMINI_1_5_FLASH,
-        GeminiModel.GEMINI_1_5_PRO
+        GeminiModel.GEMINI_3_1_FLASH_LITE,
+        GeminiModel.GEMINI_2_5_FLASH,
+        GeminiModel.GEMINI_3_1_PRO
     )
 
     private val _activeModel = MutableStateFlow(GeminiModel.defaultModel())
@@ -55,7 +54,7 @@ object GeminiModelDispatcher {
     fun isQuotaExceededException(e: Throwable): Boolean {
         if (e is HttpException) {
             val code = e.code()
-            if (code == 429 || code == 503 || code == 403) return true // 403 can sometimes be quota in some SDKs
+            if (code == 429 || code == 503 || code == 403) return true
             val errorBody = try { e.response()?.errorBody()?.string().orEmpty().lowercase() } catch (ex: Exception) { "" }
             if (errorBody.contains("quota") || 
                 errorBody.contains("resource_exhausted") || 
@@ -76,12 +75,21 @@ object GeminiModelDispatcher {
     }
 
     /**
-     * Executes the provided Gemini API request. If a quota/rate limit error is caught,
+     * Checks whether an exception is a model-level failure (404 Not Found, 400 Bad Request / Unsupported modality, etc.)
+     * that should cascade to the next candidate model instead of failing the user query.
+     */
+    fun isModelUnavailableException(e: Throwable): Boolean {
+        if (e is HttpException) {
+            val code = e.code()
+            if (code == 404 || code == 400 || code == 500 || code == 502) return true
+        }
+        val msg = e.message?.lowercase().orEmpty()
+        return msg.contains("404") || msg.contains("not found")
+    }
+
+    /**
+     * Executes the provided Gemini API request. If a quota/rate limit or model-specific error occurs,
      * it automatically tries the next models in the fallback sequence.
-     *
-     * @param preferredModel The initial model to attempt (or null to use active model)
-     * @param call Lambda executing the API invocation with the candidate model
-     * @return Execution result including final model used and output
      */
     suspend fun <T> executeWithQuotaFallback(
         preferredModel: GeminiModel? = null,
@@ -103,7 +111,7 @@ object GeminiModelDispatcher {
         for (i in candidates.indices) {
             val candidate = candidates[i]
             var retries = 0
-            val maxRetries = 3
+            val maxRetries = 2
             
             while (retries <= maxRetries) {
                 try {
@@ -116,11 +124,11 @@ object GeminiModelDispatcher {
                         val event = QuotaSwitchEvent(
                             originalModel = initial,
                             switchedModel = candidate,
-                            message = "Quota limit reached on ${initial.displayName}. Automatically switched to ${candidate.displayName}."
+                            message = "Switched to ${candidate.displayName} to complete query successfully."
                         )
                         _lastQuotaExceededEvent.value = event
                         _activeModel.value = candidate
-                        Log.w(TAG, "Auto-switched model from ${initial.displayName} to ${candidate.displayName} due to quota exhaustion.")
+                        Log.w(TAG, "Auto-switched model from ${initial.displayName} to ${candidate.displayName}.")
                     }
 
                     return QuotaExecutionResult.Success(
@@ -130,29 +138,32 @@ object GeminiModelDispatcher {
                     )
                 } catch (e: Throwable) {
                     lastException = e
-                    if (isQuotaExceededException(e)) {
+                    if (isModelUnavailableException(e)) {
+                        Log.w(TAG, "Model ${candidate.modelId} unavailable or returned ${e.message}. Trying next candidate...")
+                        break // Move immediately to next model without retrying 404/400
+                    } else if (isQuotaExceededException(e)) {
                         if (retries < maxRetries) {
-                            val backoffDelay = (2.0.pow(retries.toDouble()) * 1500).toLong() // Increased baseline backoff
+                            val backoffDelay = (2.0.pow(retries.toDouble()) * 1000).toLong()
                             Log.w(TAG, "Model ${candidate.modelId} exceeded quota. Retrying in ${backoffDelay}ms... (Retry ${retries + 1}/$maxRetries)")
                             delay(backoffDelay)
                             retries++
                             continue
                         } else {
-                            Log.w(TAG, "Model ${candidate.modelId} exhausted retries for quota error. Attempting next model...")
+                            Log.w(TAG, "Model ${candidate.modelId} exhausted retries for quota error. Attempting next candidate...")
                             break // Move to next candidate model
                         }
                     } else {
-                        // Non-quota error (e.g. invalid request format, offline network)
-                        Log.e(TAG, "Model ${candidate.modelId} failed with non-quota error: ${e.message}")
-                        return QuotaExecutionResult.Error(e, candidate)
+                        // For other server errors, attempt next candidate in chain before failing
+                        Log.w(TAG, "Model ${candidate.modelId} failed with ${e.message}. Attempting next candidate...")
+                        break
                     }
                 }
             }
         }
 
-        Log.e(TAG, "All models in fallback cascade exhausted or returned errors.")
+        Log.e(TAG, "All models in fallback cascade exhausted or returned errors: ${lastException?.message}")
         return QuotaExecutionResult.Error(
-            lastException ?: IOException("Quota exceeded on all available models"),
+            lastException ?: IOException("Connection error across all available Gemini models"),
             candidates.last()
         )
     }

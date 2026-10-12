@@ -14,33 +14,13 @@ enum class GeminiModel(
 ) {
     // --- 1. Core Text & Reasoning Models ---
     GEMINI_3_5_FLASH(
-        modelId = "gemini-3-flash-preview",
-        displayName = "Gemini 3 Flash Preview",
+        modelId = "gemini-3.5-flash",
+        displayName = "Gemini 3.5 Flash",
         category = ModelCategory.TEXT_AND_REASONING,
         badge = "Default • Recommended",
         description = "Next-generation multimodal model balanced for rapid coding, threat triage, DevSecOps reasoning, and general Q&A.",
         speed = "Very Fast",
         contextInfo = "General Text, Code, & Multimodal"
-    ),
-
-    GEMINI_3_1_PRO(
-        modelId = "gemini-3-pro-preview",
-        displayName = "Gemini 3 Pro Preview",
-        category = ModelCategory.TEXT_AND_REASONING,
-        badge = "Frontier Reasoning",
-        description = "Advanced reasoning engine optimized for complex vulnerability analysis, reverse engineering logic, STEM, and deep code auditing.",
-        speed = "Standard",
-        contextInfo = "Complex Reasoning, Math, & STEM"
-    ),
-
-    GEMINI_3_1_FLASH_LITE(
-        modelId = "gemini-3-flash-lite-preview",
-        displayName = "Gemini 3 Flash Lite",
-        category = ModelCategory.TEXT_AND_REASONING,
-        badge = "Ultra Low Latency",
-        description = "High-throughput lightweight model tailored for sub-second alert triage, threat summarization, and rapid querying.",
-        speed = "Ultra-Fast",
-        contextInfo = "Lightweight Text & Real-Time Summaries"
     ),
 
     GEMINI_FLASH_LATEST(
@@ -53,24 +33,34 @@ enum class GeminiModel(
         contextInfo = "Production Stable Multimodal"
     ),
 
-    GEMINI_1_5_FLASH(
-        modelId = "gemini-1.5-flash",
-        displayName = "Gemini 1.5 Flash",
+    GEMINI_3_1_FLASH_LITE(
+        modelId = "gemini-3.1-flash-lite-preview",
+        displayName = "Gemini 3.1 Flash Lite",
         category = ModelCategory.TEXT_AND_REASONING,
-        badge = "High Volume",
-        description = "Production-grade low latency model with large context window for extensive code analysis.",
-        speed = "Fast",
-        contextInfo = "Stable Text & Code"
+        badge = "Ultra Low Latency",
+        description = "High-throughput lightweight model tailored for sub-second alert triage, threat summarization, and rapid querying.",
+        speed = "Ultra-Fast",
+        contextInfo = "Lightweight Text & Real-Time Summaries"
     ),
 
-    GEMINI_1_5_PRO(
-        modelId = "gemini-1.5-pro",
-        displayName = "Gemini 1.5 Pro",
+    GEMINI_2_5_FLASH(
+        modelId = "gemini-2.5-flash",
+        displayName = "Gemini 2.5 Flash",
         category = ModelCategory.TEXT_AND_REASONING,
-        badge = "Professional",
-        description = "Standard professional frontier model for complex multimodal tasks and long-context analysis.",
+        badge = "High Throughput",
+        description = "Production-grade low latency model with high search grounding compatibility for extensive code analysis.",
+        speed = "Fast",
+        contextInfo = "Stable Text, Code & Search"
+    ),
+
+    GEMINI_3_1_PRO(
+        modelId = "gemini-3.1-pro-preview",
+        displayName = "Gemini 3.1 Pro Preview",
+        category = ModelCategory.TEXT_AND_REASONING,
+        badge = "Frontier Reasoning",
+        description = "Advanced reasoning engine optimized for complex vulnerability analysis, reverse engineering logic, STEM, and deep code auditing.",
         speed = "Standard",
-        contextInfo = "Stable Pro Reasoning"
+        contextInfo = "Complex Reasoning, Math, & STEM"
     ),
 
     // --- 2. Vision & Image Generation Models ---

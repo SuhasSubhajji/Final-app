@@ -234,18 +234,25 @@ class GeminiService {
 
         try {
             val tools = if (enableSearchGrounding) listOf(GeminiWebSearchTool()) else null
-            val request = GeminiGenerateRequest(
+            val baseRequest = GeminiGenerateRequest(
                 contents = listOf(
                     GeminiContent(parts = listOf(GeminiPart(text = prompt)))
                 ),
                 tools = tools
             )
 
-            // When search grounding is enabled, prioritize gemini-3.5-flash
-            val preferredModel = if (enableSearchGrounding) GeminiModel.GEMINI_3_5_FLASH else null
+            val preferredModel = GeminiModel.GEMINI_3_5_FLASH
 
-            val result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
-                RetrofitClient.service.generateContent(model.modelId, apiKey, request)
+            var result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
+                RetrofitClient.service.generateContent(model.modelId, apiKey, baseRequest)
+            }
+
+            // If search tools caused a quota or model rejection, retry without search tools
+            if (result is QuotaExecutionResult.Error && tools != null) {
+                Log.w(TAG, "Search grounding call failed. Retrying without search tools...")
+                result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
+                    RetrofitClient.service.generateContent(model.modelId, apiKey, baseRequest.copy(tools = null))
+                }
             }
 
             when (result) {
@@ -311,17 +318,24 @@ class GeminiService {
             """.trimIndent()
 
             val tools = if (enableSearchGrounding) listOf(GeminiWebSearchTool()) else null
-            val request = GeminiGenerateRequest(
+            val baseRequest = GeminiGenerateRequest(
                 contents = listOf(
                     GeminiContent(parts = listOf(GeminiPart(text = prompt)))
                 ),
                 tools = tools
             )
 
-            val preferredModel = if (enableSearchGrounding) GeminiModel.GEMINI_3_5_FLASH else null
+            val preferredModel = GeminiModel.GEMINI_3_5_FLASH
 
-            val result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
-                RetrofitClient.service.generateContent(model.modelId, apiKey, request)
+            var result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
+                RetrofitClient.service.generateContent(model.modelId, apiKey, baseRequest)
+            }
+
+            // Resilient fallback if search tools caused quota or rejection
+            if (result is QuotaExecutionResult.Error && tools != null) {
+                result = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = preferredModel) { model ->
+                    RetrofitClient.service.generateContent(model.modelId, apiKey, baseRequest.copy(tools = null))
+                }
             }
 
             when (result) {
@@ -409,7 +423,6 @@ class GeminiService {
             val wantsImageGeneration = isImageGenerationIntent(userPrompt) || model == GeminiModel.GEMINI_2_5_FLASH_IMAGE
             val effectiveTargetModel = when {
                 wantsImageGeneration && model.category != com.example.data.model.ModelCategory.IMAGE_AND_VISION -> GeminiModel.GEMINI_2_5_FLASH_IMAGE
-                enableSearchGrounding && !wantsImageGeneration -> GeminiModel.GEMINI_3_5_FLASH
                 else -> model
             }
 
@@ -422,12 +435,12 @@ class GeminiService {
 
             val tools = if (enableSearchGrounding && !wantsImageGeneration) listOf(GeminiWebSearchTool()) else null
 
-            val request = GeminiGenerateRequest(
+            val baseRequest = GeminiGenerateRequest(
                 contents = reqContents,
                 systemInstruction = GeminiContent(
                     parts = listOf(
                         GeminiPart(
-                            text = "You are Gemini 3.5 Flash, an expert DevSecOps and Cybersecurity architect. Provide concise, highly technical, and actionable guidance with code snippets, MITRE ATT&CK/D3FEND references, CLI commands, and defensive blueprints. When Google Search data is provided, synthesize the latest live intelligence and reference accurate zero-day/CVE status. If the user provides an image or architecture diagram, audit it for security vulnerabilities. If asked to generate an image or diagram, describe it and provide visual topology."
+                            text = "You are Gemini, an expert DevSecOps and Cybersecurity architect. Provide concise, highly technical, and actionable guidance with code snippets, MITRE ATT&CK/D3FEND references, CLI commands, and defensive blueprints. When Google Search data is provided, synthesize the latest live intelligence and reference accurate zero-day/CVE status. If the user provides an image or architecture diagram, audit it for security vulnerabilities. If asked to generate an image or diagram, describe it and provide visual topology."
                         )
                     )
                 ),
@@ -435,8 +448,16 @@ class GeminiService {
                 tools = tools
             )
 
-            val execResult = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = effectiveTargetModel) { targetModel ->
-                RetrofitClient.service.generateContent(targetModel.modelId, apiKey, request)
+            var execResult = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = effectiveTargetModel) { targetModel ->
+                RetrofitClient.service.generateContent(targetModel.modelId, apiKey, baseRequest)
+            }
+
+            // Resilient fallback: If search grounding query fails or causes quota/model rejection, retry without search tools
+            if (execResult is QuotaExecutionResult.Error && tools != null) {
+                Log.w(TAG, "Search grounding query failed or quota exhausted. Retrying with direct generative reasoning without search tools...")
+                execResult = GeminiModelDispatcher.executeWithQuotaFallback(preferredModel = effectiveTargetModel) { targetModel ->
+                    RetrofitClient.service.generateContent(targetModel.modelId, apiKey, baseRequest.copy(tools = null))
+                }
             }
 
             when (execResult) {

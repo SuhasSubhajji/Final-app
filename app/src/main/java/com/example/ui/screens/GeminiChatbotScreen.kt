@@ -365,14 +365,15 @@ fun GeminiChatbotScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    // Active model telemetry badge
+                    // Active model telemetry - COMPACT
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 6.dp),
+                            .padding(bottom = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Model indicator
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -382,74 +383,21 @@ fun GeminiChatbotScreen(
                             Text(
                                 text = "Model: ${selectedModel.displayName}",
                                 color = theme.accentPrimary,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = theme.accentSecondary.copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = selectedModel.speed,
-                                    color = theme.accentSecondary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                )
-                            }
                         }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Google Search Grounding interactive Toggle Chip
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSearchGrounded) theme.accentPrimary.copy(alpha = 0.2f) else theme.surfaceVariant,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    if (isSearchGrounded) theme.accentPrimary else theme.border
-                                ),
-                                modifier = Modifier
-                                    .clickable {
-                                        viewModel.toggleSearchGrounding()
-                                        Toast.makeText(
-                                            context,
-                                            if (!isSearchGrounded) "Google Search Grounding Enabled 🌐" else "Google Search Grounding Disabled",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                    .testTag("toggle_search_grounding_button")
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Language,
-                                        contentDescription = "Search Grounding",
-                                        tint = if (isSearchGrounded) theme.accentPrimary else theme.textMuted,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (isSearchGrounded) "Search Grounded" else "Offline Only",
-                                        color = if (isSearchGrounded) theme.accentPrimary else theme.textMuted,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(6.dp))
-
-                            Text(
-                                text = "Tap model to switch",
-                                color = theme.textMuted,
-                                fontSize = 10.sp
-                            )
-                        }
+                        
+                        // Compact Grounding Toggle
+                        Text(
+                            text = if (isSearchGrounded) "🌐 Grounded" else "Offline",
+                            color = if (isSearchGrounded) theme.accentPrimary else theme.textMuted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clickable { viewModel.toggleSearchGrounding() }
+                                .testTag("toggle_search_grounding_button")
+                        )
                     }
 
                     // Selected Image Preview Banner (if user picked an image)
