@@ -1,0 +1,737 @@
+{
+  "metadata": {
+    "version": "v19.2",
+    "attackVersion": "v19.2",
+    "d3fendVersion": "v0.12.0",
+    "generatedAt": "2026-10-12T16:41:00Z",
+    "enterpriseTacticsCount": 16,
+    "d3fendTacticsCount": 7
+  },
+  "tactics": [
+    {
+      "id": "TA0043",
+      "name": "Reconnaissance",
+      "shortname": "reconnaissance",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Reconnaissance"
+    },
+    {
+      "id": "TA0042",
+      "name": "Resource Development",
+      "shortname": "resource-development",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Resource Development"
+    },
+    {
+      "id": "TA0001",
+      "name": "Initial Access",
+      "shortname": "initial-access",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Initial Access"
+    },
+    {
+      "id": "TA0002",
+      "name": "Execution",
+      "shortname": "execution",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Execution"
+    },
+    {
+      "id": "TA0003",
+      "name": "Persistence",
+      "shortname": "persistence",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Persistence"
+    },
+    {
+      "id": "TA0004",
+      "name": "Privilege Escalation",
+      "shortname": "privilege-escalation",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Privilege Escalation"
+    },
+    {
+      "id": "TA0005",
+      "name": "Defense Evasion",
+      "shortname": "defense-evasion",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Defense Evasion"
+    },
+    {
+      "id": "TA0044",
+      "name": "Stealth",
+      "shortname": "stealth",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Stealth"
+    },
+    {
+      "id": "TA0045",
+      "name": "Defense Impairment",
+      "shortname": "defense-impairment",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Defense Impairment"
+    },
+    {
+      "id": "TA0006",
+      "name": "Credential Access",
+      "shortname": "credential-access",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Credential Access"
+    },
+    {
+      "id": "TA0007",
+      "name": "Discovery",
+      "shortname": "discovery",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Discovery"
+    },
+    {
+      "id": "TA0008",
+      "name": "Lateral Movement",
+      "shortname": "lateral-movement",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Lateral Movement"
+    },
+    {
+      "id": "TA0009",
+      "name": "Collection",
+      "shortname": "collection",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Collection"
+    },
+    {
+      "id": "TA0011",
+      "name": "Command and Control",
+      "shortname": "command-and-control",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Command and Control"
+    },
+    {
+      "id": "TA0010",
+      "name": "Exfiltration",
+      "shortname": "exfiltration",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Exfiltration"
+    },
+    {
+      "id": "TA0040",
+      "name": "Impact",
+      "shortname": "impact",
+      "domain": "enterprise",
+      "description": "Official ATT&CK Enterprise Tactic: Impact"
+    },
+    {
+      "id": "TA0027",
+      "name": "Network Effects",
+      "shortname": "network-effects",
+      "domain": "mobile",
+      "description": "Intercept or manipulate network traffic on mobile"
+    },
+    {
+      "id": "TA0028",
+      "name": "Remote Service Effects",
+      "shortname": "remote-service-effects",
+      "domain": "mobile",
+      "description": "Abuse remote cloud services connected to mobile device"
+    },
+    {
+      "id": "TA0108",
+      "name": "Inhibit Response Function",
+      "shortname": "inhibit-response-function",
+      "domain": "ics",
+      "description": "Prevent safety system and OT response mechanisms"
+    },
+    {
+      "id": "TA0105",
+      "name": "Impair Process Control",
+      "shortname": "impair-process-control",
+      "domain": "ics",
+      "description": "Manipulate physical industrial process control parameters"
+    }
+  ],
+  "d3fendTactics": [
+    {
+      "id": "D3-TAC-MODEL",
+      "name": "Model",
+      "description": "Asset inventorying & mapping"
+    },
+    {
+      "id": "D3-TAC-HARDEN",
+      "name": "Harden",
+      "description": "Reducing attack surface"
+    },
+    {
+      "id": "D3-TAC-DETECT",
+      "name": "Detect",
+      "description": "Identifying adversary activity"
+    },
+    {
+      "id": "D3-TAC-ISOLATE",
+      "name": "Isolate",
+      "description": "Containment and segmentation"
+    },
+    {
+      "id": "D3-TAC-DECEIVE",
+      "name": "Deceive",
+      "description": "Decoys and deception tech"
+    },
+    {
+      "id": "D3-TAC-EVICT",
+      "name": "Evict",
+      "description": "Remediating and removing adversary access"
+    },
+    {
+      "id": "D3-TAC-RESTORE",
+      "name": "Restore",
+      "description": "Recovery to a known-good state"
+    }
+  ],
+  "redirects": {
+    "T1562": "T1562.001",
+    "T1086": "T1059.001",
+    "T1085": "T1218.011",
+    "T1028": "T1047",
+    "T1064": "T1059",
+    "T1089": "T1562.001",
+    "T1034": "T1574.008",
+    "T1107": "T1070.004"
+  },
+  "techniques": [
+    {
+      "id": "T1134",
+      "name": "Access Token Manipulation",
+      "domain": "enterprise",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "stealth",
+        "privilege-escalation",
+        "defense-evasion"
+      ],
+      "platforms": [
+        "Windows"
+      ],
+      "dataSources": [
+        "Command: Command Execution",
+        "Process: Process Creation",
+        "Token: Token Impersonation"
+      ],
+      "description": "Adversaries may modify access tokens to operate under a different security context, perform privilege escalation, or evade detection mechanisms.",
+      "url": "https://attack.mitre.org/techniques/T1134"
+    },
+    {
+      "id": "T1134.001",
+      "name": "Token Impersonation/Theft",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1134",
+      "tactics": [
+        "stealth",
+        "privilege-escalation",
+        "defense-evasion"
+      ],
+      "platforms": [
+        "Windows"
+      ],
+      "dataSources": [
+        "Process: Process Access",
+        "Token: Token Modification"
+      ],
+      "description": "Adversaries may duplicate or steal existing access tokens from running processes to impersonate logged-in users.",
+      "url": "https://attack.mitre.org/techniques/T1134/001"
+    },
+    {
+      "id": "T1134.002",
+      "name": "Create Process with Token",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1134",
+      "tactics": [
+        "stealth",
+        "privilege-escalation"
+      ],
+      "platforms": [
+        "Windows"
+      ],
+      "dataSources": [
+        "Process: Process Creation"
+      ],
+      "description": "Adversaries may create new processes using stolen access tokens to execute binaries under high privilege accounts.",
+      "url": "https://attack.mitre.org/techniques/T1134/002"
+    },
+    {
+      "id": "T1562.001",
+      "name": "Disable or Modify Tools",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1562",
+      "tactics": [
+        "defense-impairment",
+        "defense-evasion"
+      ],
+      "platforms": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "dataSources": [
+        "Service: Service Modification",
+        "Driver: Driver Load"
+      ],
+      "description": "Adversaries may disable or modify security tools such as EDR agents, antivirus, and firewall rules to avoid detection.",
+      "url": "https://attack.mitre.org/techniques/T1562/001"
+    },
+    {
+      "id": "T1059.001",
+      "name": "PowerShell",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1059",
+      "tactics": [
+        "execution"
+      ],
+      "platforms": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "dataSources": [
+        "Script: Script Execution",
+        "Command: Command Execution"
+      ],
+      "description": "Adversaries may abuse PowerShell commands and scripts to execute malicious payloads.",
+      "url": "https://attack.mitre.org/techniques/T1059/001"
+    },
+    {
+      "id": "T1059.003",
+      "name": "Windows Command Shell",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1059",
+      "tactics": [
+        "execution"
+      ],
+      "platforms": [
+        "Windows"
+      ],
+      "dataSources": [
+        "Process: Process Creation"
+      ],
+      "description": "Adversaries may abuse cmd.exe to execute commands on targeted Windows systems.",
+      "url": "https://attack.mitre.org/techniques/T1059/003"
+    },
+    {
+      "id": "T1566.001",
+      "name": "Spearphishing Attachment",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1566",
+      "tactics": [
+        "initial-access"
+      ],
+      "platforms": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "dataSources": [
+        "Application Log: Email Application",
+        "File: File Creation"
+      ],
+      "description": "Adversaries may send spearphishing emails with malicious attachments to gain initial execution.",
+      "url": "https://attack.mitre.org/techniques/T1566/001"
+    },
+    {
+      "id": "T1055.001",
+      "name": "Dynamic-link Library Injection",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1055",
+      "tactics": [
+        "defense-evasion",
+        "privilege-escalation"
+      ],
+      "platforms": [
+        "Windows"
+      ],
+      "dataSources": [
+        "Process: Process Modification"
+      ],
+      "description": "Adversaries may inject dynamic-link libraries into process memory spaces to run code disguised as legitimate software.",
+      "url": "https://attack.mitre.org/techniques/T1055/001"
+    },
+    {
+      "id": "T1078.004",
+      "name": "Cloud Accounts",
+      "domain": "enterprise",
+      "isSubtechnique": true,
+      "parentTechniqueId": "T1078",
+      "tactics": [
+        "initial-access",
+        "persistence",
+        "privilege-escalation",
+        "defense-evasion"
+      ],
+      "platforms": [
+        "AWS",
+        "GCP",
+        "Azure",
+        "Office 365"
+      ],
+      "dataSources": [
+        "User Account: Account Authentication"
+      ],
+      "description": "Adversaries may compromise cloud accounts to maintain access, escalate privileges, and execute actions on cloud resources.",
+      "url": "https://attack.mitre.org/techniques/T1078/004"
+    },
+    {
+      "id": "T1406",
+      "name": "Obfuscated Files or Information on Mobile",
+      "domain": "mobile",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "defense-evasion"
+      ],
+      "platforms": [
+        "Android",
+        "iOS"
+      ],
+      "dataSources": [
+        "File: File Creation"
+      ],
+      "description": "Adversaries may compress or encrypt mobile application code to evade app store review and on-device detection.",
+      "url": "https://attack.mitre.org/techniques/T1406"
+    },
+    {
+      "id": "T0855",
+      "name": "Unauthorized Command Message",
+      "domain": "ics",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "impair-process-control"
+      ],
+      "platforms": [
+        "Control Server",
+        "PLC"
+      ],
+      "dataSources": [
+        "Network Traffic: Network Traffic Content"
+      ],
+      "description": "Adversaries may send unauthorized industrial protocol command messages to alter physical manufacturing equipment behavior.",
+      "url": "https://attack.mitre.org/techniques/T0855"
+    },
+    {
+      "id": "T1059",
+      "name": "Command and Scripting Interpreter",
+      "domain": "enterprise",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "execution"
+      ],
+      "platforms": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "dataSources": [
+        "Command Execution",
+        "Process Access"
+      ],
+      "description": "Parent technique for Command and Scripting Interpreter.",
+      "url": "https://attack.mitre.org/techniques/T1059"
+    },
+    {
+      "id": "T1562",
+      "name": "Impair Defenses",
+      "domain": "enterprise",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "defense-impairment",
+        "defense-evasion"
+      ],
+      "platforms": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "dataSources": [
+        "Command Execution",
+        "Process Access"
+      ],
+      "description": "Parent technique for Impair Defenses.",
+      "url": "https://attack.mitre.org/techniques/T1562"
+    },
+    {
+      "id": "T1566",
+      "name": "Phishing",
+      "domain": "enterprise",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "initial-access"
+      ],
+      "platforms": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "dataSources": [
+        "Command Execution",
+        "Process Access"
+      ],
+      "description": "Parent technique for Phishing.",
+      "url": "https://attack.mitre.org/techniques/T1566"
+    },
+    {
+      "id": "T1055",
+      "name": "Process Injection",
+      "domain": "enterprise",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "defense-evasion",
+        "privilege-escalation"
+      ],
+      "platforms": [
+        "Windows",
+        "Linux",
+        "macOS"
+      ],
+      "dataSources": [
+        "Command Execution",
+        "Process Access"
+      ],
+      "description": "Parent technique for Process Injection.",
+      "url": "https://attack.mitre.org/techniques/T1055"
+    },
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "domain": "enterprise",
+      "isSubtechnique": false,
+      "parentTechniqueId": null,
+      "tactics": [
+        "initial-access",
+        "persistence",
+        "privilege-escalation",
+        "defense-evasion"
+      ],
+      "platforms": [
+        "AWS",
+        "GCP",
+        "Azure",
+        "Windows"
+      ],
+      "dataSources": [
+        "Command Execution",
+        "Process Access"
+      ],
+      "description": "Parent technique for Valid Accounts.",
+      "url": "https://attack.mitre.org/techniques/T1078"
+    }
+  ],
+  "groups": [
+    {
+      "id": "G0016",
+      "name": "APT29",
+      "description": "Threat group attributed to Russia's Foreign Intelligence Service (SVR)."
+    },
+    {
+      "id": "G0032",
+      "name": "Lazarus Group",
+      "description": "North Korean state-sponsored cyber threat group."
+    },
+    {
+      "id": "G0008",
+      "name": "FIN7",
+      "description": "Financially motivated threat group operating out of Eastern Europe."
+    }
+  ],
+  "software": [
+    {
+      "id": "S0029",
+      "name": "Mimikatz",
+      "type": "Tool",
+      "description": "Credential dumping tool capable of extracting plaintext passwords and Kerberos tickets."
+    },
+    {
+      "id": "S0154",
+      "name": "Cobalt Strike",
+      "type": "Tool",
+      "description": "Commercial threat emulation software frequently leveraged by adversaries for C2 and post-exploitation."
+    },
+    {
+      "id": "S0002",
+      "name": "DUQU",
+      "type": "Malware",
+      "description": "Sophisticated information stealing malware framework."
+    }
+  ],
+  "campaigns": [
+    {
+      "id": "C0014",
+      "name": "SolarWinds Supply Chain Compromise",
+      "description": "Global supply chain intrusion campaign targeting government and IT enterprise networks in 2020."
+    }
+  ],
+  "procedures": [
+    {
+      "id": "PROC-001",
+      "techniqueId": "T1134.001",
+      "sourceType": "group",
+      "sourceId": "G0016",
+      "sourceName": "APT29",
+      "description": "APT29 duplicated LSASS tokens to escalate privileges on compromised domain controllers."
+    },
+    {
+      "id": "PROC-002",
+      "techniqueId": "T1059.001",
+      "sourceType": "software",
+      "sourceId": "S0154",
+      "sourceName": "Cobalt Strike",
+      "description": "Cobalt Strike Beacon executes PowerShell commands encoded in Base64 via powershell.exe -e."
+    },
+    {
+      "id": "PROC-003",
+      "techniqueId": "T1562.001",
+      "sourceType": "group",
+      "sourceId": "G0032",
+      "sourceName": "Lazarus Group",
+      "description": "Lazarus Group modified registry keys to disable Windows Defender real-time monitoring service."
+    },
+    {
+      "id": "PROC-004",
+      "techniqueId": "T1078.004",
+      "sourceType": "campaign",
+      "sourceId": "C0014",
+      "sourceName": "SolarWinds Supply Chain Compromise",
+      "description": "Adversaries used stolen SAML token signing certificates to forge cloud access tokens across Azure AD."
+    }
+  ],
+  "mitigations": [
+    {
+      "id": "M1026",
+      "name": "Privilege Account Management",
+      "description": "Restrict user account privileges and implement Just-In-Time (JIT) access policies.",
+      "techniqueIds": [
+        "T1134",
+        "T1134.001",
+        "T1078.004"
+      ]
+    },
+    {
+      "id": "M1042",
+      "name": "Disable or Restrict Feature or Program",
+      "description": "Disable PowerShell v2 and constrain PowerShell language modes to prevent execution of unverified scripts.",
+      "techniqueIds": [
+        "T1059.001"
+      ]
+    },
+    {
+      "id": "M1022",
+      "name": "Restrict File and Directory Permissions",
+      "description": "Ensure EDR driver files and service registry keys are read-only for system administrators.",
+      "techniqueIds": [
+        "T1562.001"
+      ]
+    }
+  ],
+  "detections": [
+    {
+      "id": "DET-001",
+      "techniqueId": "T1134.001",
+      "strategy": "Monitor process creation and token impersonation API calls (e.g. ImpersonateLoggedOnUser, DuplicateTokenEx).",
+      "analytics": [
+        "SIGMA Rule: Suspicious Process Creation via Stolen Token",
+        "YARA Rule: Token Stealing Shellcode In-Memory"
+      ],
+      "dataComponents": [
+        "Process: Process Creation",
+        "Token: Token Impersonation"
+      ]
+    },
+    {
+      "id": "DET-002",
+      "techniqueId": "T1562.001",
+      "strategy": "Monitor service stop signals and registry key changes under HKLM\\Software\\Policies\\Microsoft\\Windows Defender.",
+      "analytics": [
+        "SIGMA Rule: Windows Defender Realtime Protection Disabled",
+        "Event ID 7036: Security Service Stopped"
+      ],
+      "dataComponents": [
+        "Service: Service State",
+        "Registry: Registry Key Modification"
+      ]
+    }
+  ],
+  "d3fendTechniques": [
+    {
+      "id": "D3-ACR",
+      "name": "Access Control Verification",
+      "tacticId": "D3-TAC-HARDEN",
+      "tacticName": "Harden",
+      "description": "Verifying authorization tokens and scope boundaries before processing execution requests.",
+      "artifacts": [
+        "Access Token",
+        "Process Context"
+      ],
+      "counteredAttackIds": [
+        "T1134",
+        "T1134.001",
+        "T1078.004"
+      ],
+      "ruleSnippet": "policy enforce_token_integrity {\n  require_claims [\"mfa_verified\", \"admin_approval\"];\n}"
+    },
+    {
+      "id": "D3-PEA",
+      "name": "Process Execution Analysis",
+      "tacticId": "D3-TAC-DETECT",
+      "tacticName": "Detect",
+      "description": "Analyzing command line arguments and child process trees for anomalous execution paths.",
+      "artifacts": [
+        "Command Line",
+        "Process Tree"
+      ],
+      "counteredAttackIds": [
+        "T1059.001",
+        "T1059.003"
+      ],
+      "ruleSnippet": "detect suspicious_ps {\n  selection: Image|endswith: '\\powershell.exe' AND CommandLine|contains: '-enc'\n}"
+    },
+    {
+      "id": "D3-SWH",
+      "name": "Software Health Monitoring",
+      "tacticId": "D3-TAC-ISOLATE",
+      "tacticName": "Isolate",
+      "description": "Monitoring security agent health and isolating endpoints when EDR protection is terminated.",
+      "artifacts": [
+        "EDR Agent State",
+        "Endpoint Network"
+      ],
+      "counteredAttackIds": [
+        "T1562.001"
+      ],
+      "ruleSnippet": "on edr_stop {\n  isolate_endpoint(interface=\"eth0\", allow_remediation=true);\n}"
+    },
+    {
+      "id": "D3-RSP",
+      "name": "System Restore & Immutable Snapshot Recovery",
+      "tacticId": "D3-TAC-RESTORE",
+      "tacticName": "Restore",
+      "description": "Restoring operating system state and critical volumes from immutable cloud or hardware snapshots.",
+      "artifacts": [
+        "Volume Snapshot",
+        "System Image"
+      ],
+      "counteredAttackIds": [
+        "T1562.001",
+        "T0855"
+      ],
+      "ruleSnippet": "restore_volume(snapshot_id=\"snap-immutable-latest\", target_drive=\"C:\");"
+    }
+  ]
+}

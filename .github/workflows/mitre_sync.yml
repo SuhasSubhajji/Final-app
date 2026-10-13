@@ -1,0 +1,48 @@
+name: MITRE ATT&CK & D3FEND Automated Data Sync
+
+on:
+  schedule:
+    # Runs every Sunday at midnight
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  sync-mitre-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mitreattack-python requests
+
+      - name: Run MITRE Dataset Builder & Completeness Validator
+        run: |
+          python tools/build_attack_data.py
+
+      - name: Run Unit Tests
+        run: |
+          chmod +x gradlew || true
+          gradle test
+
+      - name: Create Pull Request if Data Updated
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(data): update MITRE ATT&CK and D3FEND dataset"
+          title: "🤖 Automated Sync: MITRE ATT&CK & D3FEND Dataset Update"
+          body: |
+            This PR updates the MITRE ATT&CK and D3FEND datasets to the latest release.
+            - Generated via `tools/build_attack_data.py`
+            - Includes all Enterprise (v19+ 15 tactics), Mobile, and ICS tactics
+            - Includes D3FEND 7 tactics & countermeasures
+            - Verified against release count checks
+          branch: mitre-dataset-update
+          base: main

@@ -132,17 +132,16 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `test compare version names logic in AppUpdateManager`() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val updateManager = com.example.data.update.AppUpdateManager(context)
+    fun `test compare version names logic in VersionManager`() {
+        val versionManager = com.example.data.update.VersionManager()
 
         // 2.0.0 > 1.0.12
-        assertTrue(updateManager.compareVersionNames("2.0.0", "1.0.12") > 0)
+        assertTrue(versionManager.compareVersionNames("2.0.0", "1.0.12") > 0)
         // 2.1.0 > 2.0.0
-        assertTrue(updateManager.compareVersionNames("v2.1.0", "2.0.0") > 0)
+        assertTrue(versionManager.compareVersionNames("v2.1.0", "2.0.0") > 0)
         // 2.0.0 == 2.0.0
-        assertEquals(0, updateManager.compareVersionNames("2.0.0", "v2.0.0"))
+        assertEquals(0, versionManager.compareVersionNames("2.0.0", "v2.0.0"))
         // 1.9.9 < 2.0.0
-        assertTrue(updateManager.compareVersionNames("1.9.9", "2.0.0") < 0)
+        assertTrue(versionManager.compareVersionNames("1.9.9", "2.0.0") < 0)
     }
 }

@@ -4,17 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -42,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.MitreInteractiveGraphComposable
 import com.example.ui.theme.CyberCyan
-import com.example.ui.theme.CyberEmerald
 import com.example.ui.theme.CyberTheme
 import com.example.ui.viewmodel.ThreatFeedViewModel
 
@@ -54,7 +48,7 @@ fun AttackScreen(
     modifier: Modifier = Modifier
 ) {
     val theme = CyberTheme.colors
-    var selectedSubTab by remember { mutableIntStateOf(0) }
+    var selectedSubTab by remember { mutableIntStateOf(0) } // 0: ATT&CK 14-Col Matrix, 1: D3FEND 7-Col Matrix, 2: Catalog List, 3: D3 Flow Graph
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -83,13 +77,13 @@ fun AttackScreen(
                             }
                             Column {
                                 Text(
-                                    text = "ATT&CK & D3FEND Frameworks",
+                                    text = "MITRE ATT&CK & D3FEND Matrices",
                                     color = theme.textPrimary,
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "14 Tactics • Sub-Techniques • NIST • Cyber Kill Chain",
+                                    text = "15 Enterprise Tactics (v19.2) • Mobile & ICS • 7 D3FEND Tactics",
                                     color = theme.textMuted,
                                     fontSize = 10.sp
                                 )
@@ -115,13 +109,25 @@ fun AttackScreen(
                     Tab(
                         selected = selectedSubTab == 0,
                         onClick = { selectedSubTab = 0 },
-                        text = { Text("ATT&CK Matrix", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.testTag("tab_attack_matrix")
+                        text = { Text("📊 ATT&CK Matrix", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_attack_14col_matrix")
                     )
                     Tab(
                         selected = selectedSubTab == 1,
                         onClick = { selectedSubTab = 1 },
-                        text = { Text("Interactive D3.js FlowChart", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        text = { Text("🛡️ D3FEND Matrix", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_d3fend_7col_matrix")
+                    )
+                    Tab(
+                        selected = selectedSubTab == 2,
+                        onClick = { selectedSubTab = 2 },
+                        text = { Text("📋 TTP Catalog", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_attack_catalog")
+                    )
+                    Tab(
+                        selected = selectedSubTab == 3,
+                        onClick = { selectedSubTab = 3 },
+                        text = { Text("🌐 D3.js Flow", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("tab_attack_d3_flow")
                     )
                 }
@@ -151,7 +157,7 @@ fun AttackScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -159,9 +165,15 @@ fun AttackScreen(
         ) {
             when (selectedSubTab) {
                 0 -> {
-                    MitreMatrixScreen()
+                    MitreMatrixScreen(displayMode = 0)
                 }
                 1 -> {
+                    MitreMatrixScreen(displayMode = 1)
+                }
+                2 -> {
+                    MitreMatrixScreen(displayMode = 2)
+                }
+                3 -> {
                     MitreInteractiveGraphComposable(
                         modifier = Modifier.fillMaxSize()
                     )

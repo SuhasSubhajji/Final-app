@@ -33,7 +33,7 @@ enum class MitreTactic(
 }
 
 /**
- * The 6 official MITRE D3FEND Tactics (Defensive Matrix Categories).
+ * The 7 official MITRE D3FEND Tactics (Defensive Matrix Categories).
  */
 enum class MitreDefendTactic(
     val displayName: String,
@@ -46,7 +46,8 @@ enum class MitreDefendTactic(
     DETECT("Detect", "D3-TACTIC-DETECT", Color(0xFFF59E0B), "Detect adversary activity through process, network, file, identifier, and behavioral analysis"),
     ISOLATE("Isolate", "D3-TACTIC-ISOLATE", Color(0xFF8B5CF6), "Isolate execution environments, network segments, and security tokens to constrain movement"),
     DECEIVE("Deceive", "D3-TACTIC-DECEIVE", Color(0xFFEC4899), "Deploy decoy environments, honeytokens, canary credentials, and false artifacts to mislead adversaries"),
-    EVICT("Evict", "D3-TACTIC-EVICT", Color(0xFFEF4444), "Evict adversaries by terminating malicious processes, revoking credentials, and isolating network sessions")
+    EVICT("Evict", "D3-TACTIC-EVICT", Color(0xFFEF4444), "Evict adversaries by terminating malicious processes, revoking credentials, and isolating network sessions"),
+    RESTORE("Restore", "D3-TACTIC-RESTORE", Color(0xFF3B82F6), "Recovery to a known-good state and restoring asset integrity")
 }
 
 data class SubTechniqueItem(
@@ -874,6 +875,35 @@ Set-MpPreference -EnableNetworkProtection Enabled -SubmitSamplesConsent 1
                 stageNumber = 7,
                 description = "Evicting the adversary before ransomware encryption or data exfiltration is completed.",
                 scenarioExample = "Automated EDR containment rules severed network connectivity and killed process handles within 20 seconds of LockBit execution."
+            )
+        ),
+
+        // ==================== 7. RESTORE (D3-TACTIC-RESTORE) ====================
+        MitreD3fendItem(
+            d3fendId = "D3-RSP",
+            name = "System Restore & Immutable Snapshot Recovery",
+            tactic = MitreDefendTactic.RESTORE,
+            description = "Enforce automated system state restoration and immutable, air-gapped backup snapshot recovery to restore operational integrity following destructive attacks.",
+            ruleOrFix = """
+# AWS Backup Vault Lock: Enforce WORM (Write Once Read Many) Immutable Backups
+aws backup put-backup-vault-lock-configuration \
+  --backup-vault-name ProductionAirGapVault \
+  --min-retention-days 30
+            """.trimIndent(),
+            counteredAttackIds = listOf("T1486", "T1490"),
+            tags = listOf("Restore", "VSS", "ImmutableBackup", "Recovery"),
+            subTechniquesList = listOf(
+                SubTechniqueItem("D3-RSP.1", "Immutable Cloud Snapshot Verification", "Automated validation of air-gapped AWS Backup vault policies.", "AWS Backup Audit Manager rule"),
+                SubTechniqueItem("D3-RSP.2", "Automated VSS System Rollback", "Reverting local OS state to a known-good shadow copy.", "rstrui.exe /OFFLINE:C:\\Windows")
+            ),
+            nistControls = listOf(
+                NistControlMapping("CP-9", "Information System Backup", "Recover (RC) / System Backups", "Conduct periodic testing of air-gapped backup media and enforce Write-Once-Read-Many (WORM) storage integrity.", "Enforce AWS Backup Vault Lock with compliance mode WORM protection.")
+            ),
+            cyberKillChain = CyberKillChainInfo(
+                stage = "Stage 7: Recovery",
+                stageNumber = 7,
+                description = "Restoring business operations rapidly without paying adversary extortion demands.",
+                scenarioExample = "Following a ransomware attack, defenders restored 50 TB of critical domain controllers from WORM-locked cloud snapshots within 4 hours."
             )
         )
     )
