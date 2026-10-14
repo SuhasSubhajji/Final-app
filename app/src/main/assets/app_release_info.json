@@ -1,8 +1,8 @@
 {
   "appName": "CyberShield",
   "applicationId": "com.aistudio.cybershield.v2",
-  "versionName": "1.0.2",
-  "versionCode": 3,
+  "versionName": "1.0.29",
+  "versionCode": 29,
   "buildTimestamp": "2026-10-10T22:01:50Z",
   "features": [
     "Multi-window threat feed date range filters (24 hours, 2 days ago, 1 week, 1 month, 3+ months)",

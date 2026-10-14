@@ -43,6 +43,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -54,7 +55,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
@@ -893,7 +893,7 @@ fun ChatMessageBubble(
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                                                 ) {
                                                     Icon(
-                                                        imageVector = Icons.Default.OpenInNew,
+                                                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                                         contentDescription = null,
                                                         tint = theme.accentSecondary,
                                                         modifier = Modifier.size(11.dp)

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -75,7 +76,7 @@ fun SecurityAlertsLibraryScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = CyberTheme.colors.textPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CyberTheme.colors.textPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CyberTheme.colors.bg)
@@ -236,7 +237,7 @@ fun SecurityAlertLibraryItem(alert: SecurityAlertExample) {
                 exit = fadeOut() + shrinkVertically()
             ) {
                 Column(modifier = Modifier.padding(top = 16.dp)) {
-                    Divider(color = CyberTheme.colors.border, modifier = Modifier.padding(bottom = 16.dp))
+                    HorizontalDivider(color = CyberTheme.colors.border, modifier = Modifier.padding(bottom = 16.dp))
                     
                     SectionTitle("Description")
                     Text(alert.description, fontSize = 13.sp, color = CyberTheme.colors.textSecondary)
