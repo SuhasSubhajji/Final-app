@@ -243,7 +243,7 @@ fun IntelScreen(
                             onClick = { viewModel.toggleOnlyBookmarks() },
                             label = {
                                 Text(
-                                    text = if (filterState.onlyBookmarks) "Bookmarks" else "Bookmarks",
+                                    text = "Bookmarks",
                                     fontSize = 12.sp
                                 )
                             },

@@ -139,4 +139,12 @@ class MitreViewModel(application: Application) : AndroidViewModel(application) {
     fun closeTechniqueDetail() {
         selectedTechniqueDetail.value = null
     }
+
+    fun getTechniquesForTactic(tacticShortname: String): kotlinx.coroutines.flow.Flow<List<TechniqueEntity>> {
+        return repository.getTechniquesForTactic(tacticShortname)
+    }
+
+    fun getSubtechniques(parentId: String): kotlinx.coroutines.flow.Flow<List<TechniqueEntity>> {
+        return repository.getSubtechniques(parentId)
+    }
 }

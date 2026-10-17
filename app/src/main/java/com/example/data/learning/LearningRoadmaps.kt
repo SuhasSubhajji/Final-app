@@ -29,11 +29,11 @@ object LearningRepository {
     val tracks: List<LearningTrack> = listOf(
         LearningTrack(
             id = "mitre_attack",
-            title = "MITRE ATT&CK Matrix",
+            title = "MITRE ATT&CK Matrix (v20)",
             roleBadge = "Offensive TTP Specialist",
-            tagline = "14 Enterprise Tactics, APT Behaviors & Adversary Emulation",
+            tagline = "15 Enterprise Tactics, AI/LLM Threats & ICS Tradecraft",
             themeColor = Color(0xFFF43F5E),
-            overview = "Master all 14 enterprise tactics of the MITRE ATT&CK matrix: Reconnaissance, Resource Development, Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, Command and Control, Exfiltration, and Impact. Explore real-world offensive techniques, adversary simulation commands, and APT group tradecraft.",
+            overview = "Master the 15 enterprise tactics of the MITRE ATT&CK v20 matrix: Reconnaissance, Resource Development, Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Stealth, Defense Impairment, Credential Access, Discovery, Lateral Movement, Collection, Command and Control, Exfiltration, and Impact. Explore cutting-edge AI prompt injection (T1699/T1698), ICS publish/subscribe abuse (T0891), adversary simulation commands, and APT group tradecraft.",
             roadmapStages = listOf(
                 RoadmapStage(
                     1,
@@ -49,9 +49,9 @@ object LearningRepository {
                 ),
                 RoadmapStage(
                     3,
-                    "Privilege Escalation & Defense Evasion (TA0004 & TA0005)",
-                    "Process Injection & Hollowing (T1055), Masquerading (T1036), Impairing EDR defenses (T1562), and User Account Control (UAC) bypass techniques.",
-                    listOf("T1055 Process Injection", "T1036 Masquerading", "T1562 Impair Defenses", "AMSI Bypass", "Token Impersonation")
+                    "Stealth & Defense Impairment (TA0044 & TA0045)",
+                    "Process Injection & Hollowing (T1055), Token Impersonation (T1134), Impairing EDR defenses (T1562), Blinding Event Logs (T1070), and Adversarial ML bypasses (T1696).",
+                    listOf("T1055 Process Injection", "T1562 Impair Defenses", "T1070 Indicator Removal", "T1696 AI Evasion", "AMSI Bypass")
                 ),
                 RoadmapStage(
                     4,
@@ -61,9 +61,9 @@ object LearningRepository {
                 ),
                 RoadmapStage(
                     5,
-                    "C2, Exfiltration & Impact (TA0011, TA0010, TA0040)",
-                    "Encrypted Application Layer C2 Beacons (T1071), Data Transfer to Cloud Storage (T1567), and Data Encrypted for Impact (T1486 ransomware execution).",
-                    listOf("T1071 C2 Protocols", "T1567 Cloud Exfiltration", "T1486 Ransomware", "Sliver", "Mythic", "Cobalt Strike")
+                    "AI/LLM Threats & C2 Exfiltration (TA0011, TA0010, TA0040)",
+                    "Direct & Indirect Prompt Injection (T1699, T1698), Encrypted Application Layer C2 Beacons (T1071), Data Transfer to Cloud Storage (T1567), and Data Encrypted for Impact (T1486).",
+                    listOf("T1699 Direct Prompt Injection", "T1698 Indirect Injection", "T1071 C2 Protocols", "T1486 Ransomware", "Sliver")
                 )
             ),
             practicalExampleTitle = "T1059.001 PowerShell Encoded Execution Simulation",
@@ -394,6 +394,240 @@ spec:
               privileged: false
             """.trimIndent(),
             defensiveTakeaway = "Use admission controllers and runtime eBPF agents to guarantee that even compromised developer credentials cannot deploy host-level root exploits."
+        ),
+        LearningTrack(
+            id = "ai_security",
+            title = "AI & LLM Threat Matrix (v20)",
+            roleBadge = "AI Red Teamer / LLM SecOps",
+            tagline = "Prompt Injection, RAG Poisoning & D3FEND AI Guardrails",
+            themeColor = Color(0xFF8B5CF6),
+            overview = "Explore the new frontier of AI/LLM adversarial threat modeling standardized in MITRE ATT&CK v20 and OWASP Top 10 for LLMs. Master jailbreak evaluation, direct and indirect prompt injection, vector database RAG poisoning, model inversion, and defensive countermeasures like Prompt Injection Firewalls (D3-PFW) and Model Output Filtering (D3-MOF).",
+            roadmapStages = listOf(
+                RoadmapStage(
+                    1,
+                    "Reconnaissance & Public AI Queries (T1682)",
+                    "Adversaries leverage public commercial LLMs to synthesize target intelligence, extract internal API structures from leaked code, and draft context-aware spearphishing lures.",
+                    listOf("T1682 Public AI Queries", "OSINT Synthesis", "Adversarial Prompting", "Automated Spearphishing")
+                ),
+                RoadmapStage(
+                    2,
+                    "Direct Prompt Injection & Jailbreaking (T1699)",
+                    "Adversaries craft adversarial inputs designed to override system prompts, bypass guardrails, and execute unauthorized tool functions on downstream systems.",
+                    listOf("T1699 Direct Injection", "System Prompt Override", "Payload Splitting", "Jailbreak Heuristics", "Garak")
+                ),
+                RoadmapStage(
+                    3,
+                    "Indirect Injection & RAG Ingestion (T1698)",
+                    "Adversaries embed malicious instructions in external websites, PDFs, or enterprise emails that autonomous AI agents retrieve and process without human validation.",
+                    listOf("T1698 Indirect Injection", "RAG Document Poisoning", "Data Exfiltration via Markdown", "Agent Tool Misdirection")
+                ),
+                RoadmapStage(
+                    4,
+                    "Training Data Poisoning & Result Tampering (T1697)",
+                    "Adversaries manipulate vector database embeddings, training corpora, or fine-tuning datasets to introduce targeted backdoors or corrupt model decision-making.",
+                    listOf("T1697 Result Poisoning", "Embedding Drift", "Vector DB Tampering", "Backdoor Triggers")
+                ),
+                RoadmapStage(
+                    5,
+                    "AI Defense: D3FEND AI Guardrails & Firewalls",
+                    "Deploying Prompt Injection Firewalls (D3-PFW), Model Output Filtering (D3-MOF), dual-LLM arbiters, and deterministic parameter validation.",
+                    listOf("D3-PFW Prompt Firewall", "D3-MOF Output Filter", "Llama Guard", "NeMo Guardrails", "Dual-LLM Arbiter")
+                )
+            ),
+            practicalExampleTitle = "T1699 Direct Prompt Injection Defense with D3-PFW",
+            practicalExampleDescription = "Demonstrating how an adversary attempts to force an enterprise AI assistant to execute privileged database tool calls, and how a deterministic prompt firewall intercepts and sanitizes the input.",
+            handsOnCodeSnippet = """
+# Python / LangChain: Prompt Injection Firewall Guardrail (D3-PFW)
+from langchain_community.security import PromptInjectionClassifier
+
+classifier = PromptInjectionClassifier(threshold=0.85)
+
+def secure_llm_dispatch(user_prompt: str):
+    # 1. Inspect input via D3-PFW Prompt Injection Firewall
+    threat_score = classifier.predict(user_prompt)
+    if threat_score > 0.85:
+        raise SecurityException("Adversarial prompt injection detected (MITRE ATT&CK T1699)!")
+    
+    # 2. Enforce strict JSON output schema and tool authorization
+    return agent_executor.invoke({"input": user_prompt})
+            """.trimIndent(),
+            defensiveTakeaway = "Never grant autonomous AI agents unauthenticated write permissions; treat all LLM generated output and tool calls as untrusted user input."
+        ),
+        LearningTrack(
+            id = "cyber_fundamentals",
+            title = "Cybersecurity Fundamentals",
+            roleBadge = "Security Architect & Strategist",
+            tagline = "CIA Triad, Access Control Models & Threat Modeling",
+            themeColor = Color(0xFF10B981),
+            overview = "Master the core pillars of information security: Confidentiality, Integrity, and Availability (extending to the Parkerian Hexad), Access Control Architectures (DAC, MAC, RBAC, ABAC), Threat Modeling frameworks (STRIDE, DREAD, PASTA), and the CVSS vulnerability risk scoring mathematics.",
+            roadmapStages = listOf(
+                RoadmapStage(
+                    1,
+                    "Core Pillars: CIA Triad & Parkerian Hexad",
+                    "Balancing Confidentiality (encryption/ACLs), Integrity (hashing/signatures), Availability (DDoS/redundancy), Authenticity, Possession, and Utility.",
+                    listOf("CIA Triad", "Parkerian Hexad", "Least Privilege", "Defense in Depth")
+                ),
+                RoadmapStage(
+                    2,
+                    "Access Control Models: DAC to ABAC",
+                    "Discretionary (DAC), Mandatory (MAC / Bell-LaPadula & Biba), Role-Based (RBAC), and Attribute-Based Access Control (ABAC with OPA/Rego).",
+                    listOf("DAC", "MAC", "RBAC", "ABAC", "OPA / Rego", "Zero Trust")
+                ),
+                RoadmapStage(
+                    3,
+                    "Threat Modeling & Architecture Analysis",
+                    "Deconstructing systems with Data Flow Diagrams (DFD) and applying STRIDE (Spoofing, Tampering, Repudiation, Information Disclosure, DoS, Elevation) and DREAD.",
+                    listOf("STRIDE", "DREAD", "PASTA", "Attack Trees", "OWASP Threat Dragon")
+                ),
+                RoadmapStage(
+                    4,
+                    "Vulnerability Management & CVSS Math",
+                    "Calculating CVSS v3.1 and v4.0 vector strings: Attack Vector (AV), Attack Complexity (AC), Privileges Required (PR), User Interaction (UI), Scope (S), and Impact (C, I, A).",
+                    listOf("CVSS v3.1", "CVSS v4.0", "CISA KEV", "NVD", "EPSS")
+                )
+            ),
+            practicalExampleTitle = "STRIDE Threat Modeling on Payment Microservice",
+            practicalExampleDescription = "Applying STRIDE analysis to a checkout endpoint crossing an untrusted DMZ boundary to prevent tampering and information disclosure.",
+            handsOnCodeSnippet = """
+# STRIDE Threat Modeling Evaluation Matrix
+Element: API Gateway -> /api/v1/checkout -> PaymentProcessor
+Trust Boundary: Public Internet to PCI-DSS VPC Subnet
+
+Threats & Controls:
+- Spoofing (S): Attacker forges Bearer Token -> Enforce asymmetric RS256 JWT signature check.
+- Tampering (T): Client modifies transaction amount -> Sign order payload with HMAC-SHA256.
+- Repudiation (R): User denies authorizing charge -> Immutable append-only audit trail in CloudWatch.
+- Information Disclosure (I): Eavesdropping on PAN -> Enforce TLS 1.3 with AES-256-GCM cipher suite.
+- Denial of Service (D): Slowloris HTTP flood -> Envoy rate limiting (100 req/min per IP).
+- Elevation of Privilege (E): User modifies role to admin -> ABAC policy rejects non-auditor roles.
+            """.trimIndent(),
+            defensiveTakeaway = "Integrate threat modeling into feature design reviews before code implementation to identify architectural design flaws early."
+        ),
+        LearningTrack(
+            id = "networking_fundamentals",
+            title = "Networking Protocols & Architecture",
+            roleBadge = "Network Security Engineer",
+            tagline = "OSI 7 Layers, TCP Handshake, CIDR Subnetting & TLS 1.3",
+            themeColor = Color(0xFF38BDF8),
+            overview = "Explore the deep protocol architecture of computer networks: OSI 7-Layer and TCP/IP encapsulation, TCP 3-way handshake and connection state machine, IP addressing and CIDR subnet math, hierarchical DNS resolution, ARP/BGP routing security, and TLS 1.3 cryptographic handshakes.",
+            roadmapStages = listOf(
+                RoadmapStage(
+                    1,
+                    "OSI 7-Layer & Encapsulation Stack",
+                    "Data framing across Physical, Data Link (Ethernet/ARP), Network (IP/ICMP), Transport (TCP/UDP), and Application (HTTP/DNS/TLS) layers with header field structures.",
+                    listOf("Layer 2 Framing", "IPv4/IPv6 Packets", "TCP Segments", "Wireshark", "Scapy")
+                ),
+                RoadmapStage(
+                    2,
+                    "TCP Handshake, State Machine & SYN Floods",
+                    "Three-Way Handshake (SYN -> SYN/ACK -> ACK), Sequence/ACK numbers, 4-Way Teardown (FIN/ACK), SYN backlog queues, and SYN Cookies defense (RFC 4987).",
+                    listOf("TCP 3-Way Handshake", "TCP Flags", "SYN Cookies", "TIME-WAIT State", "Tcpdump")
+                ),
+                RoadmapStage(
+                    3,
+                    "IP Subnetting Math, VLSM & Routing",
+                    "Classless Inter-Domain Routing (CIDR), network address calculation, broadcast address derivation, usable host ranges, and routing protocols (BGP, OSPF, ARP).",
+                    listOf("CIDR /24-/30", "Bitwise Subnetting", "BGP RPKI", "Dynamic ARP Inspection")
+                ),
+                RoadmapStage(
+                    4,
+                    "Firewalls & TLS 1.3 Cryptographic Handshake",
+                    "Stateless vs stateful inspection (SPI), next-gen application firewalls (WAF), and 1-RTT TLS 1.3 handshake mechanics with Ephemeral Diffie-Hellman forward secrecy.",
+                    listOf("Stateful Firewalls", "TLS 1.3 Handshake", "ECDHE KeyShare", "Certificate Verification")
+                )
+            ),
+            practicalExampleTitle = "Python Subnet & Network Range Calculator",
+            practicalExampleDescription = "Computing network boundaries, broadcast addresses, and usable host allocations programmatically using bitwise operations.",
+            handsOnCodeSnippet = """
+# Python: Bitwise CIDR Subnet Calculation Algorithm
+import ipaddress
+
+def inspect_subnet(cidr_str: str):
+    network = ipaddress.ip_network(cidr_str, strict=False)
+    print(f"CIDR Notation: {network}")
+    print(f"Netmask: {network.netmask}")
+    print(f"Network ID: {network.network_address}")
+    print(f"Broadcast ID: {network.broadcast_address}")
+    print(f"Total Addresses: {network.num_addresses}")
+    print(f"Usable Host Range: {network.network_address + 1} - {network.broadcast_address - 1}")
+
+# Example: Inspecting an enterprise DMZ subnet
+inspect_subnet("172.16.10.35/27")
+# Yields 32 total addresses, 30 usable hosts, netmask 255.255.255.224
+            """.trimIndent(),
+            defensiveTakeaway = "Enforce micro-segmentation by isolating production workloads into small /28 or /29 subnets protected by stateful inspection rules."
+        ),
+        LearningTrack(
+            id = "cryptography_algorithms",
+            title = "Cryptography & Algorithms",
+            roleBadge = "Cryptographic Engineer & Analyst",
+            tagline = "AES-GCM, RSA Math, ECDH, SHA-256 & Post-Quantum Lattice PQC",
+            themeColor = Color(0xFFA855F7),
+            overview = "Deep dive into cryptographic algorithms, mathematics, and security proofs: AES block cipher rounds (SubBytes, ShiftRows, MixColumns), RSA modular arithmetic (Euler's totient, modular inverse), Diffie-Hellman discrete logarithms, SHA-256 Merkle-Damgard compression, HMAC message authentication, and NIST Post-Quantum Cryptography (ML-KEM / ML-DSA).",
+            roadmapStages = listOf(
+                RoadmapStage(
+                    1,
+                    "Symmetric Encryption: AES & Block Modes",
+                    "Rijndael finite field GF(2^8) arithmetic, S-box non-linear substitution, 10/12/14 rounds, and AEAD modes (AES-256-GCM and ChaCha20-Poly1305).",
+                    listOf("AES-256", "Galois Field GF(2^8)", "GCM Mode", "ChaCha20-Poly1305", "AEAD")
+                ),
+                RoadmapStage(
+                    2,
+                    "Asymmetric Cryptography: RSA & Extended Euclidean",
+                    "Prime generation (Miller-Rabin), Euler's totient phi(n) = (p-1)(q-1), modular inverse d = e^-1 mod phi(n), RSA-OAEP padding, and factoring complexity.",
+                    listOf("RSA-4096", "Euler's Totient", "Extended Euclidean", "RSA-OAEP", "Fermat Factoring")
+                ),
+                RoadmapStage(
+                    3,
+                    "Key Exchange & Elliptic Curves (DH & ECDH)",
+                    "Discrete Logarithm Problem, public/private generator groups, Weierstrass elliptic curves y^2 = x^3 + ax + b, Curve25519 (X25519), and ECDSA signatures.",
+                    listOf("Diffie-Hellman", "ECDH", "Curve25519", "NIST P-256", "Perfect Forward Secrecy")
+                ),
+                RoadmapStage(
+                    4,
+                    "Hashing & Integrity: SHA-256, HMAC & SHA-3",
+                    "Merkle-Damgard construction, 64-round bitwise compression (Ch, Maj, Sigma), message expansion schedule, HMAC construction, and Keccak sponge permutations.",
+                    listOf("SHA-256", "HMAC-SHA256", "SHA-3 (Keccak)", "Length Extension Attack")
+                ),
+                RoadmapStage(
+                    5,
+                    "Post-Quantum Cryptography (NIST FIPS 203/204)",
+                    "Quantum threats via Shor's and Grover's algorithms, Module Learning With Errors (M-LWE), ML-KEM (Kyber) key encapsulation, and ML-DSA (Dilithium) signatures.",
+                    listOf("ML-KEM (Kyber)", "ML-DSA (Dilithium)", "Shor's Algorithm", "Lattice Cryptography")
+                )
+            ),
+            practicalExampleTitle = "RSA Key Generation & Mathematical Verification",
+            practicalExampleDescription = "Demonstrating the exact mathematical steps of prime multiplication, totient calculation, modular inverse computation, encryption, and decryption.",
+            handsOnCodeSnippet = """
+# Python: RSA Cryptosystem Mathematical Step-by-Step Implementation
+def egcd(a, b):
+    if a == 0:
+        return (b, 0, 1)
+    g, y, x = egcd(b % a, a)
+    return (g, x - (b // a) * y, y)
+
+def modinv(e, phi):
+    g, x, y = egcd(e, phi)
+    if g != 1:
+        raise Exception('Modular inverse does not exist')
+    return x % phi
+
+# Key Generation
+p, q = 61, 53           # Two distinct prime numbers
+n = p * q               # Modulus n = 3233
+phi = (p - 1) * (q - 1) # Totient phi(n) = 3120
+e = 17                  # Public exponent (coprime to 3120)
+d = modinv(e, phi)      # Private exponent d = 2753 (17 * 2753 = 1 mod 3120)
+
+# Encryption: c = m^e mod n
+msg = 42
+ciphertext = pow(msg, e, n)   # 42^17 mod 3233 = 2557
+
+# Decryption: m = c^d mod n
+decrypted = pow(ciphertext, d, n) # 2557^2753 mod 3233 = 42
+assert msg == decrypted
+            """.trimIndent(),
+            defensiveTakeaway = "Deploy minimum 256-bit AES keys with GCM mode for data at rest, and prepare TLS infrastructure for Post-Quantum Hybrid Key Exchange (X25519 + ML-KEM-768)."
         )
     )
 

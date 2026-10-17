@@ -340,10 +340,14 @@ fun MitreMatrixScreen(
 
                 is MitreNavNode.AttackTechniquesForTactic -> {
                     val targetTactic = currentNode as MitreNavNode.AttackTechniquesForTactic
-                    val tacticTechs = remember(allTechniques, searchQuery, selectedPlatform, targetTactic.tacticShortname) {
-                        allTechniques.filter { tech ->
+                    val tacticTechsFlow = remember(targetTactic.tacticShortname) {
+                        mitreViewModel.getTechniquesForTactic(targetTactic.tacticShortname)
+                    }
+                    val tacticTechs by tacticTechsFlow.collectAsState(initial = emptyList())
+                    val filteredTacticTechs = remember(tacticTechs, searchQuery, selectedPlatform) {
+                        tacticTechs.filter { tech ->
                             !tech.isSubtechnique &&
-                            (searchQuery.isBlank() || tech.id.contains(searchQuery, ignoreCase = true) || tech.name.contains(searchQuery, ignoreCase = true)) &&
+                            (searchQuery.isBlank() || tech.id.contains(searchQuery, ignoreCase = true) || tech.name.contains(searchQuery, ignoreCase = true) || tech.description.contains(searchQuery, ignoreCase = true)) &&
                             (selectedPlatform == "ALL" || tech.platforms.contains(selectedPlatform, ignoreCase = true))
                         }
                     }
@@ -358,19 +362,156 @@ fun MitreMatrixScreen(
                                 colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
                                 border = BorderStroke(1.dp, CyberCyan)
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text("Tactic: ${targetTactic.tacticName} (${targetTactic.tacticId})", color = CyberCyan, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text("Showing techniques mapped under this specific tactic objective.", color = CyberTextSecondary, fontSize = 10.sp)
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Tactic: ${targetTactic.tacticName}", color = CyberCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = CyberCyan.copy(alpha = 0.2f),
+                                            border = BorderStroke(1.dp, CyberCyan)
+                                        ) {
+                                            Text(targetTactic.tacticId, color = CyberCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Showing ${filteredTacticTechs.size} primary techniques mapped under this objective. Tap any technique to view real-world procedures, mitigations, and D3FEND countermeasures.", color = CyberTextSecondary, fontSize = 10.5.sp)
                                 }
                             }
                         }
 
-                        items(tacticTechs, key = { it.id }) { tech ->
-                            MitreTechniqueRowCard(
-                                technique = tech,
-                                onClick = { mitreViewModel.openTechniqueDetail(tech.id) }
-                            )
+                        if (filteredTacticTechs.isEmpty()) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                                    Text("No matching techniques found in this tactic.", color = CyberTextMuted, fontSize = 12.sp)
+                                }
+                            }
+                        } else {
+                            items(filteredTacticTechs, key = { it.id }) { tech ->
+                                val subtechs = remember(allTechniques, tech.id) {
+                                    allTechniques.filter { it.isSubtechnique && it.parentTechniqueId == tech.id }
+                                }
+                                val isExpanded = expandedTechniqueIds.contains(tech.id)
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { mitreViewModel.openTechniqueDetail(tech.id) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
+                                    border = BorderStroke(1.dp, CyberBorder)
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = CyberCyan.copy(alpha = 0.2f),
+                                                    border = BorderStroke(1.dp, CyberCyan)
+                                                ) {
+                                                    Text(
+                                                        text = tech.id,
+                                                        color = CyberCyan,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontFamily = FontFamily.Monospace,
+                                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = tech.name,
+                                                    color = CyberTextPrimary,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+
+                                            if (subtechs.isNotEmpty()) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = CyberCyan.copy(alpha = 0.15f),
+                                                    modifier = Modifier.clickable { mitreViewModel.toggleSubtechniqueExpanded(tech.id) }
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "${subtechs.size} sub-techniques",
+                                                            color = CyberCyan,
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                        Icon(
+                                                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                                            contentDescription = "Expand",
+                                                            tint = CyberCyan,
+                                                            modifier = Modifier.size(12.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = tech.description,
+                                            color = CyberTextSecondary,
+                                            fontSize = 10.sp,
+                                            lineHeight = 13.sp,
+                                            maxLines = 2
+                                        )
+
+                                        if (isExpanded && subtechs.isNotEmpty()) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                subtechs.forEach { sub ->
+                                                    Surface(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .clickable { mitreViewModel.openTechniqueDetail(sub.id) },
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = CyberNavyDark,
+                                                        border = BorderStroke(1.dp, CyberCyan.copy(alpha = 0.3f))
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(8.dp),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                                Text(
+                                                                    text = sub.id,
+                                                                    color = CyberCyan,
+                                                                    fontSize = 9.5.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontFamily = FontFamily.Monospace
+                                                                )
+                                                                Spacer(modifier = Modifier.width(6.dp))
+                                                                Text(
+                                                                    text = sub.name,
+                                                                    color = CyberTextSecondary,
+                                                                    fontSize = 10.sp,
+                                                                    maxLines = 1
+                                                                )
+                                                            }
+                                                            Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = CyberCyan, modifier = Modifier.size(14.dp))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -446,7 +587,7 @@ fun MitreMatrixScreen(
                     val d3Items = remember(d3fendTechniques, searchQuery, targetDefendTactic.tacticId) {
                         d3fendTechniques.filter { item ->
                             (item.tacticId == targetDefendTactic.tacticId || item.tacticName.contains(targetDefendTactic.tacticName, ignoreCase = true)) &&
-                            (searchQuery.isBlank() || item.id.contains(searchQuery, ignoreCase = true) || item.name.contains(searchQuery, ignoreCase = true))
+                            (searchQuery.isBlank() || item.id.contains(searchQuery, ignoreCase = true) || item.name.contains(searchQuery, ignoreCase = true) || item.description.contains(searchQuery, ignoreCase = true))
                         }
                     }
 
@@ -460,24 +601,114 @@ fun MitreMatrixScreen(
                                 colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
                                 border = BorderStroke(1.dp, CyberEmerald)
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text("D3FEND Objective: ${targetDefendTactic.tacticName}", color = CyberEmerald, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text("Granular defensive engineering techniques and digital artifacts.", color = CyberTextSecondary, fontSize = 10.sp)
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("D3FEND Objective: ${targetDefendTactic.tacticName}", color = CyberEmerald, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = CyberEmerald.copy(alpha = 0.2f),
+                                            border = BorderStroke(1.dp, CyberEmerald)
+                                        ) {
+                                            Text(targetDefendTactic.tacticId, color = CyberEmerald, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Defensive engineering techniques, digital artifacts, and detection rules mapped to this defensive pillar.", color = CyberTextSecondary, fontSize = 10.5.sp)
                                 }
                             }
                         }
 
-                        items(d3Items, key = { it.id }) { item ->
-                            Card(
-                                shape = RoundedCornerShape(8.dp),
-                                colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
-                                border = BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.4f))
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text(text = "${item.id}: ${item.name}", color = CyberEmerald, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = item.description, color = CyberTextSecondary, fontSize = 10.sp)
+                        if (d3Items.isEmpty()) {
+                            item {
+                                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                                    Text("No defensive techniques registered under this tactic yet.", color = CyberTextMuted, fontSize = 12.sp)
+                                }
+                            }
+                        } else {
+                            items(d3Items, key = { it.id }) { item ->
+                                Card(
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
+                                    border = BorderStroke(1.dp, CyberEmerald.copy(alpha = 0.4f))
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(text = "${item.id}: ${item.name}", color = CyberEmerald, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                                            if (item.ruleSnippet.isNotBlank()) {
+                                                IconButton(
+                                                    onClick = {
+                                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                        clipboard.setPrimaryClip(ClipData.newPlainText("D3FEND Rule", item.ruleSnippet))
+                                                        Toast.makeText(context, "Rule snippet copied!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy Rule", tint = CyberEmerald, modifier = Modifier.size(14.dp))
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = item.description, color = CyberTextSecondary, fontSize = 10.5.sp, lineHeight = 14.sp)
+
+                                        if (item.artifacts.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(text = "Digital Artifacts: ${item.artifacts}", color = CyberCyan, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                                        }
+
+                                        if (item.counteredAttackIds.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text("Counters ATT&CK Techniques:", color = CyberTextMuted, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                item.counteredAttackIds.split(",").map { it.trim() }.filter { it.isNotEmpty() }.forEach { attackId ->
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = CyberCyan.copy(alpha = 0.15f),
+                                                        border = BorderStroke(1.dp, CyberCyan.copy(alpha = 0.5f)),
+                                                        modifier = Modifier.clickable { mitreViewModel.openTechniqueDetail(attackId) }
+                                                    ) {
+                                                        Text(
+                                                            text = attackId,
+                                                            color = CyberCyan,
+                                                            fontSize = 9.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontFamily = FontFamily.Monospace,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        if (item.ruleSnippet.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = CyberNavyDark,
+                                                border = BorderStroke(1.dp, CyberBorder)
+                                            ) {
+                                                Text(
+                                                    text = item.ruleSnippet,
+                                                    color = CyberEmerald,
+                                                    fontSize = 9.sp,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    modifier = Modifier.padding(8.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -503,10 +734,23 @@ fun MitreMatrixScreen(
                             Card(
                                 shape = RoundedCornerShape(8.dp),
                                 colors = CardDefaults.cardColors(containerColor = CyberNavySurface),
-                                border = BorderStroke(1.dp, CyberCyan)
+                                border = BorderStroke(1.dp, SeverityHigh)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("Stage ${stageDetail.stageNumber}: ${stageDetail.stageName}", color = CyberCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Stage ${stageDetail.stageNumber}: ${stageDetail.stageName}", color = SeverityHigh, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = SeverityHigh.copy(alpha = 0.2f),
+                                            border = BorderStroke(1.dp, SeverityHigh)
+                                        ) {
+                                            Text("CYBER KILL CHAIN", color = SeverityHigh, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(stageDetail.stageDescription, color = CyberTextSecondary, fontSize = 10.5.sp, lineHeight = 14.sp)
                                 }
@@ -514,12 +758,18 @@ fun MitreMatrixScreen(
                         }
 
                         item {
-                            Text("Mapped ATT&CK TTPs & Techniques:", color = CyberTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Mapped ATT&CK Techniques for Stage ${stageDetail.stageNumber}:", color = CyberTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
 
                         items(stageDetail.sampleTtpIds) { ttpId ->
+                            val matchedTech = remember(allTechniques, ttpId) {
+                                allTechniques.find { it.id == ttpId }
+                            }
+
                             Surface(
-                                modifier = Modifier.fillMaxWidth().clickable { mitreViewModel.openTechniqueDetail(ttpId) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { mitreViewModel.openTechniqueDetail(ttpId) },
                                 shape = RoundedCornerShape(6.dp),
                                 color = CyberNavySurface,
                                 border = BorderStroke(1.dp, CyberBorder)
@@ -529,8 +779,20 @@ fun MitreMatrixScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(text = ttpId, color = CyberCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                                    Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = CyberTextMuted, modifier = Modifier.size(16.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(text = ttpId, color = CyberCyan, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                                            if (matchedTech != null) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(text = matchedTech.name, color = CyberTextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        if (matchedTech != null) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(text = matchedTech.description, color = CyberTextSecondary, fontSize = 9.5.sp, maxLines = 2)
+                                        }
+                                    }
+                                    Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = CyberCyan, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -798,13 +1060,13 @@ fun MitreCyberKillChainNestedPage(
     onStageClick: (Int, String, String, List<String>) -> Unit
 ) {
     val stages = listOf(
-        Tuple4(1, "Reconnaissance", "Harvesting victim topology, DNS records, and vulnerability scans.", listOf("T1595", "T1590")),
-        Tuple4(2, "Weaponization", "Coupling malware payload with exploit into deliverable format.", listOf("T1583")),
-        Tuple4(3, "Delivery", "Transmitting weaponized payload to victim via email or web.", listOf("T1566", "T1190")),
-        Tuple4(4, "Exploitation", "Triggering application vulnerability to run adversary code.", listOf("T1059", "T1027")),
-        Tuple4(5, "Installation", "Installing persistent backdoors and elevating local rights.", listOf("T1053", "T1068")),
-        Tuple4(6, "Command & Control", "Establishing persistent command channel and dumping credentials.", listOf("T1071", "T1003", "T1021")),
-        Tuple4(7, "Actions on Objectives", "Fulfilling adversary goals (exfiltrating stolen corporate data).", listOf("T1560", "T1567"))
+        Tuple4(1, "Reconnaissance", "Harvesting victim network topology, DNS records, active IP blocks, and employee email profiles.", listOf("T1595", "T1595.001", "T1595.002", "T1590", "T1598")),
+        Tuple4(2, "Weaponization", "Coupling backdoor malware with exploits into deliverable packages (typosquatted domains, compromised accounts).", listOf("T1583", "T1583.001", "T1586", "T1588")),
+        Tuple4(3, "Delivery", "Transmitting weaponized bundle to victim via spearphishing attachments, phishing links, or vulnerable public apps.", listOf("T1566", "T1566.001", "T1566.002", "T1190", "T1078", "T1133")),
+        Tuple4(4, "Exploitation", "Triggering adversary code execution via command shells, PowerShell, or client-side application flaws.", listOf("T1059", "T1059.001", "T1059.003", "T1059.004", "T1204", "T1203", "T1027")),
+        Tuple4(5, "Installation", "Installing persistent access mechanisms (scheduled tasks, registry run keys, services, token duplication).", listOf("T1053", "T1053.005", "T1547", "T1547.001", "T1543", "T1543.003", "T1134", "T1068", "T1055.001")),
+        Tuple4(6, "Command & Control", "Establishing covert two-way communications over HTTP/S, DNS tunneling, credential dumping, and lateral movement.", listOf("T1071", "T1071.001", "T1071.004", "T1105", "T1003", "T1003.001", "T1021.001", "T1021.002", "T1570")),
+        Tuple4(7, "Actions on Objectives", "Executing mission goals: data encryption for ransom, corporate intellectual property exfiltration, and service disruption.", listOf("T1486", "T1485", "T1489", "T1041", "T1567", "T1560", "T1005"))
     )
 
     LazyColumn(

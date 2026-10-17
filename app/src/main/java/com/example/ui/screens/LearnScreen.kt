@@ -94,7 +94,7 @@ fun LearnScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "SC-200 • SC-500 • Active Directory • Quiz Engine",
+                                    text = "Fundamentals • Protocols • Algorithms • SC-200 • SC-500",
                                     color = theme.textMuted,
                                     fontSize = 10.sp
                                 )
@@ -121,35 +121,41 @@ fun LearnScreen(
                     Tab(
                         selected = selectedSubTab == 0,
                         onClick = { selectedSubTab = 0 },
-                        text = { Text("Roadmaps", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.testTag("tab_learn_roadmaps")
+                        text = { Text("Fundamentals & Algos", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_learn_fundamentals")
                     )
                     Tab(
                         selected = selectedSubTab == 1,
                         onClick = { selectedSubTab = 1 },
-                        text = { Text("SC-200 Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.testTag("tab_learn_sc200")
+                        text = { Text("Roadmaps", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_learn_roadmaps")
                     )
                     Tab(
                         selected = selectedSubTab == 2,
                         onClick = { selectedSubTab = 2 },
-                        text = { Text("SC-500 Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.testTag("tab_learn_sc500")
+                        text = { Text("SC-200 Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_learn_sc200")
                     )
                     Tab(
                         selected = selectedSubTab == 3,
                         onClick = { selectedSubTab = 3 },
-                        text = { Text("AD & Red Team Labs", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.testTag("tab_learn_ad_labs")
+                        text = { Text("SC-500 Exam", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_learn_sc500")
                     )
                     Tab(
                         selected = selectedSubTab == 4,
                         onClick = { selectedSubTab = 4 },
+                        text = { Text("AD & Red Team Labs", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.testTag("tab_learn_ad_labs")
+                    )
+                    Tab(
+                        selected = selectedSubTab == 5,
+                        onClick = { selectedSubTab = 5 },
                         text = { Text("Interactive Quiz", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("tab_learn_quiz")
                     )
                     Tab(
-                        selected = selectedSubTab == 5,
+                        selected = selectedSubTab == 6,
                         onClick = { onNavigateToAlertsLibrary?.invoke() },
                         text = { Text("Alerts Library", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
                         modifier = Modifier.testTag("tab_learn_alerts_library")
@@ -189,26 +195,29 @@ fun LearnScreen(
         ) {
             when (selectedSubTab) {
                 0 -> {
+                    com.example.ui.components.CyberFundamentalsSection()
+                }
+                1 -> {
                     LearningRoadmapScreen(
                         viewModel = viewModel
                     )
                 }
-                1 -> {
+                2 -> {
                     Sc200ExamSection(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                2 -> {
+                3 -> {
                     Sc500ExamSection(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                3 -> {
+                4 -> {
                     ActiveDirectorySection(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                4 -> {
+                5 -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
